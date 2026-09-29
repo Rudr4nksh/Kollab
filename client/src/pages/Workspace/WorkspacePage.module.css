@@ -1,0 +1,116 @@
+.workspace {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-main);
+  overflow: hidden;
+}
+
+.mainLayout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  gap: 12px;
+  background-color: var(--bg-main);
+}
+
+.editorArea {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: width var(--transition-normal), opacity var(--transition-normal);
+}
+
+.sidebarClosed {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.panelSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.activitySection {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Mobile Tab Navigation */
+.mobileNav {
+  display: none;
+  height: 40px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+  user-select: none;
+}
+
+.mobileTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.mobileTab.activeTab {
+  color: #FFFFFF;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 240px;
+  }
+}
+
+@media (max-width: 720px) {
+  .mainLayout {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .mobileNav {
+    display: flex;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .mobileHidden {
+    display: none !important;
+  }
+
+  .mobileHiddenAside {
+    display: none !important;
+  }
+}

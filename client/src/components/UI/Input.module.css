@@ -1,0 +1,75 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.inputContainer:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 1px var(--border-focus);
+  background-color: var(--bg-surface-elevated);
+}
+
+.inputContainer.hasError {
+  border-color: var(--status-offline);
+}
+
+.inputContainer.hasError:focus-within {
+  box-shadow: 0 0 0 1px var(--status-offline);
+}
+
+.icon {
+  position: absolute;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input.withIcon {
+  padding-left: 34px;
+}
+
+.errorText {
+  font-size: 11px;
+  color: #F87171;
+}
+
+.helperText {
+  font-size: 11px;
+  color: var(--text-muted);
+}

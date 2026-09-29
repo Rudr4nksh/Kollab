@@ -1,0 +1,87 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  font-family: var(--font-sans);
+}
+
+.sm {
+  font-size: 11px;
+  padding: 1px 5px;
+}
+
+.md {
+  font-size: 11.5px;
+  padding: 2px 7px;
+}
+
+/* Host Badge - Subtle purple/gold technical accent */
+.host {
+  background-color: rgba(109, 74, 255, 0.15);
+  color: #B49BFF;
+  border: 1px solid rgba(109, 74, 255, 0.3);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Status Pill */
+.status {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.connected {
+  background-color: var(--status-connected);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.reconnecting {
+  background-color: var(--status-reconnecting);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+  animation: pulse 1s infinite alternate;
+}
+
+.offline {
+  background-color: var(--status-offline);
+}
+
+@keyframes pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+.neutral {
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.accent {
+  background-color: rgba(115, 87, 232, 0.15);
+  color: #C3B4FD;
+  border: 1px solid rgba(115, 87, 232, 0.3);
+}
+
+.count {
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+}

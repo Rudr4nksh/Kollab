@@ -1,0 +1,90 @@
+.container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: slideIn 160ms ease;
+  max-width: 360px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1;
+  word-break: break-word;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+}
+
+/* Types */
+.info {
+  border-left: 3px solid var(--accent-muted);
+}
+.info .icon {
+  color: var(--accent-muted);
+}
+
+.success {
+  border-left: 3px solid var(--status-connected);
+}
+.success .icon {
+  color: var(--status-connected);
+}
+
+.warning {
+  border-left: 3px solid var(--status-reconnecting);
+}
+.warning .icon {
+  color: var(--status-reconnecting);
+}
+
+.error {
+  border-left: 3px solid var(--status-offline);
+}
+.error .icon {
+  color: var(--status-offline);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
