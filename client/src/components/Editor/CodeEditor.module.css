@@ -1,0 +1,65 @@
+.editorContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.editorFrame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  background-color: var(--bg-editor);
+}
+
+/* Global styles injected into Monaco Editor DOM for remote cursors and highlights */
+:global(.remote-line-highlight) {
+  background-color: rgba(115, 87, 232, 0.08) !important;
+  border-left: 2px solid var(--accent-muted);
+}
+
+:global(.yRemoteSelection) {
+  background-color: rgba(115, 87, 232, 0.25);
+  border-radius: 2px;
+}
+
+:global(.yRemoteSelectionHead) {
+  position: absolute;
+  border-left: 2px solid var(--accent-muted);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+:global(.yRemoteSelectionHead::after) {
+  position: absolute;
+  content: ' ';
+  border: 3px solid var(--accent-muted);
+  border-radius: 4px;
+  left: -4px;
+  top: -5px;
+}
+
+:global(.yRemoteSelectionHead-name) {
+  position: absolute;
+  top: -1.4em;
+  left: -2px;
+  font-size: 10px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: #FFFFFF;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1.2;
+}
