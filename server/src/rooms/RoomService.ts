@@ -1,0 +1,282 @@
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { prisma } from '../database/prisma.js';
+import type { 
+  CreateRoomPayload, 
+  JoinRoomPayload, 
+  RoomMetadata, 
+  SupportedLanguage 
+} from '../types/index.js';
+
+export class RoomService {
+  /**
+   * Generates a clean, readable room ID like "room-7F4K2" or sanitizes custom ID
+   */
+  static generateRoomId(): string {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `room-${code}`;
+  }
+
+  /**
+   * Sanitize room ID
+   */
+  static sanitizeRoomId(roomId: string): string {
+    return roomId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  }
+
+  /**
+   * Sanitize user display name
+   */
+  static sanitizeDisplayName(name: string): string {
+    return name.trim().replace(/[<>]/g, '').slice(0, 32);
+  }
+
+  /**
+   * Create a new room with optional hashed passcode
+   */
+  static async createRoom(
+    payload: CreateRoomPayload,
+    creatorUserId: string
+  ): Promise<{ room: RoomMetadata; hostUserId: string }> {
+    let targetRoomId = payload.roomId 
+      ? this.sanitizeRoomId(payload.roomId) 
+      : this.generateRoomId();
+
+    if (!targetRoomId) {
+      targetRoomId = this.generateRoomId();
+    }
+
+    // Check if room already exists
+    const existing = await prisma.room.findUnique({
+      where: { roomId: targetRoomId },
+    });
+
+    if (existing) {
+      throw new Error(`Room '${targetRoomId}' already exists. Please choose another ID or join it.`);
+    }
+
+    let passwordHash: string | null = null;
+    if (payload.passcode && payload.passcode.trim().length > 0) {
+      passwordHash = await bcrypt.hash(payload.passcode.trim(), 10);
+    }
+
+    // Default template for HTML or requested language
+    const defaultContent = payload.language === 'javascript' || payload.language === 'typescript'
+      ? `// SyncPad Workspace\nconsole.log("Hello, collaborative world!");\n`
+      : payload.language === 'python'
+      ? `# SyncPad Workspace\nprint("Hello, collaborative world!")\n`
+      : `<style>\n  .workspace {\n    background-color: #0E0F16;\n    color: #F2F2F5;\n    font-family: 'JetBrains Mono', monospace;\n  }\n</style>\n\n<script>\n  console.log("Welcome to SyncPad!");\n</script>\n\n<div class="workspace">\n  <h1>Collaborate. Code. Learn together.</h1>\n</div>\n`;
+
+    const room = await prisma.room.create({
+      data: {
+        roomId: targetRoomId,
+        passwordHash,
+        hostUserId: creatorUserId,
+        language: payload.language || 'html',
+        document: defaultContent,
+      },
+    });
+
+    // Record room creation activity
+    await prisma.activity.create({
+      data: {
+        roomId: room.roomId,
+        type: 'created',
+        userId: creatorUserId,
+        userName: this.sanitizeDisplayName(payload.displayName),
+        details: 'created workspace',
+      },
+    });
+
+    return {
+      room: {
+        id: room.id,
+        roomId: room.roomId,
+        hostUserId: room.hostUserId,
+        hasPassword: !!room.passwordHash,
+        language: room.language as SupportedLanguage,
+        participantCount: 0,
+        createdAt: room.createdAt.toISOString(),
+        updatedAt: room.updatedAt.toISOString(),
+      },
+      hostUserId: room.hostUserId,
+    };
+  }
+
+  /**
+   * Validate and admit user to room
+   */
+  static async validateJoin(
+    payload: JoinRoomPayload
+  ): Promise<{
+    isValid: boolean;
+    error?: string;
+    room?: RoomMetadata;
+    documentContent?: string;
+    isHost?: boolean;
+  }> {
+    const targetRoomId = this.sanitizeRoomId(payload.roomId);
+    if (!targetRoomId) {
+      return { isValid: false, error: 'Invalid room ID' };
+    }
+
+    const room = await prisma.room.findUnique({
+      where: { roomId: targetRoomId },
+    });
+
+    if (!room) {
+      return {
+        isValid: false,
+        error: 'Room not found. Check the room ID and try again.',
+      };
+    }
+
+    // If room is protected with passcode, verify
+    if (room.passwordHash) {
+      if (!payload.passcode) {
+        return {
+          isValid: false,
+          error: 'This room requires a passcode.',
+        };
+      }
+
+      const match = await bcrypt.compare(payload.passcode, room.passwordHash);
+      if (!match) {
+        return {
+          isValid: false,
+          error: 'Incorrect passcode.',
+        };
+      }
+    }
+
+    const isHost = payload.userId === room.hostUserId;
+
+    return {
+      isValid: true,
+      room: {
+        id: room.id,
+        roomId: room.roomId,
+        hostUserId: room.hostUserId,
+        hasPassword: !!room.passwordHash,
+        language: room.language as SupportedLanguage,
+        participantCount: 0,
+        createdAt: room.createdAt.toISOString(),
+        updatedAt: room.updatedAt.toISOString(),
+      },
+      documentContent: room.document,
+      isHost,
+    };
+  }
+
+  /**
+   * Get room metadata
+   */
+  static async getRoom(roomId: string): Promise<RoomMetadata | null> {
+    const target = this.sanitizeRoomId(roomId);
+    const room = await prisma.room.findUnique({
+      where: { roomId: target },
+    });
+
+    if (!room) return null;
+
+    return {
+      id: room.id,
+      roomId: room.roomId,
+      hostUserId: room.hostUserId,
+      hasPassword: !!room.passwordHash,
+      language: room.language as SupportedLanguage,
+      participantCount: 0,
+      createdAt: room.createdAt.toISOString(),
+      updatedAt: room.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Update room language
+   */
+  static async updateLanguage(roomId: string, language: SupportedLanguage): Promise<void> {
+    await prisma.room.update({
+      where: { roomId: this.sanitizeRoomId(roomId) },
+      data: { language },
+    });
+  }
+
+  /**
+   * Persist document state and text content
+   */
+  static async persistDocument(roomId: string, text: string, docState?: Uint8Array): Promise<void> {
+    await prisma.room.update({
+      where: { roomId: this.sanitizeRoomId(roomId) },
+      data: {
+        document: text,
+        ...(docState ? { docState: Buffer.from(docState) } : {}),
+      },
+    });
+  }
+
+  /**
+   * Update host user ID in database
+   */
+  static async updateHost(roomId: string, newHostUserId: string): Promise<void> {
+    await prisma.room.update({
+      where: { roomId: this.sanitizeRoomId(roomId) },
+      data: { hostUserId: newHostUserId },
+    });
+  }
+
+  /**
+   * Get recent activities for a room
+   */
+  static async getActivities(roomId: string, limit = 40) {
+    const activities = await prisma.activity.findMany({
+      where: { roomId: this.sanitizeRoomId(roomId) },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+    });
+
+    return activities.map((a) => ({
+      id: a.id,
+      roomId: a.roomId,
+      type: a.type as any,
+      userId: a.userId,
+      userName: a.userName,
+      details: a.details || undefined,
+      timestamp: a.timestamp.toISOString(),
+    }));
+  }
+
+  /**
+   * Record new activity
+   */
+  static async recordActivity(
+    roomId: string,
+    type: string,
+    userId: string,
+    userName: string,
+    details?: string
+  ) {
+    const activity = await prisma.activity.create({
+      data: {
+        roomId: this.sanitizeRoomId(roomId),
+        type,
+        userId,
+        userName: this.sanitizeDisplayName(userName),
+        details,
+      },
+    });
+
+    return {
+      id: activity.id,
+      roomId: activity.roomId,
+      type: activity.type as any,
+      userId: activity.userId,
+      userName: activity.userName,
+      details: activity.details || undefined,
+      timestamp: activity.timestamp.toISOString(),
+    };
+  }
+}
