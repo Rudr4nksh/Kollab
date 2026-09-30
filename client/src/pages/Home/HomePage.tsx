@@ -88,33 +88,23 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // High-Performance Parallax Refs (Zero React Re-renders on Scroll/Mouse)
+  // High-Performance Parallax Refs (Zero React Re-renders, sleeps when idle)
   const mockupRef = useRef<HTMLDivElement>(null);
   const mockupWindowRef = useRef<HTMLDivElement>(null);
-  const bgOrb1Ref = useRef<HTMLDivElement>(null);
-  const bgOrb2Ref = useRef<HTMLDivElement>(null);
   const mouseTiltRef = useRef({ x: 10, y: -14 });
+  const requestUpdateRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    let animId: number;
+    let animId: number | null = null;
     let targetScroll = window.scrollY || 0;
     let currentScroll = targetScroll;
     let currentRotX = 10;
     let currentRotY = -14;
 
-    const onScroll = () => {
-      targetScroll = window.scrollY || 0;
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-
-    const tick = () => {
-      animId = requestAnimationFrame(tick);
-
-      // Smooth lerp (60-120fps hardware acceleration)
-      currentScroll += (targetScroll - currentScroll) * 0.1;
-      currentRotX += (mouseTiltRef.current.x - currentRotX) * 0.08;
-      currentRotY += (mouseTiltRef.current.y - currentRotY) * 0.08;
+    const updateTransforms = () => {
+      currentScroll += (targetScroll - currentScroll) * 0.12;
+      currentRotX += (mouseTiltRef.current.x - currentRotX) * 0.1;
+      currentRotY += (mouseTiltRef.current.y - currentRotY) * 0.1;
 
       if (mockupWindowRef.current) {
         const translateY = currentScroll * 0.12;
@@ -124,18 +114,35 @@ export const HomePage: React.FC<HomePageProps> = ({
         mockupWindowRef.current.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale}) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(1.5deg)`;
       }
 
-      if (bgOrb1Ref.current) {
-        bgOrb1Ref.current.style.transform = `translate3d(0, ${currentScroll * 0.2}px, 0)`;
-      }
-      if (bgOrb2Ref.current) {
-        bgOrb2Ref.current.style.transform = `translate3d(0, ${currentScroll * 0.32}px, 0)`;
+      // Settle and sleep when close to target to keep CPU at 0%
+      const scrollDiff = Math.abs(targetScroll - currentScroll);
+      const rotXDiff = Math.abs(mouseTiltRef.current.x - currentRotX);
+      const rotYDiff = Math.abs(mouseTiltRef.current.y - currentRotY);
+
+      if (scrollDiff > 0.1 || rotXDiff > 0.05 || rotYDiff > 0.05) {
+        animId = requestAnimationFrame(updateTransforms);
+      } else {
+        animId = null;
       }
     };
 
-    tick();
+    const requestUpdate = () => {
+      if (!animId) {
+        animId = requestAnimationFrame(updateTransforms);
+      }
+    };
+
+    const onScroll = () => {
+      targetScroll = window.scrollY || 0;
+      requestUpdate();
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    requestUpdateRef.current = requestUpdate;
+    requestUpdate();
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener('scroll', onScroll);
     };
   }, []);
@@ -174,6 +181,7 @@ export const HomePage: React.FC<HomePageProps> = ({
     const rotY = -14 + ((x - centerX) / centerX) * 12;
 
     mouseTiltRef.current = { x: rotX, y: rotY };
+    requestUpdateRef.current?.();
 
     if (mockupWindowRef.current) {
       mockupWindowRef.current.style.setProperty('--mouse-x', `${Math.round((x / rect.width) * 100)}%`);
@@ -183,6 +191,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   const handleMouseLeave = () => {
     mouseTiltRef.current = { x: 10, y: -14 };
+    requestUpdateRef.current?.();
   };
 
   const handleRunDemo = () => {
@@ -324,15 +333,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 3D WebGL Three.js Interactive Background */}
       <ThreeHeroCanvas className={styles.bgThreeCanvas} />
 
-      {/* Ambient Glow Orbs with Parallax Float */}
-      <div 
-        ref={bgOrb1Ref}
-        className={styles.bgGlowOrb} 
-      />
-      <div 
-        ref={bgOrb2Ref}
-        className={styles.bgGlowOrbSecondary} 
-      />
+      {/* Ambient Glow Orbs */}
+      <div className={styles.bgGlowOrb} />
+      <div className={styles.bgGlowOrbSecondary} />
 
       {/* Main Navbar - Centered Navigation Grid */}
       <nav className={styles.navBar}>
