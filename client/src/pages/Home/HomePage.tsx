@@ -75,7 +75,11 @@ export const HomePage: React.FC<HomePageProps> = ({
       <nav className={styles.navBar}>
         <div className={styles.navBrand}>
           <div className={styles.brandIcon}>
-            <span>&lt;&nbsp;/&nbsp;&gt;</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+              <line x1="14" y1="4" x2="10" y2="20" stroke="currentColor" strokeWidth="2" opacity="0.6" />
+            </svg>
           </div>
           <span className={styles.brandTitle}>Kollab</span>
         </div>
@@ -171,7 +175,12 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <span className={styles.dotGreen} />
               </div>
               <div className={styles.mockupBrand}>
-                <div className={styles.mockupBrandBadge}>&lt;&nbsp;/&nbsp;&gt;</div>
+                <div className={styles.mockupBrandBadge}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                </div>
                 <span>Kollab — Live Workspace</span>
               </div>
               <div className={styles.mockupRightStatus}>
@@ -354,7 +363,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerBrand}>
-          <div className={styles.brandIconSmall}>&lt;&nbsp;/&nbsp;&gt;</div>
+          <div className={styles.brandIconSmall}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </div>
           <span>Kollab</span>
           <span className={styles.footerMuted}>— 100% Free &amp; Open Source</span>
         </div>
@@ -371,7 +385,12 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div className={styles.modalHeaderBrand}>
-                <div className={styles.brandIconSmall}>&lt;&nbsp;/&nbsp;&gt;</div>
+                <div className={styles.brandIconSmall}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                  </svg>
+                </div>
                 <h3>{modalMode === 'create' ? 'Create New Workspace' : 'Join Existing Workspace'}</h3>
               </div>
               <button className={styles.modalCloseBtn} onClick={handleCloseModal}>
