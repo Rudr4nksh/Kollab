@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, 
   ArrowRight, 
-  Shield, 
   FolderTree, 
   Terminal as TerminalIcon, 
   Users, 
@@ -12,11 +11,13 @@ import {
   Code2,
   CheckCircle2,
   XCircle,
-  Cpu
+  Cpu,
+  ArrowUpRight
 } from 'lucide-react';
 import { Input } from '../../components/UI/Input.tsx';
 import { Button } from '../../components/UI/Button.tsx';
 import { ThreeHeroCanvas } from '../../components/ThreeCanvas/ThreeHeroCanvas.tsx';
+import { ProjectTreeMap } from '../../components/TreeMap/ProjectTreeMap.tsx';
 import { playThockSound } from '../../utils/audioEffects.ts';
 import styles from './HomePage.module.css';
 
@@ -91,15 +92,15 @@ export const HomePage: React.FC<HomePageProps> = ({
   // High-Performance Parallax Refs (Zero React Re-renders, sleeps when idle)
   const mockupRef = useRef<HTMLDivElement>(null);
   const mockupWindowRef = useRef<HTMLDivElement>(null);
-  const mouseTiltRef = useRef({ x: 10, y: -14 });
+  const mouseTiltRef = useRef({ x: 2, y: 0 });
   const requestUpdateRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let animId: number | null = null;
     let targetScroll = window.scrollY || 0;
     let currentScroll = targetScroll;
-    let currentRotX = 10;
-    let currentRotY = -14;
+    let currentRotX = 2;
+    let currentRotY = 0;
 
     const updateTransforms = () => {
       currentScroll += (targetScroll - currentScroll) * 0.12;
@@ -107,11 +108,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       currentRotY += (mouseTiltRef.current.y - currentRotY) * 0.1;
 
       if (mockupWindowRef.current) {
-        const translateY = currentScroll * 0.12;
-        const scale = Math.max(1 - currentScroll * 0.0002, 0.95);
-        const rotX = currentRotX - Math.min(currentScroll * 0.012, 10);
-        const rotY = currentRotY + Math.min(currentScroll * 0.01, 8);
-        mockupWindowRef.current.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale}) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(1.5deg)`;
+        const translateY = currentScroll * 0.06;
+        const scale = Math.max(1 - currentScroll * 0.00015, 0.96);
+        mockupWindowRef.current.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale}) rotateX(${currentRotX}deg) rotateY(${currentRotY}deg)`;
       }
 
       // Settle and sleep when close to target to keep CPU at 0%
@@ -196,8 +195,8 @@ export const HomePage: React.FC<HomePageProps> = ({
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    const rotX = 10 - ((y - centerY) / centerY) * 10;
-    const rotY = -14 + ((x - centerX) / centerX) * 12;
+    const rotX = 2 - ((y - centerY) / centerY) * 3;
+    const rotY = ((x - centerX) / centerX) * 4;
 
     mouseTiltRef.current = { x: rotX, y: rotY };
     requestUpdateRef.current?.();
@@ -209,7 +208,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   };
 
   const handleMouseLeave = () => {
-    mouseTiltRef.current = { x: 10, y: -14 };
+    mouseTiltRef.current = { x: 2, y: 0 };
     requestUpdateRef.current?.();
   };
 
@@ -352,9 +351,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 3D WebGL Three.js Interactive Background */}
       <ThreeHeroCanvas className={styles.bgThreeCanvas} />
 
-      {/* Ambient Glow Orbs */}
-      <div className={styles.bgGlowOrb} />
-      <div className={styles.bgGlowOrbSecondary} />
+      {/* Ambient Cosmic Aura Backlight (matching reference image) */}
+      <div className={styles.bgCosmicAura} />
 
       {/* Main Navbar - Centered Navigation Grid */}
       <nav className={styles.navBar}>
@@ -374,8 +372,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className={styles.navLinks}>
           <a href="#editor">Editor</a>
           <a href="#story">Why Kollab</a>
+          <a href="#features">Architecture</a>
           <a href="#terminal">Terminal</a>
-          <a href="#features">Specs</a>
           <a 
             href="https://github.com/Rudr4nksh/Kollab" 
             target="_blank" 
@@ -405,62 +403,44 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Section (Matching Reference Image) */}
       <section className={styles.heroSection}>
         <div className={styles.badgeWrapper}>
-          <div className={styles.heroBadge}>
-            <span className={styles.pulseDot} />
-            <span>Built for student devs tired of Discord screen-share lag</span>
+          <div className={styles.heroBadge} onClick={() => handleOpenModal('create')}>
+            <span className={styles.badgeTag}>NEW RELEASE v2.0</span>
+            <span>Instant Browser Code Runner &bull; Multi-File Tabs ↗</span>
           </div>
         </div>
 
         <h1 className={styles.heroHeading}>
-          Never debug code over <br />
-          <span className={styles.heroGradient}>15 FPS screen shares again.</span>
+          The collaborative code editor <br />
+          for teams that build together.
         </h1>
 
         <p className={styles.heroSubtext}>
-          Google Docs destroys indentation. VS Code Live Share requires 3 expiring logins. <br />
-          <strong>Kollab</strong> gives you instant real-time cursor sync, folder drag-and-drop, and an in-browser runner.
-          No accounts, zero waitlists, 100% free.
+          Instant cursor synchronization, native folder drag-and-drop, and in-browser execution. <br />
+          No signup walls, no expiring tokens, 100% free hosting ready.
         </p>
 
-        {/* Quick Launch Bar */}
-        <div className={styles.quickBar}>
-          <input
-            type="text"
-            className={styles.quickInput}
-            placeholder="Enter your nickname (e.g. Rudranksh)..."
-            value={displayName}
-            onChange={(e) => {
-              setDisplayName(e.target.value);
-              playThockSound('key');
-            }}
-          />
+        {/* Hero Actions Row (Solid White Pill + Dark Glass Pill) */}
+        <div className={styles.heroActionsRow}>
           <button 
-            className={styles.quickPrimaryBtn}
-            onClick={() => {
-              playThockSound('click');
-              if (!displayName.trim()) {
-                handleOpenModal('create');
-              } else {
-                onCreate(displayName.trim());
-              }
-            }}
+            className={styles.heroPrimaryBtn}
+            onClick={() => handleOpenModal('create')}
           >
-            <Plus size={14} />
-            <span>Create Session</span>
+            <span>Create Workspace</span>
+            <ArrowUpRight size={14} />
           </button>
           <button 
-            className={styles.quickSecondaryBtn}
+            className={styles.heroSecondaryBtn}
             onClick={() => handleOpenModal('join')}
           >
-            <ArrowRight size={14} />
+            <Play size={12} fill="currentColor" />
             <span>Join Room</span>
           </button>
         </div>
 
-        {/* 3D Cinematic Interactive Editor Mockup with Smooth Parallax Scroll */}
+        {/* Central Showcase Window */}
         <div 
           id="editor"
           className={styles.perspectiveStage}
@@ -468,12 +448,12 @@ export const HomePage: React.FC<HomePageProps> = ({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
-          {/* The 3D Tilted Editor Window with dynamic Scroll + Mouse Parallax */}
+          {/* Straight-On Grounded Showcase Window */}
           <div 
             ref={mockupWindowRef}
-            className={styles.mockup3DWindow}
+            className={styles.mockupWindow}
             style={{
-              transform: 'translate3d(0, 0, 0) scale(1) rotateX(10deg) rotateY(-14deg) rotateZ(1.5deg)',
+              transform: 'translate3d(0, 0, 0) scale(1) rotateX(2deg) rotateY(0deg)',
             }}
           >
             {/* Dynamic Specular Light Layer */}
@@ -612,6 +592,49 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
+      {/* Social Proof / Tech Logo Row (matching reference image) */}
+      <section className={styles.logoRowSection}>
+        <div className={styles.logoRowLabel}>ENGINEERED WITH MODERN OPEN STANDARDS</div>
+        <div className={styles.logosFlex}>
+          <div className={styles.logoItem}>
+            <Cpu size={15} />
+            <span>Yjs CRDT</span>
+          </div>
+          <div className={styles.logoItem}>
+            <Code2 size={15} />
+            <span>Monaco Editor</span>
+          </div>
+          <div className={styles.logoItem}>
+            <Zap size={15} />
+            <span>WebSockets</span>
+          </div>
+          <div className={styles.logoItem}>
+            <TerminalIcon size={15} />
+            <span>TypeScript</span>
+          </div>
+          <div className={styles.logoItem}>
+            <FolderTree size={15} />
+            <span>SQLite Engine</span>
+          </div>
+          <div className={styles.logoItem}>
+            <Users size={15} />
+            <span>GitHub Open Source</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Editorial Vision Section (matching reference image) */}
+      <section className={styles.editorialSection}>
+        <div className={styles.editorialTag}>DESIGNED FOR FRICTIONLESS HACKING</div>
+        <h2 className={styles.editorialHeading}>
+          Turn chaotic pair-programming into clear, frictionless collaboration.
+        </h2>
+        <p className={styles.editorialSubtext}>
+          No 720p 15fps screen shares. No Google Docs indentation destruction. No 15-minute setup hurdles. 
+          Just drop your folder and build with real-time peer awareness.
+        </p>
+      </section>
+
       {/* Relatable / Humanized Story Section */}
       <section id="story" className={styles.storySection}>
         <div className={`${styles.storyCard} ${styles.scrollBox}`} data-scroll-box>
@@ -713,81 +736,14 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
-      {/* Features / Architecture Specs */}
-      <section id="features" className={styles.featuresSection}>
-        <div className={`${styles.sectionHeader} ${styles.scrollBox}`} data-scroll-box>
-          <div className={styles.smallSubheader}>TECHNICAL FOUNDATION</div>
-          <h2>Built for real code, not toy snippets</h2>
-          <p>Fast, lightweight, and engineered specifically for multi-file student collaboration.</p>
+      {/* Interactive Project Tree Map (User's Creative Architecture System) */}
+      <section id="features" className={styles.treeMapSection}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.smallSubheader}>WORKSPACE ARCHITECTURE</div>
+          <h2>Interactive Project Tree Map</h2>
+          <p>Explore how Kollab coordinates files, conflict-free CRDT state, sandbox execution, and session security.</p>
         </div>
-
-        <div className={styles.featureCardsGrid}>
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger1}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <FolderTree size={20} />
-            </div>
-            <h3>Project Folder Drop</h3>
-            <p>
-              Drag &amp; drop an entire project folder from your computer. Kollab recursively maps your files 
-              directly into browser memory without uploading your private code to third-party clouds.
-            </p>
-          </div>
-
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger2}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <Users size={20} />
-            </div>
-            <h3>Conflict-Free Yjs CRDT</h3>
-            <p>
-              Mathematical conflict-free replicated data types guarantee simultaneous edits never clash. 
-              See real-time cursors, selection highlights, and active presence tags.
-            </p>
-          </div>
-
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger3}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <TerminalIcon size={20} />
-            </div>
-            <h3>In-Browser Runner &amp; REPL</h3>
-            <p>
-              Click ▶ Run to execute JavaScript and TypeScript in an isolated sandbox. Capture console output 
-              and inspect errors together in real-time.
-            </p>
-          </div>
-
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger4}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <Shield size={20} />
-            </div>
-            <h3>Optional Room Passcode</h3>
-            <p>
-              Protect your hackathon session with bcrypt hashed passcodes. Keep unauthorized visitors out 
-              while you and your team build in privacy.
-            </p>
-          </div>
-
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger5}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <Zap size={20} />
-            </div>
-            <h3>Throttling &amp; Rate Limits</h3>
-            <p>
-              Built-in sliding-window rate limiters prevent message flooding and runaway loops from crashing 
-              the collaboration mesh.
-            </p>
-          </div>
-
-          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger6}`} data-scroll-box>
-            <div className={styles.cardIcon}>
-              <Cpu size={20} />
-            </div>
-            <h3>100% Free Hosting Ready</h3>
-            <p>
-              Runs completely on SQLite, Express, and Vite. Zero paid API keys, zero cloud subscriptions, 
-              ready to deploy for free on Render, Fly.io, or Railway.
-            </p>
-          </div>
-        </div>
+        <ProjectTreeMap />
       </section>
 
       {/* 3-Step Workflow */}
