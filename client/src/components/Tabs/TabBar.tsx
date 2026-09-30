@@ -50,34 +50,38 @@ export const TabBar: React.FC<TabBarProps> = ({
 
       {/* Tabs Container */}
       <div className={styles.tabsContainer}>
-        {openFiles.map((file) => {
-          const isActive = file.path === activeFilePath;
-          const badge = getFileBadgeInfo(file.name);
+        {openFiles.length === 0 ? (
+          <span className={styles.emptyTabsHint}>No open tabs</span>
+        ) : (
+          openFiles.map((file) => {
+            const isActive = file.path === activeFilePath;
+            const badge = getFileBadgeInfo(file.name);
 
-          return (
-            <div
-              key={file.path}
-              className={`${styles.tab} ${isActive ? styles.activeTab : ''}`}
-              onClick={() => onSelectTab(file)}
-              title={file.path}
-            >
-              <span
-                className={styles.fileBadge}
-                style={{ color: badge.color, backgroundColor: badge.bg }}
+            return (
+              <div
+                key={file.path}
+                className={`${styles.tab} ${isActive ? styles.activeTab : ''}`}
+                onClick={() => onSelectTab(file)}
+                title={file.path}
               >
-                {badge.label}
-              </span>
-              <span className={styles.tabName}>{file.name}</span>
-              <button
-                className={styles.closeTabBtn}
-                onClick={(e) => onCloseTab(file.path, e)}
-                title="Close tab"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          );
-        })}
+                <span
+                  className={styles.fileBadge}
+                  style={{ color: badge.color, backgroundColor: badge.bg }}
+                >
+                  {badge.label}
+                </span>
+                <span className={styles.tabName}>{file.name}</span>
+                <button
+                  className={styles.closeTabBtn}
+                  onClick={(e) => onCloseTab(file.path, e)}
+                  title="Close tab"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Action Buttons: Run & Copy */}
@@ -85,8 +89,8 @@ export const TabBar: React.FC<TabBarProps> = ({
         <button
           className={`${styles.runBtn} ${isRunning ? styles.running : ''}`}
           onClick={onRunCode}
-          disabled={isRunning}
-          title="Run code in console (Ctrl+Enter)"
+          disabled={isRunning || openFiles.length === 0}
+          title={openFiles.length === 0 ? 'No file open to run' : 'Run code in console (Ctrl+Enter)'}
         >
           <Play size={12} fill="currentColor" />
           <span>{isRunning ? 'Running...' : 'Run'}</span>
@@ -95,7 +99,8 @@ export const TabBar: React.FC<TabBarProps> = ({
         <button
           className={`${styles.copyBtn} ${copied ? styles.copied : ''}`}
           onClick={handleCopy}
-          title="Copy file code"
+          disabled={openFiles.length === 0}
+          title={openFiles.length === 0 ? 'No file open to copy' : 'Copy file code'}
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
           <span>{copied ? 'Copied' : 'Copy'}</span>

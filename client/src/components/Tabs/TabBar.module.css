@@ -52,6 +52,14 @@
   height: 0px;
 }
 
+.emptyTabsHint {
+  font-size: 11px;
+  color: #6B7280;
+  font-family: var(--font-mono);
+  padding-left: 6px;
+  user-select: none;
+}
+
 /* Floating Rounded Tabs - Transparent Obsidian */
 .tab {
   display: inline-flex;
@@ -176,10 +184,15 @@
   cursor: pointer;
 }
 
-.copyBtn:hover {
+.copyBtn:hover:not(:disabled) {
   color: #FFFFFF;
   background-color: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.18);
+}
+
+.copyBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .copyBtn.copied {

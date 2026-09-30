@@ -212,24 +212,33 @@
 .hoverActions {
   display: none;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   margin-right: 6px;
+  flex-shrink: 0;
 }
 
 .actionBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: var(--text-muted);
-  border-radius: 2px;
-  transition: color var(--transition-fast);
+  width: 20px;
+  height: 20px;
+  color: #6B7280;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .actionBtn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-surface-hover);
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.deleteBtn:hover {
+  color: #F87171 !important;
+  background-color: rgba(244, 63, 94, 0.16) !important;
 }
 
 .nestedChildren {

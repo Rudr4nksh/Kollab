@@ -306,6 +306,194 @@
   display: flex;
   flex-direction: column;
   background-color: var(--bg-editor);
+  position: relative;
+}
+
+/* Empty Editor Canvas - Transparent Obsidian */
+.emptyEditorState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background-color: #07090D;
+  user-select: none;
+}
+
+.emptyCard {
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 36px 32px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(138, 75, 255, 0.05);
+}
+
+.emptyIconCircle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(138, 75, 255, 0.1);
+  border: 1px solid rgba(138, 75, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 0 24px rgba(138, 75, 255, 0.12);
+}
+
+.emptyFolderIcon {
+  color: #A78BFA;
+}
+
+.emptyFileIcon {
+  color: #38BDF8;
+}
+
+.emptyTitle {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 600;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px 0;
+}
+
+.emptySubtitle {
+  font-size: 13px;
+  color: #9CA3AF;
+  line-height: 1.5;
+  margin: 0 0 22px 0;
+  max-width: 380px;
+}
+
+.emptyForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  padding: 0 14px;
+  height: 40px;
+  transition: all 150ms ease;
+}
+
+.inputWrapper:focus-within {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 12px rgba(138, 75, 255, 0.15);
+}
+
+.inputFolderIcon {
+  color: #A78BFA;
+  flex-shrink: 0;
+}
+
+.emptyFolderInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.emptyFolderInput::placeholder {
+  color: #6B7280;
+}
+
+.createFolderPrimaryBtn {
+  height: 38px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FFFFFF;
+  color: #050608;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+}
+
+.createFolderPrimaryBtn:hover {
+  background: #E5E7EB;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.22);
+}
+
+.emptyDivider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 6px 0 14px 0;
+  color: #4B5563;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
+}
+
+.emptyDivider::before,
+.emptyDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.emptyDivider span {
+  padding: 0 12px;
+}
+
+.emptyActionRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.emptySecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  color: #D1D5DB;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.emptySecondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 /* 4. Right Sidebar (Updates & Participants) */
