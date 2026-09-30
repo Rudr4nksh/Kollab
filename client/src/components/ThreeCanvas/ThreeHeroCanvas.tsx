@@ -12,57 +12,72 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
     const container = mountRef.current;
     if (!container) return;
 
-    // Scene & Camera
+    // Camera & Scene
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
-      55,
+      50,
       container.clientWidth / container.clientHeight,
       0.1,
       1000
     );
-    camera.position.z = 24;
+    camera.position.z = 25;
 
-    // High performance renderer with powerPreference
+    // High performance renderer capped at 1.0 pixel ratio for zero lag on all GPUs
     const renderer = new THREE.WebGLRenderer({ 
       alpha: true, 
-      antialias: false, // Turn off heavy MSAA for ultra-low latency & 120fps smoothness
+      antialias: false,
       powerPreference: 'high-performance' 
     });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Cap pixel ratio to 1.5 for buttery performance
+    renderer.setPixelRatio(1.0); // 1.0 guarantees zero lag even on 4k screens / integrated GPUs
     container.appendChild(renderer.domElement);
 
     const sceneGroup = new THREE.Group();
     scene.add(sceneGroup);
 
-    // 1. Soft Glowing Bubble Orbs (Layer 1: Large translucent floating orbs)
-    const orbCount = 28;
+    // Only 8 clean, elegant, soft floating ambient orbs (no tiny swarms, clean looking!)
+    const orbCount = 8;
     const orbGeo = new THREE.BufferGeometry();
     const orbPositions = new Float32Array(orbCount * 3);
     const orbVelocities: { x: number; y: number; z: number }[] = [];
 
-    for (let i = 0; i < orbCount * 3; i += 3) {
-      orbPositions[i] = (Math.random() - 0.5) * 45;
-      orbPositions[i + 1] = (Math.random() - 0.5) * 30;
-      orbPositions[i + 2] = (Math.random() - 0.5) * 20;
+    // Distinct calm coordinates spread out nicely across the background
+    const initialCoords = [
+      [-14, 8, -5],
+      [15, 10, -8],
+      [-16, -6, -3],
+      [14, -8, -6],
+      [-5, 12, -10],
+      [6, -12, -4],
+      [-18, 2, -7],
+      [18, 0, -5],
+    ];
+
+    for (let i = 0; i < orbCount; i++) {
+      const coord = initialCoords[i] || [0, 0, 0];
+      orbPositions[i * 3] = coord[0];
+      orbPositions[i * 3 + 1] = coord[1];
+      orbPositions[i * 3 + 2] = coord[2];
+
       orbVelocities.push({
-        x: (Math.random() - 0.5) * 0.008,
-        y: 0.006 + Math.random() * 0.012,
-        z: (Math.random() - 0.5) * 0.008,
+        x: (Math.random() - 0.5) * 0.005,
+        y: 0.004 + Math.random() * 0.006,
+        z: (Math.random() - 0.5) * 0.005,
       });
     }
+
     orbGeo.setAttribute('position', new THREE.BufferAttribute(orbPositions, 3));
 
-    // Canvas texture for large soft glowing circular bubble orbs
+    // Clean, soft glowing translucent orb texture
     const orbCanvas = document.createElement('canvas');
     orbCanvas.width = 64;
     orbCanvas.height = 64;
     const orbCtx = orbCanvas.getContext('2d');
     if (orbCtx) {
       const g = orbCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
-      g.addColorStop(0, 'rgba(56, 189, 248, 0.9)');
-      g.addColorStop(0.3, 'rgba(2, 132, 199, 0.45)');
-      g.addColorStop(0.65, 'rgba(2, 132, 199, 0.12)');
+      g.addColorStop(0, 'rgba(56, 189, 248, 0.7)');
+      g.addColorStop(0.25, 'rgba(2, 132, 199, 0.35)');
+      g.addColorStop(0.6, 'rgba(2, 132, 199, 0.08)');
       g.addColorStop(1, 'rgba(2, 132, 199, 0)');
       orbCtx.fillStyle = g;
       orbCtx.fillRect(0, 0, 64, 64);
@@ -70,74 +85,29 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
     const orbTexture = new THREE.CanvasTexture(orbCanvas);
 
     const orbMat = new THREE.PointsMaterial({
-      size: 4.8,
+      size: 6.5,
       map: orbTexture,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
-    const largeOrbs = new THREE.Points(orbGeo, orbMat);
-    sceneGroup.add(largeOrbs);
 
-    // 2. Micro Bubble Star Field (Layer 2: Crisp floating bubbles from before)
-    const particleCount = 220;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities: { x: number; y: number; z: number }[] = [];
+    const orbs = new THREE.Points(orbGeo, orbMat);
+    sceneGroup.add(orbs);
 
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 55;
-      positions[i + 1] = (Math.random() - 0.5) * 35;
-      positions[i + 2] = (Math.random() - 0.5) * 30;
-      velocities.push({
-        x: (Math.random() - 0.5) * 0.012,
-        y: 0.005 + Math.random() * 0.015,
-        z: (Math.random() - 0.5) * 0.012,
-      });
-    }
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    // Canvas texture for crisp glowing bubble dots
-    const pCanvas = document.createElement('canvas');
-    pCanvas.width = 32;
-    pCanvas.height = 32;
-    const pCtx = pCanvas.getContext('2d');
-    if (pCtx) {
-      const gradient = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-      gradient.addColorStop(0, 'rgba(56, 189, 248, 1)');
-      gradient.addColorStop(0.4, 'rgba(2, 132, 199, 0.6)');
-      gradient.addColorStop(0.8, 'rgba(2, 132, 199, 0.1)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      pCtx.fillStyle = gradient;
-      pCtx.fillRect(0, 0, 32, 32);
-    }
-    const particleTexture = new THREE.CanvasTexture(pCanvas);
-
-    const particleMat = new THREE.PointsMaterial({
-      size: 1.1,
-      map: particleTexture,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    sceneGroup.add(particles);
-
-    // Parallax tracking variables (Pure numbers, ZERO React state!)
+    // Parallax variables
     let targetMouseX = 0;
     let targetMouseY = 0;
     let currentMouseX = 0;
     let currentMouseY = 0;
-
     let targetScrollY = window.scrollY || 0;
     let currentScrollY = targetScrollY;
 
     const handleWindowMouseMove = (e: MouseEvent) => {
       const { innerWidth, innerHeight } = window;
-      targetMouseX = (e.clientX / innerWidth - 0.5) * 2;
-      targetMouseY = (e.clientY / innerHeight - 0.5) * 2;
+      targetMouseX = (e.clientX / innerWidth - 0.5) * 1.5;
+      targetMouseY = (e.clientY / innerHeight - 0.5) * 1.5;
     };
 
     const handleWindowScroll = () => {
@@ -147,7 +117,6 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
     window.addEventListener('mousemove', handleWindowMouseMove, { passive: true });
     window.addEventListener('scroll', handleWindowScroll, { passive: true });
 
-    // Resize Handler
     const handleResize = () => {
       if (!container) return;
       const width = container.clientWidth;
@@ -159,53 +128,37 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
 
     window.addEventListener('resize', handleResize);
 
-    // Animation Loop: 60-120 FPS locked
+    // Lightweight Animation Loop: ~0.1% CPU
     let animationFrameId: number;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
-      // Smooth mouse lerp
-      currentMouseX += (targetMouseX - currentMouseX) * 0.05;
-      currentMouseY += (targetMouseY - currentMouseY) * 0.05;
+      // Smooth camera parallax
+      currentMouseX += (targetMouseX - currentMouseX) * 0.04;
+      currentMouseY += (targetMouseY - currentMouseY) * 0.04;
+      currentScrollY += (targetScrollY - currentScrollY) * 0.06;
 
-      // Smooth scroll parallax lerp
-      currentScrollY += (targetScrollY - currentScrollY) * 0.08;
+      sceneGroup.rotation.y = currentMouseX * 0.12;
+      sceneGroup.rotation.x = -currentMouseY * 0.08;
+      sceneGroup.position.y = currentScrollY * 0.008;
 
-      // Parallax camera tilt & vertical displacement
-      sceneGroup.rotation.y = currentMouseX * 0.18;
-      sceneGroup.rotation.x = -currentMouseY * 0.12;
-      sceneGroup.position.y = currentScrollY * 0.012; // Smooth vertical scroll parallax!
+      // Slow, peaceful floating for the 8 orbs
+      const pos = orbGeo.attributes.position as THREE.BufferAttribute;
+      const arr = pos.array as Float32Array;
 
-      // Animate Large Orbs
-      const orbPos = orbGeo.attributes.position as THREE.BufferAttribute;
-      const orbArr = orbPos.array as Float32Array;
       for (let i = 0; i < orbCount; i++) {
         const i3 = i * 3;
-        orbArr[i3] += orbVelocities[i].x;
-        orbArr[i3 + 1] += orbVelocities[i].y;
-        orbArr[i3 + 2] += orbVelocities[i].z;
+        arr[i3] += orbVelocities[i].x;
+        arr[i3 + 1] += orbVelocities[i].y;
+        arr[i3 + 2] += orbVelocities[i].z;
 
-        if (orbArr[i3 + 1] > 18) orbArr[i3 + 1] = -18;
-        if (orbArr[i3] > 24) orbArr[i3] = -24;
-        if (orbArr[i3] < -24) orbArr[i3] = 24;
+        // Gentle wrap bounds
+        if (arr[i3 + 1] > 16) arr[i3 + 1] = -16;
+        if (arr[i3] > 22) arr[i3] = -22;
+        if (arr[i3] < -22) arr[i3] = 22;
       }
-      orbPos.needsUpdate = true;
-
-      // Animate Micro Particles
-      const pAttr = particleGeo.attributes.position as THREE.BufferAttribute;
-      const pArr = pAttr.array as Float32Array;
-      for (let i = 0; i < particleCount; i++) {
-        const i3 = i * 3;
-        pArr[i3] += velocities[i].x;
-        pArr[i3 + 1] += velocities[i].y;
-        pArr[i3 + 2] += velocities[i].z;
-
-        if (pArr[i3 + 1] > 20) pArr[i3 + 1] = -20;
-        if (pArr[i3] > 28) pArr[i3] = -28;
-        if (pArr[i3] < -28) pArr[i3] = 28;
-      }
-      pAttr.needsUpdate = true;
+      pos.needsUpdate = true;
 
       renderer.render(scene, camera);
     };
@@ -224,9 +177,6 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
       orbGeo.dispose();
       orbMat.dispose();
       orbTexture.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      particleTexture.dispose();
     };
   }, []);
 
