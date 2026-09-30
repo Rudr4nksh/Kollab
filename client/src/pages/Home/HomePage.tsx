@@ -1,29 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   ArrowRight, 
   Shield, 
   User, 
-  Clock, 
-  FolderPlus, 
+  FolderTree, 
   Terminal, 
   Users, 
-  FileCode,
-  Sparkles
+  Play, 
+  Sparkles,
+  X
 } from 'lucide-react';
 import { Input } from '../../components/UI/Input.tsx';
 import { Button } from '../../components/UI/Button.tsx';
 import styles from './HomePage.module.css';
 
-interface RecentRoom {
-  roomId: string;
-  name: string;
-  timestamp: number;
-}
-
 interface HomePageProps {
   onJoin: (roomId: string, name: string, passcode?: string) => Promise<void>;
-  onCreate: (name: string, customRoomId?: string, passcode?: string, template?: string) => Promise<void>;
+  onCreate: (name: string, customRoomId?: string, passcode?: string) => Promise<void>;
   error?: string | null;
   isLoading?: boolean;
 }
@@ -34,24 +28,22 @@ export const HomePage: React.FC<HomePageProps> = ({
   error,
   isLoading,
 }) => {
-  const [tab, setTab] = useState<'create' | 'join'>('create');
+  const [modalMode, setModalMode] = useState<'create' | 'join' | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [passcode, setPasscode] = useState('');
-  const [template, setTemplate] = useState<'web' | 'python' | 'dart' | 'blank'>('web');
-  const [recentRooms, setRecentRooms] = useState<RecentRoom[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('kollab_recent_workspaces');
-      if (stored) {
-        setRecentRooms(JSON.parse(stored).slice(0, 5));
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  const handleOpenModal = (mode: 'create' | 'join', initialRoomId: string = '') => {
+    setModalMode(mode);
+    setRoomId(initialRoomId);
+    setLocalError(null);
+  };
+
+  const handleCloseModal = () => {
+    setModalMode(null);
+    setLocalError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,238 +51,382 @@ export const HomePage: React.FC<HomePageProps> = ({
 
     const name = displayName.trim();
     if (!name) {
-      setLocalError('Please enter your name to identify yourself in the workspace');
+      setLocalError('Please enter your name');
       return;
     }
 
-    if (tab === 'join') {
+    if (modalMode === 'join') {
       const targetRoom = roomId.trim();
       if (!targetRoom) {
-        setLocalError('Please enter the Room ID to join');
+        setLocalError('Please enter a Room ID');
         return;
       }
       await onJoin(targetRoom, name, passcode.trim() || undefined);
     } else {
-      await onCreate(name, roomId.trim() || undefined, passcode.trim() || undefined, template);
-    }
-  };
-
-  const handleRejoin = (recent: RecentRoom) => {
-    setTab('join');
-    setRoomId(recent.roomId);
-    if (!displayName) {
-      setDisplayName(recent.name);
+      await onCreate(name, roomId.trim() || undefined, passcode.trim() || undefined);
     }
   };
 
   const activeError = error || localError;
 
   return (
-    <div className={styles.homeContainer}>
-      {/* Top Navigation */}
-      <header className={styles.navbar}>
-        <div className={styles.brand}>
-          <div className={styles.brandBadge}>
+    <div className={styles.landingPage}>
+      {/* Top Navbar */}
+      <nav className={styles.navBar}>
+        <div className={styles.navBrand}>
+          <div className={styles.brandIcon}>
             <span>&lt;&nbsp;/&nbsp;&gt;</span>
           </div>
           <span className={styles.brandTitle}>Kollab</span>
-          <span className={styles.versionTag}>v1.0</span>
         </div>
+
         <div className={styles.navLinks}>
-          <span className={styles.badgeFree}>100% Free &amp; Open Source</span>
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+          <a 
+            href="https://github.com/Rudr4nksh/Kollab" 
+            target="_blank" 
+            rel="noreferrer"
+            className={styles.githubLink}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+            </svg>
+            <span>GitHub</span>
+          </a>
         </div>
-      </header>
 
-      {/* Main Hero & Workspace Launcher */}
-      <main className={styles.mainContent}>
-        <div className={styles.heroSection}>
-          <h1 className={styles.heroTitle}>
-            Live Collaborative Workspace <br />
-            <span className={styles.heroAccent}>for Student Developers</span>
-          </h1>
-          <p className={styles.heroSubtitle}>
-            A real-time multi-file code pad with dark slate IDE aesthetics, live cursors, 
-            terminal output, and zero setup.
-          </p>
+        <div className={styles.navActions}>
+          <button 
+            className={styles.navJoinBtn}
+            onClick={() => handleOpenModal('join')}
+          >
+            Join Room
+          </button>
+          <button 
+            className={styles.navCreateBtn}
+            onClick={() => handleOpenModal('create')}
+          >
+            Launch Workspace
+          </button>
+        </div>
+      </nav>
 
-          {/* Quick Workspace Card */}
-          <div className={styles.launcherCard}>
-            <div className={styles.cardTabs}>
-              <button
-                className={`${styles.tabBtn} ${tab === 'create' ? styles.activeTab : ''}`}
-                onClick={() => { setTab('create'); setLocalError(null); }}
-              >
-                <Plus size={14} />
-                <span>Create Workspace</span>
-              </button>
-              <button
-                className={`${styles.tabBtn} ${tab === 'join' ? styles.activeTab : ''}`}
-                onClick={() => { setTab('join'); setLocalError(null); }}
-              >
-                <ArrowRight size={14} />
-                <span>Join Session</span>
+      {/* Hero Section */}
+      <section className={styles.heroSection}>
+        <div className={styles.heroTag}>
+          <Sparkles size={12} />
+          <span>Real-Time Code Collaboration</span>
+        </div>
+
+        <h1 className={styles.heroHeading}>
+          Live collaborative code editor <br />
+          <span className={styles.heroGradient}>built for students &amp; developers.</span>
+        </h1>
+
+        <p className={styles.heroSubtext}>
+          Open a persistent virtual room, drop in your project folder, and simultaneously edit 
+          code with remote cursors, live syntax highlighting, and an integrated console. Zero installation required.
+        </p>
+
+        {/* Quick Launch Action Bar */}
+        <div className={styles.quickBar}>
+          <input
+            type="text"
+            className={styles.quickInput}
+            placeholder="Your name (e.g. Alex)"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+          <button 
+            className={styles.quickPrimaryBtn}
+            onClick={() => {
+              if (!displayName.trim()) {
+                handleOpenModal('create');
+              } else {
+                onCreate(displayName.trim());
+              }
+            }}
+          >
+            <Plus size={14} />
+            <span>New Workspace</span>
+          </button>
+          <button 
+            className={styles.quickSecondaryBtn}
+            onClick={() => handleOpenModal('join')}
+          >
+            <ArrowRight size={14} />
+            <span>Join with ID</span>
+          </button>
+        </div>
+
+        {/* Realistic Interactive Mockup matching the Ceditor dark-slate screenshot */}
+        <div className={styles.mockupContainer}>
+          <div className={styles.mockupWindow}>
+            {/* Mockup Titlebar */}
+            <div className={styles.mockupTitlebar}>
+              <div className={styles.mockupDots}>
+                <span className={styles.dotRed} />
+                <span className={styles.dotYellow} />
+                <span className={styles.dotGreen} />
+              </div>
+              <div className={styles.mockupBrand}>
+                <div className={styles.mockupBrandBadge}>&lt;&nbsp;/&nbsp;&gt;</div>
+                <span>Kollab — Live Workspace</span>
+              </div>
+              <div className={styles.mockupRightStatus}>
+                <span className={styles.statusDot} />
+                <span>2 Collaborators</span>
+              </div>
+            </div>
+
+            {/* Mockup Body */}
+            <div className={styles.mockupBody}>
+              {/* Activity Bar Strip */}
+              <div className={styles.mockupActivityBar}>
+                <div className={`${styles.mockupIcon} ${styles.mockupIconActive}`}>
+                  <FolderTree size={14} />
+                </div>
+                <div className={styles.mockupIcon}>
+                  <Users size={14} />
+                </div>
+                <div className={styles.mockupIcon}>
+                  <Terminal size={14} />
+                </div>
+              </div>
+
+              {/* Explorer Sidebar */}
+              <div className={styles.mockupExplorer}>
+                <div className={styles.mockupNewBtn}>
+                  <span>New</span>
+                  <Plus size={12} />
+                </div>
+                <div className={styles.mockupFolderTree}>
+                  <div className={styles.treeFolder}>▾ app/</div>
+                  <div className={styles.treeFolderIndent}>▾ lib/</div>
+                  <div className={`${styles.treeFile} ${styles.treeFileActive}`}>
+                    <span className={styles.badgeDart}>DART</span>
+                    <span>Main.dart</span>
+                  </div>
+                  <div className={styles.treeFile}>
+                    <span className={styles.badgePy}>PY</span>
+                    <span>builders.py</span>
+                  </div>
+                  <div className={styles.treeFile}>
+                    <span className={styles.badgeGit}>git</span>
+                    <span>.gitignore</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Editor Pane */}
+              <div className={styles.mockupEditor}>
+                <div className={styles.mockupTabBar}>
+                  <div className={`${styles.mockupTab} ${styles.mockupTabActive}`}>
+                    <span className={styles.badgeDart}>DART</span>
+                    <span>Main.dart</span>
+                    <X size={11} />
+                  </div>
+                  <div className={styles.mockupTab}>
+                    <span className={styles.badgePy}>PY</span>
+                    <span>builders.py</span>
+                    <X size={11} />
+                  </div>
+                  <div className={styles.mockupRunBadge}>
+                    <Play size={10} fill="currentColor" />
+                    <span>Run</span>
+                  </div>
+                </div>
+
+                <div className={styles.mockupCodeCanvas}>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>1</span>
+                    <span className={styles.tokenKeyword}>import</span>{' '}
+                    <span className={styles.tokenString}>'package:flutter/material.dart'</span>;
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>2</span>
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>3</span>
+                    <span className={styles.tokenType}>void</span>{' '}
+                    <span className={styles.tokenFunc}>main</span>() &#123;
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>4</span>
+                    &nbsp;&nbsp;<span className={styles.tokenFunc}>runApp</span>(<span className={styles.tokenKeyword}>const</span>{' '}
+                    <span className={styles.tokenType}>MyApp</span>());
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>5</span>
+                    &#125;
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>6</span>
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>7</span>
+                    <span className={styles.tokenKeyword}>class</span>{' '}
+                    <span className={styles.tokenType}>MyApp</span>{' '}
+                    <span className={styles.tokenKeyword}>extends</span>{' '}
+                    <span className={styles.tokenType}>StatelessWidget</span> &#123;
+                    {/* Simulated Remote Cursor */}
+                    <div className={styles.simCursor}>
+                      <span className={styles.cursorTag}>Alex</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className={styles.featuresSection}>
+        <div className={styles.sectionHeader}>
+          <h2>Engineered for seamless pair programming</h2>
+          <p>Everything you need for student group projects, live coding interviews, and quick code sharing.</p>
+        </div>
+
+        <div className={styles.featureCardsGrid}>
+          <div className={styles.card}>
+            <div className={styles.cardIcon}>
+              <FolderTree size={20} />
+            </div>
+            <h3>Multi-File Project Explorer</h3>
+            <p>
+              Work with complex projects. Open or drag &amp; drop an entire project folder from your computer, 
+              manage files, and switch between open documents with tabbed navigation.
+            </p>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardIcon}>
+              <Users size={20} />
+            </div>
+            <h3>Real-Time Live Collaboration</h3>
+            <p>
+              Powered by CRDT synchronization. Multiple participants can type simultaneously without race conditions, 
+              view colored collaborator cursors, and track live presence.
+            </p>
+          </div>
+
+          <div className={styles.card}>
+            <div className={styles.cardIcon}>
+              <Terminal size={20} />
+            </div>
+            <h3>Integrated Console &amp; Output</h3>
+            <p>
+              Test and execute code directly in the browser with one click. View output logs, debug runtime errors, 
+              and render live HTML/CSS previews in real time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className={styles.workflowSection}>
+        <div className={styles.sectionHeader}>
+          <h2>How Kollab Works</h2>
+          <p>Three simple steps to collaborate with anyone, anywhere.</p>
+        </div>
+
+        <div className={styles.stepsGrid}>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNum}>01</div>
+            <h4>Create or Join a Room</h4>
+            <p>Click Launch Workspace to create a persistent room with an optional passcode, or join via Room ID.</p>
+          </div>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNum}>02</div>
+            <h4>Import or Add Files</h4>
+            <p>Drop your local project folder right into the file explorer or create new files with one click.</p>
+          </div>
+          <div className={styles.stepItem}>
+            <div className={styles.stepNum}>03</div>
+            <h4>Code &amp; Run Together</h4>
+            <p>Write code simultaneously, see each other's cursor positions, and execute scripts in the console.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className={styles.footer}>
+        <div className={styles.footerBrand}>
+          <div className={styles.brandIconSmall}>&lt;&nbsp;/&nbsp;&gt;</div>
+          <span>Kollab</span>
+          <span className={styles.footerMuted}>— 100% Free &amp; Open Source</span>
+        </div>
+        <div className={styles.footerLinks}>
+          <a href="https://github.com/Rudr4nksh/Kollab" target="_blank" rel="noreferrer">
+            GitHub Repository
+          </a>
+        </div>
+      </footer>
+
+      {/* Modal Dialog for Launching or Joining Room */}
+      {modalMode && (
+        <div className={styles.modalBackdrop} onClick={handleCloseModal}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalHeaderBrand}>
+                <div className={styles.brandIconSmall}>&lt;&nbsp;/&nbsp;&gt;</div>
+                <h3>{modalMode === 'create' ? 'Create New Workspace' : 'Join Existing Workspace'}</h3>
+              </div>
+              <button className={styles.modalCloseBtn} onClick={handleCloseModal}>
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className={styles.form}>
+            <form onSubmit={handleSubmit} className={styles.modalForm}>
               {activeError && (
-                <div className={styles.errorBox}>
+                <div className={styles.modalErrorBox}>
                   <span>{activeError}</span>
                 </div>
               )}
 
-              <div className={styles.inputGroup}>
-                <Input
-                  label="Your Display Name"
-                  placeholder="e.g. Alex"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  leftIcon={<User size={14} />}
-                  required
-                  autoFocus
-                />
+              <Input
+                label="Your Name"
+                placeholder="e.g. Alex"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                leftIcon={<User size={14} />}
+                required
+                autoFocus
+              />
 
-                <Input
-                  label={tab === 'join' ? 'Room ID' : 'Room ID (optional)'}
-                  placeholder={tab === 'join' ? 'e.g. room-7F4K2 or demo123' : 'Leave empty for auto-generated ID'}
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  required={tab === 'join'}
-                />
+              <Input
+                label={modalMode === 'join' ? 'Room ID' : 'Room ID (optional)'}
+                placeholder={modalMode === 'join' ? 'e.g. room-7F4K2 or demo123' : 'Leave empty to auto-generate'}
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                required={modalMode === 'join'}
+              />
 
-                <Input
-                  label={tab === 'join' ? 'Passcode (if required)' : 'Passcode (optional)'}
-                  type="password"
-                  placeholder="Leave empty if public"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  leftIcon={<Shield size={14} />}
-                />
-              </div>
-
-              {tab === 'create' && (
-                <div className={styles.templateSelection}>
-                  <label className={styles.templateLabel}>Starter Project Template</label>
-                  <div className={styles.templateGrid}>
-                    <button
-                      type="button"
-                      className={`${styles.templateBtn} ${template === 'web' ? styles.activeTemplate : ''}`}
-                      onClick={() => setTemplate('web')}
-                    >
-                      <FileCode size={14} className={styles.templateIcon} />
-                      <div className={styles.templateText}>
-                        <span className={styles.templateName}>Web App</span>
-                        <span className={styles.templateDesc}>HTML + CSS + JS</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`${styles.templateBtn} ${template === 'python' ? styles.activeTemplate : ''}`}
-                      onClick={() => setTemplate('python')}
-                    >
-                      <Terminal size={14} className={styles.templateIcon} />
-                      <div className={styles.templateText}>
-                        <span className={styles.templateName}>Python</span>
-                        <span className={styles.templateDesc}>main.py + scripts</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`${styles.templateBtn} ${template === 'dart' ? styles.activeTemplate : ''}`}
-                      onClick={() => setTemplate('dart')}
-                    >
-                      <Sparkles size={14} className={styles.templateIcon} />
-                      <div className={styles.templateText}>
-                        <span className={styles.templateName}>Ceditor Demo</span>
-                        <span className={styles.templateDesc}>Flutter / Dart demo</span>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      className={`${styles.templateBtn} ${template === 'blank' ? styles.activeTemplate : ''}`}
-                      onClick={() => setTemplate('blank')}
-                    >
-                      <FolderPlus size={14} className={styles.templateIcon} />
-                      <div className={styles.templateText}>
-                        <span className={styles.templateName}>Blank</span>
-                        <span className={styles.templateDesc}>Empty workspace</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
+              <Input
+                label={modalMode === 'join' ? 'Passcode (if protected)' : 'Passcode (optional)'}
+                type="password"
+                placeholder="Leave blank for open room"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                leftIcon={<Shield size={14} />}
+              />
 
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
                 isLoading={isLoading}
-                className={styles.submitBtn}
-                icon={tab === 'create' ? <Plus size={15} /> : <ArrowRight size={15} />}
+                className={styles.modalSubmitBtn}
+                icon={modalMode === 'create' ? <Plus size={15} /> : <ArrowRight size={15} />}
               >
-                {tab === 'create' ? 'Launch Workspace' : 'Join Workspace'}
+                {modalMode === 'create' ? 'Launch Workspace' : 'Enter Workspace'}
               </Button>
             </form>
           </div>
         </div>
-
-        {/* Recent Workspaces Section */}
-        {recentRooms.length > 0 && (
-          <div className={styles.recentSection}>
-            <div className={styles.recentHeader}>
-              <Clock size={14} />
-              <span>Recent Workspaces</span>
-            </div>
-            <div className={styles.recentList}>
-              {recentRooms.map((r) => (
-                <div key={r.roomId} className={styles.recentItem}>
-                  <div className={styles.recentInfo}>
-                    <span className={styles.recentRoomId}>{r.roomId}</span>
-                    <span className={styles.recentName}>as {r.name}</span>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleRejoin(r)}
-                  >
-                    Rejoin
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Developer Features Strip */}
-        <div className={styles.featuresGrid}>
-          <div className={styles.featureItem}>
-            <div className={styles.featureIcon}>
-              <FileCode size={18} />
-            </div>
-            <h3>Multi-File Tree Explorer</h3>
-            <p>Manage project files, create folders, and import local project directories seamlessly.</p>
-          </div>
-
-          <div className={styles.featureItem}>
-            <div className={styles.featureIcon}>
-              <Users size={18} />
-            </div>
-            <h3>Real-Time Live Presence</h3>
-            <p>Simultaneous typing, remote cursors with line highlights, and automatic host handover.</p>
-          </div>
-
-          <div className={styles.featureItem}>
-            <div className={styles.featureIcon}>
-              <Terminal size={18} />
-            </div>
-            <h3>Live Console &amp; Output</h3>
-            <p>Execute JavaScript and view execution stdout, stderr, and logs inside an integrated console.</p>
-          </div>
-        </div>
-      </main>
+      )}
     </div>
   );
 };

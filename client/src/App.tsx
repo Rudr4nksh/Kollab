@@ -130,8 +130,7 @@ export const App: React.FC = () => {
   const handleCreate = async (
     name: string,
     customRoomId?: string,
-    passcode?: string,
-    template: string = 'web'
+    passcode?: string
   ) => {
     setIsLoading(true);
     setError(null);
@@ -147,8 +146,8 @@ export const App: React.FC = () => {
       setActiveRoomId(res.room.roomId);
       setHasPasscode(res.room.hasPassword);
 
-      // Initialize project template
-      const starterFiles = createDefaultProject(template);
+      // Initialize clean workspace
+      const starterFiles = createDefaultProject('web');
       setFiles(starterFiles);
 
       const myParticipant: Participant = {
