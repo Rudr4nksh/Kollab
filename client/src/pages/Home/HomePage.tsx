@@ -653,25 +653,35 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           <div className={styles.comparisonBox}>
             <div className={styles.compRowBad}>
-              <XCircle size={15} />
+              <XCircle size={16} />
               <div>
-                <strong>Discord Screenshare:</strong> 720p 15fps, text is illegible, companion can't edit.
+                <strong>Discord Screenshare:</strong> 720p 15fps, illegible compression artifacts, partners cannot edit.
               </div>
             </div>
             <div className={styles.compRowBad}>
-              <XCircle size={15} />
+              <XCircle size={16} />
               <div>
-                <strong>Google Docs:</strong> Replaces quotes with smart quotes, destroys indentation.
+                <strong>Google Docs / Pastebin:</strong> Replaces quotes with smart quotes, destroys indentation.
               </div>
             </div>
             <div className={styles.compRowGood}>
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={16} />
               <div>
                 <strong>The Kollab Way:</strong> Monaco editor, real-time colored cursors, instant browser runner.
               </div>
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Interactive Project Tree Map (User's Creative 2D Serpentine Architecture) */}
+      <section id="features" className={styles.treeMapSection}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.smallSubheader}>WORKSPACE ARCHITECTURE</div>
+          <h2>Interactive 2D Serpentine Architecture</h2>
+          <p>Scroll down to energize each subsystem path and inspect its live engineering guarantees.</p>
+        </div>
+        <ProjectTreeMap />
       </section>
 
       {/* Interactive Hacker Terminal Section */}
@@ -734,16 +744,6 @@ export const HomePage: React.FC<HomePageProps> = ({
             ))}
           </div>
         </div>
-      </section>
-
-      {/* Interactive Project Tree Map (User's Creative Architecture System) */}
-      <section id="features" className={styles.treeMapSection}>
-        <div className={styles.sectionHeader}>
-          <div className={styles.smallSubheader}>WORKSPACE ARCHITECTURE</div>
-          <h2>Interactive Project Tree Map</h2>
-          <p>Explore how Kollab coordinates files, conflict-free CRDT state, sandbox execution, and session security.</p>
-        </div>
-        <ProjectTreeMap />
       </section>
 
       {/* 3-Step Workflow */}

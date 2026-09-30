@@ -677,6 +677,110 @@
 }
 
 /* =========================================================================
+   AUTHENTIC STORY / PROBLEM SECTION (Crafted & Humanized)
+   ========================================================================= */
+
+.storySection {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.storyCard {
+  background: linear-gradient(180deg, rgba(14, 18, 26, 0.95) 0%, rgba(8, 10, 15, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 38px 42px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.storyContent {
+  text-align: left;
+}
+
+.storyContent h3 {
+  font-family: 'Newsreader', 'Instrument Serif', Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #FFFFFF;
+  margin: 12px 0 16px;
+}
+
+.storyContent p {
+  font-size: 14.5px;
+  color: #9CA3AF;
+  line-height: 1.65;
+  margin-bottom: 14px;
+}
+
+.storyContent strong {
+  color: #F3F4F6;
+}
+
+.comparisonBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.compRowBad {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 10px;
+  padding: 14px 16px;
+  color: #E5E7EB;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.compRowBad svg {
+  color: #EF4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.compRowBad strong {
+  color: #FCA5A5;
+  font-weight: 600;
+}
+
+.compRowGood {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  color: #FFFFFF;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.1);
+}
+
+.compRowGood svg {
+  color: #10B981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.compRowGood strong {
+  color: #6EE7B7;
+  font-weight: 600;
+}
+
+/* =========================================================================
    PROJECT TREE MAP SECTION (User's Creative Architecture System)
    ========================================================================= */
 
