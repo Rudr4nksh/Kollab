@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FolderTree, 
   Zap, 
@@ -30,6 +30,7 @@ interface BranchNode {
   nodeCoord: { x: number; y: number };
   branchEnd: { x: number; y: number };
   cardTop: number;
+  threshold: number;
 }
 
 const BRANCHES: BranchNode[] = [
@@ -41,9 +42,9 @@ const BRANCHES: BranchNode[] = [
     category: 'IN-MEMORY FILE TREE',
     icon: <FolderTree size={16} />,
     color: '#38BDF8',
-    glowColor: 'rgba(56, 189, 248, 0.25)',
+    glowColor: 'rgba(56, 189, 248, 0.35)',
     tagline: 'Zero cloud leaks. Instant local tree parsing.',
-    description: 'Drop any project directory directly from your desktop. Files parse recursively into client memory without uploading private source code to external servers.',
+    description: 'Drop an entire project directory directly from your desktop. Files parse recursively into client memory without uploading private source code to external servers.',
     metrics: ['Zero cloud storage leaks', 'Recursive folder parsing', 'Instant multi-file tabs'],
     techSpecs: {
       engine: 'WebKit FileSystem API',
@@ -52,7 +53,8 @@ const BRANCHES: BranchNode[] = [
     },
     nodeCoord: { x: 420, y: 130 },
     branchEnd: { x: 320, y: 130 },
-    cardTop: 38
+    cardTop: 38,
+    threshold: 0.12
   },
   {
     id: 'crdt',
@@ -62,7 +64,7 @@ const BRANCHES: BranchNode[] = [
     category: 'REAL-TIME STATE MESH',
     icon: <Zap size={16} />,
     color: '#8A4BFF',
-    glowColor: 'rgba(138, 75, 255, 0.25)',
+    glowColor: 'rgba(138, 75, 255, 0.35)',
     tagline: 'Conflict-free replicated data types with colored cursors.',
     description: 'Powered by Yjs CRDTs. When two developers type simultaneously on the same line, mathematical convergence guarantees zero merge conflicts or wiped code.',
     metrics: ['Sub-15ms WebSocket sync', 'Colored collaborator cursors', 'Awareness presence tags'],
@@ -73,7 +75,8 @@ const BRANCHES: BranchNode[] = [
     },
     nodeCoord: { x: 580, y: 370 },
     branchEnd: { x: 680, y: 370 },
-    cardTop: 278
+    cardTop: 278,
+    threshold: 0.38
   },
   {
     id: 'runtime',
@@ -83,7 +86,7 @@ const BRANCHES: BranchNode[] = [
     category: 'ISOLATED RUNTIME & REPL',
     icon: <Terminal size={16} />,
     color: '#10B981',
-    glowColor: 'rgba(16, 185, 129, 0.25)',
+    glowColor: 'rgba(16, 185, 129, 0.35)',
     tagline: 'Execute JS and TS right in the browser sandbox.',
     description: 'Click ▶ Run to evaluate code in an isolated V8 client sandbox. Standard output, errors, and return values stream live to all active collaborators simultaneously.',
     metrics: ['Zero backend execution costs', 'Live shared console log stream', 'Runtime error stack tracing'],
@@ -94,7 +97,8 @@ const BRANCHES: BranchNode[] = [
     },
     nodeCoord: { x: 420, y: 610 },
     branchEnd: { x: 320, y: 610 },
-    cardTop: 518
+    cardTop: 518,
+    threshold: 0.62
   },
   {
     id: 'security',
@@ -104,7 +108,7 @@ const BRANCHES: BranchNode[] = [
     category: 'SECURITY & 100% FREE STACK',
     icon: <ShieldCheck size={16} />,
     color: '#F59E0B',
-    glowColor: 'rgba(245, 158, 11, 0.25)',
+    glowColor: 'rgba(245, 158, 11, 0.35)',
     tagline: 'Bcrypt room passcodes and sliding-window rate limiters.',
     description: 'Protect private hackathon sessions with salted bcrypt room passcodes. Built completely with SQLite and Express for 100% free deployment on Render or Railway.',
     metrics: ['Salted bcrypt passcode verification', 'Sliding-window DDoS throttling', 'SQLite zero-dollar deployment'],
@@ -115,7 +119,8 @@ const BRANCHES: BranchNode[] = [
     },
     nodeCoord: { x: 580, y: 850 },
     branchEnd: { x: 680, y: 850 },
-    cardTop: 758
+    cardTop: 758,
+    threshold: 0.85
   }
 ];
 
@@ -123,22 +128,103 @@ const BRANCHES: BranchNode[] = [
 const SERPENTINE_PATH = "M 500,20 C 460,60 420,90 420,130 C 420,250 580,250 580,370 C 580,490 420,490 420,610 C 420,730 580,730 580,850 C 580,890 540,920 500,950";
 
 export const ProjectTreeMap: React.FC = () => {
-  const [activeBranchId, setActiveBranchId] = useState<string>('crdt');
+  const [activeBranchId, setActiveBranchId] = useState<string>('files');
+  const [scrollProgress, setScrollProgress] = useState<number>(0.15);
+  const [isManuallySelected, setIsManuallySelected] = useState<boolean>(false);
 
-  const activeBranch = BRANCHES.find(b => b.id === activeBranchId) || BRANCHES[1];
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const glowPathRef = useRef<SVGPathElement>(null);
+  const sparkRef = useRef<SVGCircleElement>(null);
+
+  // High-Performance Scroll-Driven Lighting Engine (0% Lag, GPU accelerated)
+  useEffect(() => {
+    let animId: number | null = null;
+    let pathLength = 1250;
+
+    if (glowPathRef.current) {
+      try {
+        pathLength = glowPathRef.current.getTotalLength() || 1250;
+        glowPathRef.current.style.strokeDasharray = `${pathLength}`;
+        glowPathRef.current.style.strokeDashoffset = `${pathLength}`;
+      } catch (_) {}
+    }
+
+    const onScroll = () => {
+      if (!wrapperRef.current) return;
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+
+      // Calculate progress through this section (0.0 to 1.0)
+      const startOffset = windowHeight * 0.75;
+      const endOffset = windowHeight * 0.25;
+      const totalDistance = rect.height + (startOffset - endOffset);
+      const scrolled = startOffset - rect.top;
+      const rawProgress = scrolled / totalDistance;
+      const progress = Math.min(Math.max(rawProgress, 0), 1);
+
+      if (glowPathRef.current) {
+        const offset = pathLength * (1 - progress);
+        glowPathRef.current.style.strokeDashoffset = `${offset}`;
+      }
+
+      if (sparkRef.current && glowPathRef.current) {
+        try {
+          const pt = glowPathRef.current.getPointAtLength(progress * pathLength);
+          sparkRef.current.setAttribute('cx', `${pt.x}`);
+          sparkRef.current.setAttribute('cy', `${pt.y}`);
+          sparkRef.current.style.opacity = progress > 0.03 ? '1' : '0';
+        } catch (_) {}
+      }
+
+      setScrollProgress(progress);
+
+      // Auto-update focus node to the latest reached node unless user clicked one
+      if (!isManuallySelected) {
+        if (progress >= 0.82) {
+          setActiveBranchId('security');
+        } else if (progress >= 0.58) {
+          setActiveBranchId('runtime');
+        } else if (progress >= 0.32) {
+          setActiveBranchId('crdt');
+        } else {
+          setActiveBranchId('files');
+        }
+      }
+    };
+
+    const requestScroll = () => {
+      if (!animId) {
+        animId = requestAnimationFrame(() => {
+          onScroll();
+          animId = null;
+        });
+      }
+    };
+
+    window.addEventListener('scroll', requestScroll, { passive: true });
+    requestScroll();
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('scroll', requestScroll);
+    };
+  }, [isManuallySelected]);
+
+  const activeBranch = BRANCHES.find(b => b.id === activeBranchId) || BRANCHES[0];
 
   const handleSelectBranch = (id: string) => {
     playThockSound('click');
     setActiveBranchId(id);
+    setIsManuallySelected(true);
   };
 
   return (
-    <div className={styles.serpentineWrapper}>
-      {/* Top Architecture Pill */}
+    <div ref={wrapperRef} className={styles.serpentineWrapper}>
+      {/* Top Architecture Pill with Live Scroll Progress Indicator */}
       <div className={styles.topIndicatorRow}>
         <div className={styles.architecturePill}>
           <span className={styles.pulseDot} />
-          <span>SERPENTINE ARCHITECTURE FLOW &bull; CONTINUOUS 2D STATE MESH</span>
+          <span>SCROLL-DRIVEN ARCHITECTURE MESH &bull; {Math.round(scrollProgress * 100)}% ENERGIZED</span>
         </div>
       </div>
 
@@ -154,91 +240,99 @@ export const ProjectTreeMap: React.FC = () => {
           <defs>
             {/* Soft Glow Filter */}
             <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
 
-            {/* Gradient along the trunk */}
-            <linearGradient id="trunkGradient" x1="500" y1="20" x2="500" y2="950" gradientUnits="userSpaceOnUse">
+            {/* Glowing Gradient along the illuminated trunk */}
+            <linearGradient id="illuminatedGradient" x1="500" y1="20" x2="500" y2="950" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#38BDF8" />
               <stop offset="35%" stopColor="#8A4BFF" />
               <stop offset="70%" stopColor="#10B981" />
               <stop offset="100%" stopColor="#F59E0B" />
             </linearGradient>
 
-            {/* Glowing particle gradient */}
-            <radialGradient id="particleGlow" cx="50%" cy="50%" r="50%">
+            {/* Glowing Spark Particle */}
+            <radialGradient id="sparkGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#FFFFFF" />
-              <stop offset="60%" stopColor="#A78BFA" />
+              <stop offset="40%" stopColor="#38BDF8" />
+              <stop offset="80%" stopColor="#8A4BFF" />
               <stop offset="100%" stopColor="transparent" />
             </radialGradient>
           </defs>
 
-          {/* 1. Base Subtle Serpentine Trunk */}
+          {/* 1. Inactive/Dormant Base Path (Dark subtle guide) */}
           <path 
             d={SERPENTINE_PATH} 
-            stroke="rgba(255, 255, 255, 0.12)" 
-            strokeWidth="3" 
+            stroke="rgba(255, 255, 255, 0.1)" 
+            strokeWidth="3.5" 
             strokeLinecap="round" 
           />
 
-          {/* 2. Animated Pulsing Overlay Stroke */}
+          {/* 2. Scroll-Illuminated Glowing Path (progressively drawn by scroll) */}
           <path 
+            ref={glowPathRef}
             d={SERPENTINE_PATH} 
-            stroke="url(#trunkGradient)" 
-            strokeWidth="3" 
-            strokeDasharray="12 10" 
-            className={styles.animatedStrokePulse} 
+            stroke="url(#illuminatedGradient)" 
+            strokeWidth="4" 
             strokeLinecap="round" 
+            className={styles.scrollGlowPath}
           />
 
-          {/* 3. Luminous Traveling Particle along the Serpentine Path */}
-          <circle r="5" fill="url(#particleGlow)" filter="url(#nodeGlow)">
-            <animateMotion 
-              path={SERPENTINE_PATH} 
-              dur="6s" 
-              repeatCount="indefinite" 
-            />
-          </circle>
+          {/* 3. Leading Head Traveling Spark (Physically sits at scroll position) */}
+          <circle 
+            ref={sparkRef}
+            r="7" 
+            fill="url(#sparkGlow)" 
+            filter="url(#nodeGlow)"
+            className={styles.scrollSpark}
+          />
 
-          {/* 4. Horizontal Branches and Nodes */}
+          {/* 4. Horizontal Branches and Nodes (Light up when reached by scroll) */}
           {BRANCHES.map((b) => {
+            const isReached = scrollProgress >= b.threshold;
             const isSelected = b.id === activeBranchId;
+            const isLit = isReached || isSelected;
+
             return (
               <g key={b.id} className={styles.branchGroup} onClick={() => handleSelectBranch(b.id)}>
-                {/* Horizontal branch line to card */}
+                {/* Horizontal branch line from node to card */}
                 <line 
                   x1={b.nodeCoord.x} 
                   y1={b.nodeCoord.y} 
                   x2={b.branchEnd.x} 
                   y2={b.branchEnd.y} 
-                  stroke={isSelected ? b.color : "rgba(255, 255, 255, 0.18)"} 
-                  strokeWidth={isSelected ? 2.5 : 1.5} 
-                  strokeDasharray={isSelected ? "none" : "4 4"}
+                  stroke={isLit ? b.color : "rgba(255, 255, 255, 0.12)"} 
+                  strokeWidth={isLit ? 2.5 : 1.5} 
+                  strokeDasharray={isLit ? "none" : "4 4"}
                   className={styles.branchLine}
+                  style={{
+                    filter: isLit ? `drop-shadow(0 0 6px ${b.color})` : 'none',
+                    transition: 'all 350ms cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
                 />
 
-                {/* Animated pulse dot along the horizontal connector */}
-                {isSelected && (
+                {/* Animated beam pulse when node is lit */}
+                {isLit && (
                   <circle 
                     r="3.5" 
-                    fill={b.color} 
+                    fill="#FFFFFF" 
                     filter="url(#nodeGlow)"
                   >
                     <animate 
-                      attributeName={b.side === 'left' ? "cx" : "cx"} 
+                      attributeName="cx" 
                       from={b.nodeCoord.x} 
                       to={b.branchEnd.x} 
-                      dur="1.2s" 
+                      dur="1.5s" 
                       repeatCount="indefinite" 
                     />
                     <animate 
                       attributeName="cy" 
                       values={`${b.nodeCoord.y}; ${b.branchEnd.y}`} 
-                      dur="1.2s" 
+                      dur="1.5s" 
                       repeatCount="indefinite" 
                     />
                   </circle>
@@ -248,32 +342,41 @@ export const ProjectTreeMap: React.FC = () => {
                 <circle 
                   cx={b.nodeCoord.x} 
                   cy={b.nodeCoord.y} 
-                  r={isSelected ? 16 : 12} 
-                  stroke={b.color} 
-                  strokeWidth="1.5" 
-                  fill={isSelected ? b.glowColor : "rgba(10, 13, 20, 0.7)"} 
-                  className={isSelected ? styles.activeBeaconRing : styles.beaconRing} 
+                  r={isLit ? 16 : 11} 
+                  stroke={isLit ? b.color : "rgba(255, 255, 255, 0.2)"} 
+                  strokeWidth={isLit ? 2 : 1} 
+                  fill={isLit ? b.glowColor : "rgba(10, 13, 20, 0.8)"} 
+                  className={isLit ? styles.activeBeaconRing : styles.beaconRing} 
+                  style={{
+                    transition: 'all 300ms ease'
+                  }}
                 />
 
                 {/* Core Solid Node Point */}
                 <circle 
                   cx={b.nodeCoord.x} 
                   cy={b.nodeCoord.y} 
-                  r="5" 
-                  fill={b.color} 
-                  filter={isSelected ? "url(#nodeGlow)" : undefined} 
+                  r={isLit ? 6 : 4} 
+                  fill={isLit ? b.color : "#4B5563"} 
+                  filter={isLit ? "url(#nodeGlow)" : undefined} 
+                  style={{
+                    transition: 'all 300ms ease'
+                  }}
                 />
 
                 {/* Node Number Label */}
                 <text 
-                  x={b.side === 'left' ? b.nodeCoord.x + 18 : b.nodeCoord.x - 18} 
+                  x={b.side === 'left' ? b.nodeCoord.x + 20 : b.nodeCoord.x - 20} 
                   y={b.nodeCoord.y + 4} 
                   textAnchor={b.side === 'left' ? 'start' : 'end'} 
-                  fill={isSelected ? '#FFFFFF' : '#6B7280'} 
+                  fill={isLit ? '#FFFFFF' : '#4B5563'} 
                   fontFamily="var(--font-mono)" 
-                  fontSize="10.5" 
+                  fontSize="11" 
                   fontWeight="700" 
                   className={styles.nodeLabel}
+                  style={{
+                    transition: 'fill 250ms ease'
+                  }}
                 >
                   {b.num}
                 </text>
@@ -282,23 +385,40 @@ export const ProjectTreeMap: React.FC = () => {
           })}
         </svg>
 
-        {/* DOM Cards Absolutely Positioned at Branch Ends */}
+        {/* DOM Cards Overlay (Physically aligned with the branches, lights up on scroll) */}
         <div className={styles.cardsOverlay}>
           {BRANCHES.map((b) => {
+            const isReached = scrollProgress >= b.threshold;
             const isSelected = b.id === activeBranchId;
+            const isLit = isReached || isSelected;
+
             return (
               <div 
                 key={b.id} 
-                className={`${styles.serpentineCard} ${b.side === 'left' ? styles.cardLeft : styles.cardRight} ${isSelected ? styles.cardSelected : ''}`}
-                style={{ top: `${b.cardTop}px` }}
+                className={`${styles.serpentineCard} ${b.side === 'left' ? styles.cardLeft : styles.cardRight} ${isLit ? styles.cardLit : styles.cardDormant} ${isSelected ? styles.cardSelected : ''}`}
+                style={{ 
+                  top: `${b.cardTop}px`,
+                  borderColor: isLit ? b.color : undefined
+                }}
                 onClick={() => handleSelectBranch(b.id)}
               >
                 <div className={styles.cardHeader}>
-                  <div className={styles.cardIconBox} style={{ color: b.color, backgroundColor: `${b.color}18` }}>
+                  <div 
+                    className={styles.cardIconBox} 
+                    style={{ 
+                      color: isLit ? b.color : '#6B7280', 
+                      backgroundColor: isLit ? `${b.color}20` : 'rgba(255, 255, 255, 0.05)' 
+                    }}
+                  >
                     {b.icon}
                   </div>
                   <div className={styles.cardMeta}>
-                    <span className={styles.cardCategory} style={{ color: b.color }}>{b.category}</span>
+                    <span 
+                      className={styles.cardCategory} 
+                      style={{ color: isLit ? b.color : '#6B7280' }}
+                    >
+                      {b.category}
+                    </span>
                     <h3 className={styles.cardTitle}>{b.title}</h3>
                   </div>
                 </div>
@@ -308,16 +428,16 @@ export const ProjectTreeMap: React.FC = () => {
                 <div className={styles.cardMetricsList}>
                   {b.metrics.map((m, i) => (
                     <div key={i} className={styles.metricPill}>
-                      <CheckCircle2 size={11} style={{ color: b.color }} />
-                      <span>{m}</span>
+                      <CheckCircle2 size={11} style={{ color: isLit ? b.color : '#4B5563' }} />
+                      <span style={{ color: isLit ? '#D1D5DB' : '#6B7280' }}>{m}</span>
                     </div>
                   ))}
                 </div>
 
-                {isSelected && (
+                {isLit && (
                   <div className={styles.activeTagBadge} style={{ borderColor: b.color, color: b.color }}>
                     <Sparkles size={11} />
-                    <span>ACTIVE INSPECTION FOCUS</span>
+                    <span>{isSelected ? 'CURRENT INSPECTION FOCUS' : 'SYSTEM ENERGIZED'}</span>
                   </div>
                 )}
               </div>
@@ -326,14 +446,14 @@ export const ProjectTreeMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Selected Node Deep Inspector Panel */}
+      {/* Selected Subsystem Architecture Inspector Panel */}
       <div className={styles.inspectorPanel}>
         <div className={styles.inspectorHeader}>
           <div className={styles.inspectorLeft}>
             <div className={styles.inspectorBadge} style={{ color: activeBranch.color, borderColor: activeBranch.color }}>
-              <span>SUBSYSTEM {activeBranch.num}</span>
+              <span>ACTIVE SUBSYSTEM {activeBranch.num}</span>
             </div>
-            <h4>{activeBranch.title} &bull; Architecture Verification</h4>
+            <h4>{activeBranch.title} &bull; Verified Specifications</h4>
           </div>
           <div className={styles.inspectorTagline}>
             {activeBranch.tagline}
@@ -342,17 +462,17 @@ export const ProjectTreeMap: React.FC = () => {
 
         <div className={styles.inspectorGrid}>
           <div className={styles.specBox}>
-            <span className={styles.specLabel}>Underlying Engine</span>
+            <span className={styles.specLabel}>Underlying Architecture</span>
             <span className={styles.specValue}>{activeBranch.techSpecs.engine}</span>
           </div>
           <div className={styles.specBox}>
-            <span className={styles.specLabel}>System Guarantee</span>
+            <span className={styles.specLabel}>Engine Guarantee</span>
             <span className={styles.specValue} style={{ color: activeBranch.color }}>
               {activeBranch.techSpecs.guarantee}
             </span>
           </div>
           <div className={styles.specBox}>
-            <span className={styles.specLabel}>Network Protocol</span>
+            <span className={styles.specLabel}>Mesh Transport Protocol</span>
             <span className={styles.specValue}>{activeBranch.techSpecs.protocol}</span>
           </div>
         </div>
