@@ -1,23 +1,23 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(9, 10, 14, 0.75);
+  background-color: rgba(4, 5, 8, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 900;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
   animation: fadeIn 140ms ease;
   padding: 16px;
 }
 
 .dialog {
   width: 100%;
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
-  animation: scaleUp 140ms ease;
+  background-color: #090B10;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(138, 75, 255, 0.08);
+  animation: scaleUp 140ms cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
@@ -25,9 +25,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface);
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background-color: #050608;
 }
 
 .title {

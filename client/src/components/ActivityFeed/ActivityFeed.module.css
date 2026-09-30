@@ -4,7 +4,7 @@
   flex: 1;
   min-height: 0;
   padding: 12px 14px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .header {
@@ -18,13 +18,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-secondary);
+  color: #9CA3AF;
 }
 
 .feed {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -34,13 +34,13 @@
   align-items: flex-start;
   gap: 8px;
   font-size: 12px;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--transition-fast);
+  padding: 5px 6px;
+  border-radius: 6px;
+  transition: all 150ms ease;
 }
 
 .eventItem:hover {
-  background-color: var(--bg-surface-elevated);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .iconWrapper {

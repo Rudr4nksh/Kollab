@@ -27,27 +27,26 @@
   width: 100%;
 }
 
-/* Rounded Pill New + Button from Ceditor reference */
 .newPillBtn {
   width: 100%;
-  height: 32px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background-color: #17212E;
-  color: #F0F3F6;
-  border: 1px solid #28374B;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #F3F4F6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-pill);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   transition: all var(--transition-fast);
   cursor: pointer;
 }
 
 .newPillBtn:hover {
-  background-color: #1E2D3F;
-  border-color: #38BDF8;
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
   color: #FFFFFF;
 }
 
@@ -90,17 +89,17 @@
   gap: 6px;
   height: 26px;
   font-size: 11px;
-  color: var(--text-secondary);
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
+  color: #9CA3AF;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
 }
 
 .openFolderBtn:hover {
-  background-color: var(--bg-surface-hover);
-  color: var(--text-primary);
-  border-color: #384556;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
 }
 
 /* Inline Create Form */

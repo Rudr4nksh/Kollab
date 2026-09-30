@@ -1,11 +1,11 @@
 .tabBar {
   height: 38px;
-  background-color: var(--bg-activity-bar);
-  border-bottom: 1px solid var(--border-subtle);
+  background-color: #050608;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px 0 6px;
+  padding: 0 12px 0 8px;
   user-select: none;
   flex-shrink: 0;
   gap: 12px;
@@ -14,7 +14,7 @@
 .navControls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
@@ -24,14 +24,18 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: var(--text-muted);
+  color: #6B7280;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: all 150ms ease;
+  cursor: pointer;
 }
 
 .navBtn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-surface-elevated);
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .tabsContainer {
@@ -48,34 +52,34 @@
   height: 0px;
 }
 
-/* Floating Rounded Tabs matching Ceditor screenshot */
+/* Floating Rounded Tabs - Transparent Obsidian */
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  height: 28px;
-  background-color: var(--bg-tab-inactive);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  height: 27px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  color: #9CA3AF;
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all var(--transition-fast);
+  transition: all 150ms ease;
 }
 
 .tab:hover {
-  background-color: var(--bg-surface-elevated);
-  color: var(--text-primary);
-  border-color: #2F3946;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .activeTab {
-  background-color: var(--bg-tab-active) !important;
+  background-color: #0B0E15 !important;
   color: #FFFFFF !important;
-  border-color: #38475C !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-color: rgba(167, 139, 250, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 12px rgba(138, 75, 255, 0.08);
 }
 
 .fileBadge {
@@ -90,27 +94,30 @@
 
 .tabName {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .closeTabBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
+  width: 15px;
+  height: 15px;
+  color: #6B7280;
+  background: transparent;
+  border: none;
   border-radius: 3px;
   margin-left: 2px;
-  transition: all var(--transition-fast);
+  transition: all 150ms ease;
+  cursor: pointer;
 }
 
 .closeTabBtn:hover {
   color: #FFFFFF;
-  background-color: rgba(248, 113, 113, 0.3);
+  background-color: rgba(244, 63, 94, 0.25);
 }
 
-/* Right Actions: Run & Copy */
+/* Right Actions: White Pill Run & Glass Copy */
 .rightActions {
   display: flex;
   align-items: center;
@@ -123,23 +130,34 @@
   align-items: center;
   gap: 6px;
   height: 26px;
-  padding: 0 12px;
-  background-color: var(--accent-blue);
-  color: #FFFFFF;
+  padding: 0 13px;
+  background-color: #FFFFFF;
+  color: #050608;
+  border: none;
   border-radius: var(--radius-pill);
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  transition: all var(--transition-fast);
+  letter-spacing: 0.01em;
+  transition: all 150ms ease;
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+  cursor: pointer;
 }
 
 .runBtn:hover:not(:disabled) {
-  background-color: var(--accent-blue-hover);
+  background-color: #E5E7EB;
   transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.22);
 }
 
 .runBtn:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.runBtn.running {
+  background-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
 
 .copyBtn {
@@ -148,21 +166,24 @@
   gap: 5px;
   height: 26px;
   padding: 0 10px;
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius-pill);
-  color: var(--text-secondary);
+  color: #9CA3AF;
   font-size: 11.5px;
   font-weight: 500;
-  transition: all var(--transition-fast);
+  transition: all 150ms ease;
+  cursor: pointer;
 }
 
 .copyBtn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-surface-hover);
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .copyBtn.copied {
-  color: var(--status-connected);
-  border-color: rgba(74, 222, 128, 0.3);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.35);
+  background-color: rgba(16, 185, 129, 0.08);
 }
