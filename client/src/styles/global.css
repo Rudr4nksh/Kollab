@@ -1,42 +1,48 @@
 :root {
-  /* SyncPad Design System Tokens */
-  --bg-main: #0D0E12;
-  --bg-surface: #12131A;
-  --bg-surface-elevated: #171821;
-  --bg-surface-active: #1D1F2B;
-  --bg-editor: #0E0F16;
-  
-  --border-subtle: #242632;
-  --border-muted: #1E202B;
-  --border-focus: #7357E8;
-  
-  --text-primary: #F2F2F5;
-  --text-secondary: #9295A3;
-  --text-muted: #5C5E6E;
-  
-  --accent-primary: #6D4AFF;
-  --accent-muted: #7357E8;
-  --accent-hover: #5A3DE0;
-  --accent-surface: rgba(109, 74, 255, 0.12);
-  --accent-border: rgba(115, 87, 232, 0.35);
+  /* Ceditor Dark Slate Palette (Authentic Developer IDE) */
+  --bg-activity-bar: #0D1117;
+  --bg-sidebar: #12161D;
+  --bg-editor: #161B22;
+  --bg-tab-active: #161B22;
+  --bg-tab-inactive: #0E1217;
+  --bg-surface-elevated: #1A202A;
+  --bg-surface-hover: #212835;
+  --bg-selection: #1E3A5F;
+  --bg-active-pill: #1A3048;
 
-  --status-connected: #22C55E;
-  --status-reconnecting: #F59E0B;
-  --status-offline: #EF4444;
-  --status-typing: #7357E8;
+  --border-subtle: #242B35;
+  --border-muted: #1B2129;
+  --border-active: #38BDF8;
+
+  --text-primary: #F0F3F6;
+  --text-secondary: #8B949E;
+  --text-muted: #545D68;
+
+  /* Ceditor Accents */
+  --accent-cyan: #38BDF8;
+  --accent-blue: #0284C7;
+  --accent-blue-hover: #0369A1;
+  --accent-purple: #C084FC;
+  --accent-green: #4ADE80;
+  --accent-amber: #FBBF24;
+  --accent-rose: #F472B6;
+
+  --status-connected: #4ADE80;
+  --status-reconnecting: #FBBF24;
+  --status-offline: #F87171;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', monospace;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-xl: 10px;
+  --radius-pill: 20px;
 
   --transition-fast: 120ms ease;
   --transition-normal: 180ms ease;
 
-  --topbar-height: 52px;
+  --topbar-height: 48px;
 }
 
 *, *::before, *::after {
@@ -48,10 +54,10 @@
 html, body, #root {
   width: 100%;
   height: 100%;
-  background-color: var(--bg-main);
+  background-color: var(--bg-activity-bar);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -69,14 +75,14 @@ button {
   background: none;
 }
 
-/* Custom scrollbars matching dark developer aesthetic */
+/* Scrollbars matching Ceditor slate aesthetic */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface);
+  background: var(--bg-sidebar);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -85,10 +91,10 @@ button {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #34374A;
+  background: #343E4D;
 }
 
 ::selection {
-  background: rgba(109, 74, 255, 0.35);
+  background: rgba(56, 189, 248, 0.28);
   color: #FFFFFF;
 }
