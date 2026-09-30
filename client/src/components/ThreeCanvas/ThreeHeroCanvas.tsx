@@ -15,126 +15,230 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
     // Scene, Camera, Renderer
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
-      60,
+      55,
       container.clientWidth / container.clientHeight,
       0.1,
       1000
     );
-    camera.position.z = 24;
+    camera.position.z = 22;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ 
+      alpha: true, 
+      antialias: true, 
+      powerPreference: 'high-performance' 
+    });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
-    // Group for mouse tilt
-    const sceneGroup = new THREE.Group();
-    scene.add(sceneGroup);
+    // Group for parallax movement
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
 
-    // 1. Central 3D Wireframe Icosahedron (Cyber Core)
-    const coreGeo = new THREE.IcosahedronGeometry(6.5, 1);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x0284c7,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.28,
-    });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    sceneGroup.add(coreMesh);
+    // Custom Fresnel Shader for high-quality translucent glowing glass bubbles
+    const bubbleVertexShader = `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      uniform float uTime;
+      uniform float uDistort;
 
-    // 2. Inner Glowing Octahedron
-    const innerGeo = new THREE.OctahedronGeometry(4, 0);
-    const innerMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-    sceneGroup.add(innerMesh);
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        
+        // Gentle organic surface pulse
+        vec3 pos = position;
+        float wave = sin(uTime * 1.5 + position.y * 2.0 + position.x * 2.0) * uDistort;
+        pos += normal * wave;
 
-    // 3. Surrounding Gyro Orbit Rings
-    const ringGeo1 = new THREE.TorusGeometry(9.5, 0.04, 16, 100);
-    const ringMat1 = new THREE.MeshBasicMaterial({
-      color: 0x0ea5e9,
-      transparent: true,
-      opacity: 0.35,
-    });
-    const ring1 = new THREE.Mesh(ringGeo1, ringMat1);
-    ring1.rotation.x = Math.PI / 3;
-    sceneGroup.add(ring1);
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `;
 
-    const ringGeo2 = new THREE.TorusGeometry(12, 0.03, 16, 100);
-    const ringMat2 = new THREE.MeshBasicMaterial({
-      color: 0x6366f1,
-      transparent: true,
-      opacity: 0.25,
-    });
-    const ring2 = new THREE.Mesh(ringGeo2, ringMat2);
-    ring2.rotation.y = Math.PI / 4;
-    sceneGroup.add(ring2);
+    const bubbleFragmentShader = `
+      varying vec3 vNormal;
+      varying vec3 vViewPosition;
+      uniform vec3 uColorBase;
+      uniform vec3 uColorRim;
+      uniform float uOpacity;
+      uniform float uFresnelPower;
 
-    // 4. Floating 3D Star Particle Field
-    const particleCount = 280;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities: { x: number; y: number; z: number }[] = [];
+      void main() {
+        vec3 normal = normalize(vNormal);
+        vec3 viewDir = normalize(vViewPosition);
 
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 55;
-      positions[i + 1] = (Math.random() - 0.5) * 35;
-      positions[i + 2] = (Math.random() - 0.5) * 35;
-      velocities.push({
-        x: (Math.random() - 0.5) * 0.015,
-        y: (Math.random() - 0.5) * 0.015,
-        z: (Math.random() - 0.5) * 0.015,
+        // Photorealistic Fresnel rim light
+        float fresnel = dot(normal, viewDir);
+        fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
+        float fresnelFactor = pow(fresnel, uFresnelPower);
+
+        // Core soft glow with chromatic rim accent
+        vec3 color = mix(uColorBase, uColorRim, fresnelFactor * 0.85);
+        float alpha = clamp(fresnelFactor * uOpacity + 0.08, 0.0, 0.95);
+
+        gl_FragColor = vec4(color, alpha);
+      }
+    `;
+
+    // Color palettes for organic glowing bubbles
+    const bubblePalettes = [
+      { base: new THREE.Color(0x0284c7), rim: new THREE.Color(0x38bdf8), power: 2.2, opacity: 0.65 },
+      { base: new THREE.Color(0x0369a1), rim: new THREE.Color(0x67e8f9), power: 2.8, opacity: 0.55 },
+      { base: new THREE.Color(0x4338ca), rim: new THREE.Color(0x818cf8), power: 2.4, opacity: 0.50 },
+      { base: new THREE.Color(0x0f766e), rim: new THREE.Color(0x2dd4bf), power: 3.0, opacity: 0.60 },
+      { base: new THREE.Color(0x1e1b4b), rim: new THREE.Color(0x38bdf8), power: 1.8, opacity: 0.70 }
+    ];
+
+    interface BubbleInstance {
+      mesh: THREE.Mesh;
+      baseX: number;
+      baseY: number;
+      baseZ: number;
+      speed: number;
+      amplitude: number;
+      phase: number;
+      parallaxFactor: number;
+      uniforms: {
+        uTime: { value: number };
+        uDistort: { value: number };
+        uColorBase: { value: THREE.Color };
+        uColorRim: { value: THREE.Color };
+        uOpacity: { value: number };
+        uFresnelPower: { value: number };
+      };
+    }
+
+    const bubbles: BubbleInstance[] = [];
+    const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+
+    // 1. Generate 34 Multi-depth floating bubbles (no lines, no wireframe!)
+    const bubbleCount = 34;
+    for (let i = 0; i < bubbleCount; i++) {
+      const palette = bubblePalettes[i % bubblePalettes.length];
+      
+      // Radius distribution: mostly delicate floating droplets (0.5 to 1.8), with a few large ambient orbs (2.5 to 4.2)
+      const isHeroOrb = i < 4;
+      const radius = isHeroOrb 
+        ? 2.6 + Math.random() * 1.8 
+        : 0.45 + Math.random() * 1.35;
+
+      const uniforms = {
+        uTime: { value: 0 },
+        uDistort: { value: isHeroOrb ? 0.04 : 0.02 },
+        uColorBase: { value: palette.base },
+        uColorRim: { value: palette.rim },
+        uOpacity: { value: isHeroOrb ? palette.opacity * 0.75 : palette.opacity },
+        uFresnelPower: { value: palette.power }
+      };
+
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: bubbleVertexShader,
+        fragmentShader: bubbleFragmentShader,
+        uniforms,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const mesh = new THREE.Mesh(sphereGeo, mat);
+      mesh.scale.set(radius, radius, radius);
+
+      // Positioning across a wide 3D space
+      const x = (Math.random() - 0.5) * 36;
+      const y = (Math.random() - 0.5) * 28;
+      const z = (Math.random() - 0.5) * 18 - (isHeroOrb ? 4 : 0);
+
+      mesh.position.set(x, y, z);
+      worldGroup.add(mesh);
+
+      // Depth-based parallax: bubbles closer to z=10 move significantly faster than deep bubbles at z=-10
+      const depthFactor = (z + 12) / 24; // 0 to 1
+      const parallaxFactor = 0.015 + depthFactor * 0.045;
+
+      bubbles.push({
+        mesh,
+        baseX: x,
+        baseY: y,
+        baseZ: z,
+        speed: 0.6 + Math.random() * 0.9,
+        amplitude: 0.6 + Math.random() * 0.8,
+        phase: Math.random() * Math.PI * 2,
+        parallaxFactor,
+        uniforms
       });
     }
 
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    // 2. Add glowing soft luminescence particles (delicate luminous bokeh)
+    const sparkleCount = 90;
+    const sparkleGeo = new THREE.BufferGeometry();
+    const sparklePositions = new Float32Array(sparkleCount * 3);
+    const sparkleVelocities: { x: number; y: number; z: number }[] = [];
 
-    // Particle Texture via Canvas for soft glowing circular points
-    const pCanvas = document.createElement('canvas');
-    pCanvas.width = 16;
-    pCanvas.height = 16;
-    const pCtx = pCanvas.getContext('2d');
-    if (pCtx) {
-      const gradient = pCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
-      gradient.addColorStop(0, 'rgba(56, 189, 248, 1)');
-      gradient.addColorStop(0.5, 'rgba(2, 132, 199, 0.5)');
-      gradient.addColorStop(1, 'rgba(2, 132, 199, 0)');
-      pCtx.fillStyle = gradient;
-      pCtx.fillRect(0, 0, 16, 16);
+    for (let i = 0; i < sparkleCount * 3; i += 3) {
+      sparklePositions[i] = (Math.random() - 0.5) * 44;
+      sparklePositions[i + 1] = (Math.random() - 0.5) * 32;
+      sparklePositions[i + 2] = (Math.random() - 0.5) * 20;
+      sparkleVelocities.push({
+        x: (Math.random() - 0.5) * 0.008,
+        y: 0.006 + Math.random() * 0.012,
+        z: (Math.random() - 0.5) * 0.008
+      });
     }
-    const particleTexture = new THREE.CanvasTexture(pCanvas);
 
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.7,
-      map: particleTexture,
+    sparkleGeo.setAttribute('position', new THREE.BufferAttribute(sparklePositions, 3));
+
+    // Circular soft gradient texture
+    const sCanvas = document.createElement('canvas');
+    sCanvas.width = 32;
+    sCanvas.height = 32;
+    const sCtx = sCanvas.getContext('2d');
+    if (sCtx) {
+      const grad = sCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grad.addColorStop(0, 'rgba(56, 189, 248, 1)');
+      grad.addColorStop(0.3, 'rgba(2, 132, 199, 0.6)');
+      grad.addColorStop(0.7, 'rgba(2, 132, 199, 0.15)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sCtx.fillStyle = grad;
+      sCtx.fillRect(0, 0, 32, 32);
+    }
+    const sparkleTex = new THREE.CanvasTexture(sCanvas);
+
+    const sparkleMat = new THREE.PointsMaterial({
+      size: 0.9,
+      map: sparkleTex,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.55,
       blending: THREE.AdditiveBlending,
-      depthWrite: false,
+      depthWrite: false
     });
 
-    const particles = new THREE.Points(particleGeo, particleMat);
-    sceneGroup.add(particles);
+    const sparkles = new THREE.Points(sparkleGeo, sparkleMat);
+    worldGroup.add(sparkles);
 
-    // Mouse Interaction
-    let targetRotX = 0;
-    let targetRotY = 0;
-    let currentRotX = 0;
-    let currentRotY = 0;
+    // Mouse & Scroll Parallax Tracking
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+    let currentMouseX = 0;
+    let currentMouseY = 0;
 
-    const handleWindowMouseMove = (e: MouseEvent) => {
+    let targetScrollY = window.scrollY || 0;
+    let currentScrollY = targetScrollY;
+
+    const handleMouseMove = (e: MouseEvent) => {
       const { innerWidth, innerHeight } = window;
-      const nx = (e.clientX / innerWidth - 0.5) * 2;
-      const ny = (e.clientY / innerHeight - 0.5) * 2;
-      targetRotY = nx * 0.35;
-      targetRotX = -ny * 0.25;
+      targetMouseX = (e.clientX / innerWidth - 0.5) * 2;
+      targetMouseY = (e.clientY / innerHeight - 0.5) * 2;
     };
 
-    window.addEventListener('mousemove', handleWindowMouseMove);
+    const handleScroll = () => {
+      targetScrollY = window.scrollY || 0;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     // Resize Handler
     const handleResize = () => {
@@ -150,49 +254,57 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
 
     // Animation Loop
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      clock.getDelta();
       const time = clock.getElapsedTime();
 
-      // Smooth camera / scene tilt lerp
-      currentRotX += (targetRotX - currentRotX) * 0.05;
-      currentRotY += (targetRotY - currentRotY) * 0.05;
-      sceneGroup.rotation.x = currentRotX;
-      sceneGroup.rotation.y = currentRotY;
+      // Smooth mouse lerp
+      currentMouseX += (targetMouseX - currentMouseX) * 0.04;
+      currentMouseY += (targetMouseY - currentMouseY) * 0.04;
 
-      // Geometries Rotation
-      coreMesh.rotation.y += delta * 0.12;
-      coreMesh.rotation.x += delta * 0.08;
+      // Smooth scroll lerp for cinematic parallax
+      currentScrollY += (targetScrollY - currentScrollY) * 0.06;
 
-      innerMesh.rotation.y -= delta * 0.2;
-      innerMesh.rotation.z += delta * 0.15;
+      // Parallax camera tilt & slight drift
+      worldGroup.rotation.y = currentMouseX * 0.12;
+      worldGroup.rotation.x = -currentMouseY * 0.08;
 
-      ring1.rotation.z += delta * 0.1;
-      ring2.rotation.x -= delta * 0.08;
+      // Animate individual bubbles with fluid organic floating + depth scroll parallax
+      for (let i = 0; i < bubbles.length; i++) {
+        const b = bubbles[i];
+        
+        // Fluid organic floating dynamics
+        const floatY = Math.sin(time * b.speed + b.phase) * b.amplitude;
+        const floatX = Math.cos(time * (b.speed * 0.7) + b.phase) * (b.amplitude * 0.4);
 
-      // Breathe effect on core
-      const pulse = 1 + Math.sin(time * 1.5) * 0.04;
-      coreMesh.scale.set(pulse, pulse, pulse);
+        // Scroll Parallax displacement: each bubble moves upward relative to its depth
+        const scrollOffset = currentScrollY * b.parallaxFactor;
 
-      // Particle drifting
-      const posAttr = particleGeo.attributes.position as THREE.BufferAttribute;
-      const posArray = posAttr.array as Float32Array;
-      for (let i = 0; i < particleCount; i++) {
+        b.mesh.position.y = b.baseY + floatY + scrollOffset;
+        b.mesh.position.x = b.baseX + floatX + (currentMouseX * b.parallaxFactor * 40);
+
+        // Update bubble surface shader time
+        b.uniforms.uTime.value = time;
+      }
+
+      // Animate glowing micro-particles drifting upward
+      const pAttr = sparkleGeo.attributes.position as THREE.BufferAttribute;
+      const pArr = pAttr.array as Float32Array;
+      for (let i = 0; i < sparkleCount; i++) {
         const i3 = i * 3;
-        posArray[i3] += velocities[i].x;
-        posArray[i3 + 1] += velocities[i].y;
-        posArray[i3 + 2] += velocities[i].z;
+        pArr[i3] += sparkleVelocities[i].x;
+        pArr[i3 + 1] += sparkleVelocities[i].y;
+        pArr[i3 + 2] += sparkleVelocities[i].z;
 
         // Wrap around bounds
-        if (posArray[i3] > 28) posArray[i3] = -28;
-        if (posArray[i3] < -28) posArray[i3] = 28;
-        if (posArray[i3 + 1] > 18) posArray[i3 + 1] = -18;
-        if (posArray[i3 + 1] < -18) posArray[i3 + 1] = 18;
+        if (pArr[i3 + 1] > 20) pArr[i3 + 1] = -20;
+        if (pArr[i3] > 24) pArr[i3] = -24;
+        if (pArr[i3] < -24) pArr[i3] = 24;
       }
-      posAttr.needsUpdate = true;
+      pAttr.needsUpdate = true;
 
       renderer.render(scene, camera);
     };
@@ -201,23 +313,21 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
-      coreGeo.dispose();
-      coreMat.dispose();
-      innerGeo.dispose();
-      innerMat.dispose();
-      ringGeo1.dispose();
-      ringMat1.dispose();
-      ringGeo2.dispose();
-      ringMat2.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      particleTexture.dispose();
+      sphereGeo.dispose();
+      sparkleGeo.dispose();
+      sparkleMat.dispose();
+      sparkleTex.dispose();
+      bubbles.forEach(b => {
+        b.mesh.geometry.dispose();
+        (b.mesh.material as THREE.Material).dispose();
+      });
     };
   }, []);
 
@@ -226,7 +336,7 @@ export const ThreeHeroCanvas: React.FC<ThreeHeroCanvasProps> = ({ className }) =
       ref={mountRef} 
       className={className} 
       style={{ 
-        position: 'absolute', 
+        position: 'fixed', 
         inset: 0, 
         pointerEvents: 'none', 
         overflow: 'hidden',
