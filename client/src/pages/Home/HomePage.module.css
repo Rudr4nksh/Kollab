@@ -1127,6 +1127,20 @@
   transform: translate3d(0, 0, 0) !important;
 }
 
+.boxExitTop {
+  opacity: 0 !important;
+  transform: translate3d(0, -36px, 0) !important;
+  transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 500ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.boxExitBottom {
+  opacity: 0 !important;
+  transform: translate3d(0, 36px, 0) !important;
+  transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 500ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
 .stagger1 {
   transition-delay: 80ms;
 }

@@ -137,28 +137,34 @@
   right: 10px;
 }
 
-/* Dormant State (Before scroll beam reaches it) */
-.cardDormant {
-  opacity: 0.35;
+/* Dormant State (Before scroll beam reaches it, or after scrolling off) */
+.cardDormant.cardLeft {
+  opacity: 0.15;
+  transform: translate3d(-24px, 0, 0);
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cardDormant:hover {
-  opacity: 0.75;
-  transform: translateY(-2px);
+.cardDormant.cardRight {
+  opacity: 0.15;
+  transform: translate3d(24px, 0, 0);
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Lit State (Activated by scroll beam or selection) */
+/* Lit State (Activated as scroll beam reaches it) */
 .cardLit {
-  opacity: 1;
+  opacity: 1 !important;
+  transform: translate3d(0, 0, 0) !important;
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cardLit:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px) !important;
 }
 
 /* Selected Focus State */
 .cardSelected {
-  opacity: 1;
+  opacity: 1 !important;
+  transform: translate3d(0, 0, 0) !important;
 }
 
 .cardHeader {
@@ -222,100 +228,6 @@
   transition: color 250ms ease;
 }
 
-.activeTagBadge {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  animation: fadeIn 200ms ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Inspector Bottom Panel - Transparent Architecture Specs Row */
-.inspectorPanel {
-  background: transparent;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 24px 0 0;
-  text-align: left;
-  box-shadow: none;
-}
-
-.inspectorHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.inspectorLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.inspectorBadge {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  transition: all 250ms ease;
-}
-
-.inspectorLeft h4 {
-  font-size: 14.5px;
-  font-weight: 600;
-  color: #FFFFFF;
-  margin: 0;
-}
-
-.inspectorTagline {
-  font-size: 12.5px;
-  color: #9CA3AF;
-  font-style: italic;
-}
-
-.inspectorGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.specBox {
-  background: transparent;
-  border: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.specLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: #6B7280;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.specValue {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: #E5E7EB;
-  transition: color 250ms ease;
-}
-
 /* =========================================================================
    RESPONSIVENESS (Mobile & Tablet)
    ========================================================================= */
@@ -341,10 +253,6 @@
     position: static;
     width: 100%;
     opacity: 1 !important;
-  }
-
-  .inspectorGrid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    transform: none !important;
   }
 }

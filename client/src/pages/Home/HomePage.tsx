@@ -140,18 +140,29 @@ export const HomePage: React.FC<HomePageProps> = ({
     requestUpdateRef.current = requestUpdate;
     requestUpdate();
 
-    // IntersectionObserver for scroll-reveal on all boxes below
+    // IntersectionObserver for bidirectional scroll-in and scroll-off animations
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add(styles.boxRevealed);
+            entry.target.classList.remove(styles.boxExitTop);
+            entry.target.classList.remove(styles.boxExitBottom);
+          } else {
+            entry.target.classList.remove(styles.boxRevealed);
+            if (entry.boundingClientRect.top < 0) {
+              entry.target.classList.add(styles.boxExitTop);
+              entry.target.classList.remove(styles.boxExitBottom);
+            } else {
+              entry.target.classList.add(styles.boxExitBottom);
+              entry.target.classList.remove(styles.boxExitTop);
+            }
           }
         });
       },
       {
-        threshold: 0.08,
-        rootMargin: '0px 0px -40px 0px',
+        threshold: 0.1,
+        rootMargin: '10px 0px -10px 0px',
       }
     );
 

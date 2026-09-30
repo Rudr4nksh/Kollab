@@ -208,8 +208,6 @@ export const ProjectTreeMap: React.FC = () => {
     };
   }, [isManuallySelected]);
 
-  const activeBranch = BRANCHES.find(b => b.id === activeBranchId) || BRANCHES[0];
-
   const handleSelectBranch = (id: string) => {
     playThockSound('click');
     setActiveBranchId(id);
@@ -428,38 +426,6 @@ export const ProjectTreeMap: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Selected Subsystem Architecture Inspector Panel */}
-      <div className={styles.inspectorPanel}>
-        <div className={styles.inspectorHeader}>
-          <div className={styles.inspectorLeft}>
-            <div className={styles.inspectorBadge} style={{ color: activeBranch.color, borderColor: activeBranch.color }}>
-              <span>ACTIVE SUBSYSTEM {activeBranch.num}</span>
-            </div>
-            <h4>{activeBranch.title} &bull; Verified Specifications</h4>
-          </div>
-          <div className={styles.inspectorTagline}>
-            {activeBranch.tagline}
-          </div>
-        </div>
-
-        <div className={styles.inspectorGrid}>
-          <div className={styles.specBox}>
-            <span className={styles.specLabel}>Underlying Architecture</span>
-            <span className={styles.specValue}>{activeBranch.techSpecs.engine}</span>
-          </div>
-          <div className={styles.specBox}>
-            <span className={styles.specLabel}>Engine Guarantee</span>
-            <span className={styles.specValue} style={{ color: activeBranch.color }}>
-              {activeBranch.techSpecs.guarantee}
-            </span>
-          </div>
-          <div className={styles.specBox}>
-            <span className={styles.specLabel}>Mesh Transport Protocol</span>
-            <span className={styles.specValue}>{activeBranch.techSpecs.protocol}</span>
-          </div>
         </div>
       </div>
     </div>
