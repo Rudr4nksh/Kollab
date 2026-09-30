@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Plus, 
   ArrowRight, 
@@ -9,8 +9,6 @@ import {
   Play, 
   Zap,
   X,
-  Volume2,
-  VolumeX,
   Code2,
   CheckCircle2,
   XCircle,
@@ -19,7 +17,7 @@ import {
 import { Input } from '../../components/UI/Input.tsx';
 import { Button } from '../../components/UI/Button.tsx';
 import { ThreeHeroCanvas } from '../../components/ThreeCanvas/ThreeHeroCanvas.tsx';
-import { playThockSound, toggleSound } from '../../utils/audioEffects.ts';
+import { playThockSound } from '../../utils/audioEffects.ts';
 import styles from './HomePage.module.css';
 
 interface HomePageProps {
@@ -89,7 +87,24 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [roomId, setRoomId] = useState('');
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [soundOn, setSoundOn] = useState(false);
+
+  // Parallax Scrolling State
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // 3D Interactive Parallax on the Code Window
   const [rotate, setRotate] = useState({ x: 10, y: -14 });
@@ -118,13 +133,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   ]);
   const [terminalInput, setTerminalInput] = useState('');
 
-  const handleSoundToggle = () => {
-    const newState = toggleSound();
-    setSoundOn(newState);
-    if (newState) {
-      playThockSound('run');
-    }
-  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!mockupRef.current) return;
@@ -287,37 +295,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 3D WebGL Three.js Interactive Background */}
       <ThreeHeroCanvas className={styles.bgThreeCanvas} />
 
-      {/* Cyber Background Grid & Ambient Glow Orbs */}
-      <div className={styles.bgGrid} />
-      <div className={styles.bgGlowOrb} />
-      <div className={styles.bgGlowOrbSecondary} />
-
-      {/* Top HUD Status Strip (YouTube Tech Edit Vibe) */}
-      <div className={styles.hudStatusBar}>
-        <div className={styles.hudLeft}>
-          <div className={`${styles.hudItem} ${styles.hudItemActive}`}>
-            <span className={styles.hudDotLive} />
-            <span>MESH_STATUS: CONNECTED</span>
-          </div>
-          <div className={styles.hudItem}>
-            <span>PROTOCOL: YJS_CRDT_V13</span>
-          </div>
-          <div className={styles.hudItem}>
-            <span>LATENCY: 14ms (PEER_DIRECT)</span>
-          </div>
-        </div>
-
-        <div className={styles.hudRight}>
-          <button 
-            className={`${styles.thockToggleBtn} ${soundOn ? styles.thockToggleBtnActive : ''}`}
-            onClick={handleSoundToggle}
-            title="Toggle synthesized mechanical switch sounds"
-          >
-            {soundOn ? <Volume2 size={12} /> : <VolumeX size={12} />}
-            <span>THOCK: {soundOn ? 'ON' : 'OFF'}</span>
-          </button>
-        </div>
-      </div>
+      {/* Ambient Glow Orbs with Parallax Float */}
+      <div 
+        className={styles.bgGlowOrb} 
+        style={{ transform: `translateY(${scrollY * 0.22}px)` }} 
+      />
+      <div 
+        className={styles.bgGlowOrbSecondary} 
+        style={{ transform: `translateY(${scrollY * 0.35}px)` }} 
+      />
 
       {/* Main Navbar - Centered Navigation Grid */}
       <nav className={styles.navBar}>
@@ -423,7 +409,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </button>
         </div>
 
-        {/* 3D Cinematic Interactive Editor Mockup */}
+        {/* 3D Cinematic Interactive Editor Mockup with Smooth Parallax Scroll */}
         <div 
           id="editor"
           className={styles.perspectiveStage}
@@ -431,26 +417,11 @@ export const HomePage: React.FC<HomePageProps> = ({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
-          {/* Floating 3D Glass Pill (Top Left) */}
-          <div className={`${styles.floatingGlassBadge} ${styles.badgeTopLeft}`}>
-            <Zap size={14} className={styles.badgeIconElectric} />
-            <span>Yjs CRDT &bull; 0 Merge Conflicts</span>
-          </div>
-
-          {/* Floating 3D Collaborator Tag (Bottom Right) */}
-          <div className={`${styles.floatingGlassBadge} ${styles.badgeBottomRight}`}>
-            <span className={styles.collaboratorAvatar}>A</span>
-            <div className={styles.collaboratorInfo}>
-              <span className={styles.collaboratorName}>Alex</span>
-              <span className={styles.collaboratorAction}>editing line 8 &bull; live</span>
-            </div>
-          </div>
-
-          {/* The 3D Tilted Editor Window */}
+          {/* The 3D Tilted Editor Window with dynamic Scroll + Mouse Parallax */}
           <div 
             className={styles.mockup3DWindow}
             style={{
-              transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) rotateZ(1.5deg)`,
+              transform: `translateY(${scrollY * 0.12}px) scale(${Math.max(1 - scrollY * 0.0002, 0.95)}) rotateX(${rotate.x - Math.min(scrollY * 0.015, 12)}deg) rotateY(${rotate.y + Math.min(scrollY * 0.012, 10)}deg) rotateZ(1.5deg)`,
               // Dynamic specular shine position
               ['--mouse-x' as string]: `${mousePos.x}%`,
               ['--mouse-y' as string]: `${mousePos.y}%`,
