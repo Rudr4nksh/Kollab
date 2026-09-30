@@ -1,34 +1,34 @@
 .serpentineWrapper {
   width: 100%;
-  max-width: 1040px;
+  max-width: 1060px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   position: relative;
   user-select: none;
+  background: transparent;
 }
 
 .topIndicatorRow {
   display: flex;
   justify-content: center;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .architecturePill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
-  background-color: rgba(14, 18, 26, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   color: #A78BFA;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
 }
 
 .pulseDot {
@@ -36,25 +36,23 @@
   height: 6px;
   border-radius: 50%;
   background-color: #38BDF8;
-  box-shadow: 0 0 8px #38BDF8;
+  box-shadow: 0 0 10px #38BDF8;
   animation: pulseBeacon 2s infinite ease-in-out;
 }
 
 @keyframes pulseBeacon {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.6); opacity: 0.5; }
+  50% { transform: scale(1.6); opacity: 0.4; }
 }
 
-/* 2D Serpentine Canvas Stage */
+/* 2D Serpentine Canvas Stage - Completely Transparent, Floating Directly on Background */
 .canvasStage {
   width: 100%;
   height: 970px;
   position: relative;
-  background: radial-gradient(circle at 50% 50%, rgba(138, 75, 255, 0.08) 0%, rgba(5, 6, 8, 0.95) 75%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .serpentineSvg {
@@ -68,13 +66,13 @@
 }
 
 .scrollGlowPath {
-  filter: drop-shadow(0 0 8px rgba(138, 75, 255, 0.5)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.3));
+  filter: drop-shadow(0 0 10px rgba(138, 75, 255, 0.6)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.4));
   transition: stroke-dashoffset 80ms linear;
 }
 
 .scrollSpark {
   transition: cx 80ms linear, cy 80ms linear, opacity 180ms ease;
-  filter: drop-shadow(0 0 10px #FFFFFF) drop-shadow(0 0 20px #38BDF8);
+  filter: drop-shadow(0 0 12px #FFFFFF) drop-shadow(0 0 24px #38BDF8);
 }
 
 .branchGroup {
@@ -100,7 +98,7 @@
   }
   50% {
     r: 22;
-    opacity: 0.3;
+    opacity: 0.25;
   }
 }
 
@@ -109,7 +107,7 @@
   user-select: none;
 }
 
-/* Cards Overlay Layer */
+/* Cards Overlay Layer - Completely Transparent Floating Callouts */
 .cardsOverlay {
   position: absolute;
   inset: 0;
@@ -119,75 +117,60 @@
 
 .serpentineCard {
   position: absolute;
-  width: 300px;
-  background-color: rgba(11, 14, 20, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 12px;
-  padding: 16px 18px;
+  width: 310px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 6px 0;
   text-align: left;
   pointer-events: auto;
   cursor: pointer;
   transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 250ms ease, 
-              box-shadow 250ms ease, 
-              opacity 250ms ease,
-              background-color 250ms ease;
+              opacity 300ms ease;
 }
 
 .cardLeft {
-  left: 20px;
+  left: 10px;
 }
 
 .cardRight {
-  right: 20px;
+  right: 10px;
 }
 
-/* Dormant Card State (Before scroll beam reaches it) */
+/* Dormant State (Before scroll beam reaches it) */
 .cardDormant {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  opacity: 0.45;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0.35;
 }
 
 .cardDormant:hover {
-  opacity: 0.85;
-  border-color: rgba(255, 255, 255, 0.18);
+  opacity: 0.75;
   transform: translateY(-2px);
 }
 
-/* Lit Card State (Activated by scroll beam or selection) */
+/* Lit State (Activated by scroll beam or selection) */
 .cardLit {
   opacity: 1;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
-  background-color: #0E121B;
 }
 
 .cardLit:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.85);
+  transform: translateY(-2px);
 }
 
 /* Selected Focus State */
 .cardSelected {
-  box-shadow: 
-    0 18px 45px rgba(0, 0, 0, 0.85),
-    0 0 25px rgba(138, 75, 255, 0.2);
-  transform: translateY(-3px);
-  background-color: #111622;
+  opacity: 1;
 }
 
 .cardHeader {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .cardIconBox {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,25 +185,25 @@
 
 .cardCategory {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   transition: color 250ms ease;
 }
 
 .cardTitle {
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 600;
   color: #FFFFFF;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .cardDesc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: #9CA3AF;
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0 0 10px;
 }
 
@@ -233,23 +216,21 @@
 .metricPill {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 11.5px;
   font-family: var(--font-mono);
   transition: color 250ms ease;
 }
 
 .activeTagBadge {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   animation: fadeIn 200ms ease;
 }
 
@@ -258,24 +239,21 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Inspector Bottom Panel */
+/* Inspector Bottom Panel - Transparent Architecture Specs Row */
 .inspectorPanel {
-  background-color: #0E121A;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 18px 24px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px 0 0;
   text-align: left;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
-  transition: border-color 250ms ease;
+  box-shadow: none;
 }
 
 .inspectorHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 10px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -288,17 +266,14 @@
 
 .inspectorBadge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  border: 1px solid;
-  border-radius: 4px;
-  padding: 2px 7px;
   letter-spacing: 0.08em;
   transition: all 250ms ease;
 }
 
 .inspectorLeft h4 {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   color: #FFFFFF;
   margin: 0;
@@ -313,14 +288,13 @@
 .inspectorGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
 
 .specBox {
-  background-color: #080A0E;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -330,13 +304,13 @@
   font-family: var(--font-mono);
   font-size: 10px;
   color: #6B7280;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .specValue {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   color: #E5E7EB;
   transition: color 250ms ease;
@@ -349,7 +323,7 @@
 @media (max-width: 900px) {
   .canvasStage {
     height: auto;
-    padding: 20px;
+    padding: 0;
   }
 
   .serpentineSvg {
@@ -360,7 +334,7 @@
     position: static;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
   }
 
   .serpentineCard {
@@ -371,6 +345,6 @@
 
   .inspectorGrid {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 12px;
   }
 }
