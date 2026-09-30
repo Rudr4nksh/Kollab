@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Copy, Check, ChevronDown, Download } from 'lucide-react';
+import { Copy, Check, Download } from 'lucide-react';
 import type { SupportedLanguage } from '../../types/index.ts';
 import styles from './EditorToolbar.module.css';
 
 interface EditorToolbarProps {
   language: SupportedLanguage;
-  onLanguageChange: (language: SupportedLanguage) => void;
+  onLanguageChange?: (language: SupportedLanguage) => void;
   onCopyCode: () => void;
   onDownloadCode?: () => void;
   cursorLine?: number;
@@ -27,7 +27,6 @@ const LANGUAGES: { id: SupportedLanguage; label: string }[] = [
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   language,
-  onLanguageChange,
   onCopyCode,
   onDownloadCode,
   cursorLine = 1,
@@ -35,9 +34,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   lineCount = 1,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const currentLangLabel = LANGUAGES.find((l) => l.id === language)?.label || 'HTML';
+  const currentLangLabel = LANGUAGES.find((l) => l.id === language)?.label || language?.toUpperCase() || 'Code';
 
   const handleCopy = () => {
     onCopyCode();
@@ -45,40 +43,15 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSelectLanguage = (langId: SupportedLanguage) => {
-    onLanguageChange(langId);
-    setIsDropdownOpen(false);
-  };
-
   return (
     <div className={styles.toolbar}>
       <div className={styles.leftGroup}>
         <div className={styles.titleWrapper}>
-          <span className={styles.editorTitle}>{currentLangLabel} Code Editor</span>
+          <span className={styles.editorTitle}>Editor</span>
         </div>
 
-        <div className={styles.dropdownContainer}>
-          <button
-            className={styles.languageSelector}
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          >
-            <span>{currentLangLabel}</span>
-            <ChevronDown size={13} className={styles.chevron} />
-          </button>
-
-          {isDropdownOpen && (
-            <div className={styles.dropdownMenu}>
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.id}
-                  className={`${styles.dropdownItem} ${l.id === language ? styles.selected : ''}`}
-                  onClick={() => handleSelectLanguage(l.id)}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className={styles.langBadgeWrapper}>
+          <span className={styles.langBadge}>{currentLangLabel}</span>
         </div>
       </div>
 

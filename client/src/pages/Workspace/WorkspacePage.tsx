@@ -95,6 +95,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     return files[0]?.path || '';
   });
   const [newProjectName, setNewProjectName] = useState('project');
+  const [newDirectFileName, setNewDirectFileName] = useState('');
 
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(true);
@@ -277,6 +278,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const handleCenterCreateFolderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleCreateProjectFolder(newProjectName || 'project');
+  };
+
+  const handleCenterCreateFileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newDirectFileName.trim();
+    if (!name) return;
+    handleCreateFile(name);
+    setNewDirectFileName('');
   };
 
   // Run Code execution (interactive JS sandbox or simulation)
@@ -626,18 +635,27 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   </form>
 
                   <div className={styles.emptyDivider}>
-                    <span>or</span>
+                    <span>or create a file directly</span>
                   </div>
 
-                  <div className={styles.emptyActionRow}>
-                    <button
-                      type="button"
-                      className={styles.emptySecondaryBtn}
-                      onClick={() => handleCreateFile('main.js')}
-                    >
-                      <FilePlus size={13} />
-                      <span>New File</span>
+                  <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
+                    <div className={styles.inputWrapper}>
+                      <FileCode size={14} className={styles.inputFolderIcon} />
+                      <input
+                        type="text"
+                        className={styles.emptyFolderInput}
+                        placeholder="filename.ext (e.g. main.cpp, index.html, app.js)"
+                        value={newDirectFileName}
+                        onChange={(e) => setNewDirectFileName(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className={styles.createFolderPrimaryBtn}>
+                      <FilePlus size={14} />
+                      <span>Create File</span>
                     </button>
+                  </form>
+
+                  <div className={styles.emptyActionRow}>
                     <button
                       type="button"
                       className={styles.emptySecondaryBtn}
@@ -647,7 +665,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                       }}
                     >
                       <Upload size={13} />
-                      <span>Open Folder</span>
+                      <span>Open Folder from Computer</span>
                     </button>
                   </div>
                 </div>
@@ -660,16 +678,25 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   </div>
                   <h3 className={styles.emptyTitle}>No file open</h3>
                   <p className={styles.emptySubtitle}>
-                    Select a file from the explorer on the left or create a new file to start editing.
+                    Select a file from the explorer on the left or create a new file with any extension (.js, .html, .cpp, .py).
                   </p>
-                  <button
-                    type="button"
-                    className={styles.createFolderPrimaryBtn}
-                    onClick={() => handleCreateFile('index.js')}
-                  >
-                    <FilePlus size={13} />
-                    <span>Create New File</span>
-                  </button>
+                  <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
+                    <div className={styles.inputWrapper}>
+                      <FileCode size={14} className={styles.inputFolderIcon} />
+                      <input
+                        type="text"
+                        className={styles.emptyFolderInput}
+                        placeholder="filename.ext (e.g. main.cpp, script.js)"
+                        value={newDirectFileName}
+                        onChange={(e) => setNewDirectFileName(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <button type="submit" className={styles.createFolderPrimaryBtn}>
+                      <FilePlus size={14} />
+                      <span>Create New File</span>
+                    </button>
+                  </form>
                 </div>
               </div>
             )}
