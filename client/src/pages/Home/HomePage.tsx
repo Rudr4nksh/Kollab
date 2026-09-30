@@ -88,28 +88,57 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Parallax Scrolling State
-  const [scrollY, setScrollY] = useState(0);
+  // High-Performance Parallax Refs (Zero React Re-renders on Scroll/Mouse)
+  const mockupRef = useRef<HTMLDivElement>(null);
+  const mockupWindowRef = useRef<HTMLDivElement>(null);
+  const bgOrb1Ref = useRef<HTMLDivElement>(null);
+  const bgOrb2Ref = useRef<HTMLDivElement>(null);
+  const mouseTiltRef = useRef({ x: 10, y: -14 });
 
   useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setScrollY(window.scrollY);
-          ticking = false;
-        });
-        ticking = true;
+    let animId: number;
+    let targetScroll = window.scrollY || 0;
+    let currentScroll = targetScroll;
+    let currentRotX = 10;
+    let currentRotY = -14;
+
+    const onScroll = () => {
+      targetScroll = window.scrollY || 0;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    const tick = () => {
+      animId = requestAnimationFrame(tick);
+
+      // Smooth lerp (60-120fps hardware acceleration)
+      currentScroll += (targetScroll - currentScroll) * 0.1;
+      currentRotX += (mouseTiltRef.current.x - currentRotX) * 0.08;
+      currentRotY += (mouseTiltRef.current.y - currentRotY) * 0.08;
+
+      if (mockupWindowRef.current) {
+        const translateY = currentScroll * 0.12;
+        const scale = Math.max(1 - currentScroll * 0.0002, 0.95);
+        const rotX = currentRotX - Math.min(currentScroll * 0.012, 10);
+        const rotY = currentRotY + Math.min(currentScroll * 0.01, 8);
+        mockupWindowRef.current.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale}) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(1.5deg)`;
+      }
+
+      if (bgOrb1Ref.current) {
+        bgOrb1Ref.current.style.transform = `translate3d(0, ${currentScroll * 0.2}px, 0)`;
+      }
+      if (bgOrb2Ref.current) {
+        bgOrb2Ref.current.style.transform = `translate3d(0, ${currentScroll * 0.32}px, 0)`;
       }
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
-  // 3D Interactive Parallax on the Code Window
-  const [rotate, setRotate] = useState({ x: 10, y: -14 });
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-  const mockupRef = useRef<HTMLDivElement>(null);
+    tick();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   // Interactive 3D Editor State
   const [activeTab, setActiveTab] = useState('index.ts');
@@ -133,7 +162,6 @@ export const HomePage: React.FC<HomePageProps> = ({
   ]);
   const [terminalInput, setTerminalInput] = useState('');
 
-
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!mockupRef.current) return;
     const rect = mockupRef.current.getBoundingClientRect();
@@ -145,15 +173,16 @@ export const HomePage: React.FC<HomePageProps> = ({
     const rotX = 10 - ((y - centerY) / centerY) * 10;
     const rotY = -14 + ((x - centerX) / centerX) * 12;
 
-    setRotate({ x: rotX, y: rotY });
-    setMousePos({
-      x: Math.round((x / rect.width) * 100),
-      y: Math.round((y / rect.height) * 100)
-    });
+    mouseTiltRef.current = { x: rotX, y: rotY };
+
+    if (mockupWindowRef.current) {
+      mockupWindowRef.current.style.setProperty('--mouse-x', `${Math.round((x / rect.width) * 100)}%`);
+      mockupWindowRef.current.style.setProperty('--mouse-y', `${Math.round((y / rect.height) * 100)}%`);
+    }
   };
 
   const handleMouseLeave = () => {
-    setRotate({ x: 10, y: -14 });
+    mouseTiltRef.current = { x: 10, y: -14 };
   };
 
   const handleRunDemo = () => {
@@ -297,12 +326,12 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Ambient Glow Orbs with Parallax Float */}
       <div 
+        ref={bgOrb1Ref}
         className={styles.bgGlowOrb} 
-        style={{ transform: `translateY(${scrollY * 0.22}px)` }} 
       />
       <div 
+        ref={bgOrb2Ref}
         className={styles.bgGlowOrbSecondary} 
-        style={{ transform: `translateY(${scrollY * 0.35}px)` }} 
       />
 
       {/* Main Navbar - Centered Navigation Grid */}
@@ -419,12 +448,10 @@ export const HomePage: React.FC<HomePageProps> = ({
         >
           {/* The 3D Tilted Editor Window with dynamic Scroll + Mouse Parallax */}
           <div 
+            ref={mockupWindowRef}
             className={styles.mockup3DWindow}
             style={{
-              transform: `translateY(${scrollY * 0.12}px) scale(${Math.max(1 - scrollY * 0.0002, 0.95)}) rotateX(${rotate.x - Math.min(scrollY * 0.015, 12)}deg) rotateY(${rotate.y + Math.min(scrollY * 0.012, 10)}deg) rotateZ(1.5deg)`,
-              // Dynamic specular shine position
-              ['--mouse-x' as string]: `${mousePos.x}%`,
-              ['--mouse-y' as string]: `${mousePos.y}%`,
+              transform: 'translate3d(0, 0, 0) scale(1) rotateX(10deg) rotateY(-14deg) rotateZ(1.5deg)',
             }}
           >
             {/* Dynamic Specular Light Layer */}
