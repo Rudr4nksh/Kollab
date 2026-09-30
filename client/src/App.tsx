@@ -8,7 +8,6 @@ import {
   getOrCreateUserId 
 } from './services/api.ts';
 import { getParticipantColor } from './services/colors.ts';
-import { createDefaultProject } from './services/fileUtils.ts';
 import type { 
   Participant, 
   ActivityEvent, 
@@ -26,8 +25,8 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Multi-file workspace state
-  const [files, setFiles] = useState<FileNode[]>(() => createDefaultProject('web'));
+  // Multi-file workspace state - starts empty as requested
+  const [files, setFiles] = useState<FileNode[]>([]);
 
   const [connectionState] = useState<ConnectionState>('connected');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -89,10 +88,19 @@ export const App: React.FC = () => {
       setHasPasscode(!!res.room?.hasPassword);
 
       if (res.documentContent) {
-        // If single document was persisted, sync it to main file
-        setFiles((prev) =>
-          prev.map((f, idx) => (idx === 0 ? { ...f, content: res.documentContent } : f))
-        );
+        // If single document was persisted in existing room
+        setFiles([
+          {
+            id: 'file_main',
+            name: 'main.js',
+            path: '/main.js',
+            type: 'file',
+            language: 'javascript',
+            content: res.documentContent,
+          },
+        ]);
+      } else {
+        setFiles([]);
       }
 
       const myParticipant: Participant = {
@@ -146,9 +154,8 @@ export const App: React.FC = () => {
       setActiveRoomId(res.room.roomId);
       setHasPasscode(res.room.hasPassword);
 
-      // Initialize clean workspace
-      const starterFiles = createDefaultProject('web');
-      setFiles(starterFiles);
+      // Initialize clean workspace - starts empty so user creates project folder
+      setFiles([]);
 
       const myParticipant: Participant = {
         id: userId,

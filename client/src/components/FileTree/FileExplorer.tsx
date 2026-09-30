@@ -205,12 +205,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 </button>
               )}
               <button
-                className={styles.actionBtn}
+                className={`${styles.actionBtn} ${styles.deleteBtn}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteNode(node.path);
                 }}
-                title="Delete"
+                title={isFolder ? 'Delete folder' : 'Delete file'}
               >
                 <Trash2 size={12} />
               </button>
@@ -274,6 +274,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         </button>
 
         <input
+          id="workspace-folder-picker"
           ref={fileInputRef}
           type="file"
           // @ts-ignore

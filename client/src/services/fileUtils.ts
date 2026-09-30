@@ -193,3 +193,17 @@ export function updateFileContentInTree(nodes: FileNode[], path: string, newCont
     return node;
   });
 }
+
+/**
+ * Recursively find the first file (non-folder) in the tree
+ */
+export function findFirstFileNode(nodes: FileNode[]): FileNode | null {
+  for (const node of nodes) {
+    if (node.type === 'file') return node;
+    if (node.children && node.children.length > 0) {
+      const found = findFirstFileNode(node.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}

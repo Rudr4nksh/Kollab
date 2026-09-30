@@ -10,7 +10,12 @@ import {
   PanelRightClose,
   PanelRight,
   Copy,
-  Check
+  Check,
+  FolderPlus,
+  Folder,
+  FilePlus,
+  Upload,
+  FileCode
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -31,7 +36,8 @@ import type {
 import { 
   findFileByPath, 
   updateFileContentInTree, 
-  getLanguageFromFilename 
+  getLanguageFromFilename,
+  findFirstFileNode
 } from '../../services/fileUtils.ts';
 import styles from './WorkspacePage.module.css';
 
@@ -86,8 +92,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     return files.slice(0, 3);
   });
   const [activeFilePath, setActiveFilePath] = useState<string>(() => {
-    return files[0]?.path || '/index.html';
+    return files[0]?.path || '';
   });
+  const [newProjectName, setNewProjectName] = useState('project');
 
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(true);
@@ -101,17 +108,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     },
   ]);
 
-  const activeFile = findFileByPath(files, activeFilePath) || files[0] || {
-    id: 'temp',
-    name: 'untitled.txt',
-    path: '/untitled.txt',
-    type: 'file',
-    content: '',
-    language: 'plaintext',
-  };
+  const activeFile = activeFilePath ? findFileByPath(files, activeFilePath) : null;
 
   // Switch or open a file
   const handleSelectFile = (file: FileNode) => {
+    if (file.type !== 'file') return;
     setActiveFilePath(file.path);
     if (!openFiles.some((f) => f.path === file.path)) {
       setOpenFiles((prev) => [...prev, file]);
@@ -126,8 +127,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     if (activeFilePath === path) {
       if (remaining.length > 0) {
         setActiveFilePath(remaining[remaining.length - 1].path);
-      } else if (files.length > 0) {
-        setActiveFilePath(files[0].path);
+      } else {
+        setActiveFilePath('');
       }
     }
   };
@@ -206,19 +207,81 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     }
   };
 
-  // Delete node
+  // Delete node (file or directory)
   const handleDeleteNode = (path: string) => {
+    const targetPath = path.trim().replace(/\/+$/, '') || '/';
+    const isTargetOrDescendant = (nodePath: string) => {
+      const clean = nodePath.trim().replace(/\/+$/, '') || '/';
+      return clean === targetPath || clean.startsWith(targetPath + '/');
+    };
+
     const deleteRecursive = (nodes: FileNode[]): FileNode[] => {
       return nodes
-        .filter((n) => n.path !== path)
+        .filter((n) => n.path !== targetPath)
         .map((n) => (n.children ? { ...n, children: deleteRecursive(n.children) } : n));
     };
-    onFilesChange(deleteRecursive(files));
-    setOpenFiles((prev) => prev.filter((f) => f.path !== path));
+
+    const updatedFiles = deleteRecursive(files);
+    onFilesChange(updatedFiles);
+
+    // Remove deleted file or all files inside the deleted folder from open tabs
+    const remainingOpenFiles = openFiles.filter((f) => !isTargetOrDescendant(f.path));
+    setOpenFiles(remainingOpenFiles);
+
+    // If the active file was deleted or its ancestor folder was deleted
+    if (activeFilePath && isTargetOrDescendant(activeFilePath)) {
+      if (remainingOpenFiles.length > 0) {
+        setActiveFilePath(remainingOpenFiles[remainingOpenFiles.length - 1].path);
+      } else {
+        const firstFile = findFirstFileNode(updatedFiles);
+        if (firstFile) {
+          setActiveFilePath(firstFile.path);
+          setOpenFiles([firstFile]);
+        } else {
+          setActiveFilePath('');
+        }
+      }
+    }
+  };
+
+  // Helper to create root project folder and initialize with first file
+  const handleCreateProjectFolder = (folderName: string = 'project') => {
+    const clean = folderName.trim().replace(/^\/+/, '') || 'project';
+    const folderPath = `/${clean}`;
+    const initialFile: FileNode = {
+      id: 'file_' + Math.random().toString(36).substring(2, 9),
+      name: 'index.js',
+      path: `${folderPath}/index.js`,
+      type: 'file',
+      language: 'javascript',
+      content: `// Project: ${clean}\nconsole.log("Welcome to ${clean}!");\n`,
+    };
+    const newFolder: FileNode = {
+      id: 'folder_' + Math.random().toString(36).substring(2, 9),
+      name: clean,
+      path: folderPath,
+      type: 'folder',
+      isOpen: true,
+      children: [initialFile],
+    };
+
+    const nextFiles = [...files, newFolder];
+    onFilesChange(nextFiles);
+    setOpenFiles([initialFile]);
+    setActiveFilePath(initialFile.path);
+    if (onRecordActivity) {
+      onRecordActivity('folder_created', `created folder ${clean}`);
+    }
+  };
+
+  const handleCenterCreateFolderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleCreateProjectFolder(newProjectName || 'project');
   };
 
   // Run Code execution (interactive JS sandbox or simulation)
   const handleRunCode = useCallback(() => {
+    if (!activeFile) return;
     setIsRunning(true);
     setConsoleOpen(true);
 
@@ -359,6 +422,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   };
 
   const handleCopyCode = () => {
+    if (!activeFile) return;
     navigator.clipboard.writeText(activeFile.content || '');
   };
 
@@ -518,19 +582,97 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           />
 
           <div className={styles.editorArea}>
-            <CodeEditor
-              value={activeFile.content || ''}
-              language={(activeFile.language || getLanguageFromFilename(activeFile.name)) as SupportedLanguage}
-              onLanguageChange={(lang) => {
-                const updated = files.map((f) =>
-                  f.path === activeFilePath ? { ...f, language: lang } : f
-                );
-                onFilesChange(updated);
-              }}
-              onContentChange={handleContentChange}
-              participants={participants}
-              currentUserId={userId}
-            />
+            {activeFile ? (
+              <CodeEditor
+                value={activeFile.content || ''}
+                language={(activeFile.language || getLanguageFromFilename(activeFile.name)) as SupportedLanguage}
+                onLanguageChange={(lang) => {
+                  const updated = files.map((f) =>
+                    f.path === activeFilePath ? { ...f, language: lang } : f
+                  );
+                  onFilesChange(updated);
+                }}
+                onContentChange={handleContentChange}
+                participants={participants}
+                currentUserId={userId}
+              />
+            ) : files.length === 0 ? (
+              <div className={styles.emptyEditorState}>
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIconCircle}>
+                    <FolderPlus size={30} className={styles.emptyFolderIcon} />
+                  </div>
+                  <h2 className={styles.emptyTitle}>create the project folder to start</h2>
+                  <p className={styles.emptySubtitle}>
+                    Collaborate on multi-file code in real-time. Create your root project directory or open an existing local project.
+                  </p>
+
+                  <form onSubmit={handleCenterCreateFolderSubmit} className={styles.emptyForm}>
+                    <div className={styles.inputWrapper}>
+                      <Folder size={14} className={styles.inputFolderIcon} />
+                      <input
+                        type="text"
+                        className={styles.emptyFolderInput}
+                        placeholder="project-name (e.g. my-app, src)"
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                    <button type="submit" className={styles.createFolderPrimaryBtn}>
+                      <FolderPlus size={14} />
+                      <span>Create Project Folder</span>
+                    </button>
+                  </form>
+
+                  <div className={styles.emptyDivider}>
+                    <span>or</span>
+                  </div>
+
+                  <div className={styles.emptyActionRow}>
+                    <button
+                      type="button"
+                      className={styles.emptySecondaryBtn}
+                      onClick={() => handleCreateFile('main.js')}
+                    >
+                      <FilePlus size={13} />
+                      <span>New File</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.emptySecondaryBtn}
+                      onClick={() => {
+                        const input = document.getElementById('workspace-folder-picker') as HTMLInputElement;
+                        input?.click();
+                      }}
+                    >
+                      <Upload size={13} />
+                      <span>Open Folder</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.emptyEditorState}>
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIconCircle}>
+                    <FileCode size={30} className={styles.emptyFileIcon} />
+                  </div>
+                  <h3 className={styles.emptyTitle}>No file open</h3>
+                  <p className={styles.emptySubtitle}>
+                    Select a file from the explorer on the left or create a new file to start editing.
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.createFolderPrimaryBtn}
+                    onClick={() => handleCreateFile('index.js')}
+                  >
+                    <FilePlus size={13} />
+                    <span>Create New File</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bottom Console / Output */}
@@ -539,7 +681,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             onClearLogs={() => setLogs([])}
             onExecuteCommand={handleExecuteCommand}
             files={files}
-            activeFileContent={activeFile.content}
+            activeFileContent={activeFile?.content || ''}
             isOpen={consoleOpen}
             onToggleOpen={() => setConsoleOpen(!consoleOpen)}
           />
