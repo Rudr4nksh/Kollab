@@ -56,6 +56,15 @@ export function getFileBadgeInfo(filename: string): { label: string; color: stri
       return { label: 'HTML', color: '#FB923C', bg: 'rgba(251, 146, 60, 0.15)' };
     case 'css':
       return { label: 'CSS', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+    case 'cpp':
+    case 'cc':
+    case 'cxx':
+    case 'c':
+    case 'h':
+    case 'hpp':
+      return { label: 'C++', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
+    case 'java':
+      return { label: 'JAVA', color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)' };
     case 'json':
       return { label: '{}', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
     case 'md':

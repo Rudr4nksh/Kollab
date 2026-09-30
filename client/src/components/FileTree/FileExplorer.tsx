@@ -4,7 +4,6 @@ import {
   ChevronDown, 
   Folder, 
   FolderOpen, 
-  Plus, 
   Upload, 
   FilePlus, 
   FolderPlus, 
@@ -40,7 +39,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     '/app': true,
     '/src': true,
   });
-  const [showNewMenu, setShowNewMenu] = useState(false);
   const [creatingType, setCreatingType] = useState<'file' | 'folder' | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [targetParentPath, setTargetParentPath] = useState<string | undefined>();
@@ -57,7 +55,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     setCreatingType(type);
     setTargetParentPath(parentPath);
     setNewItemName('');
-    setShowNewMenu(false);
+    if (parentPath) {
+      setOpenFolders((prev) => ({ ...prev, [parentPath]: true }));
+    }
   };
 
   const handleConfirmCreate = (e: React.FormEvent) => {
@@ -101,7 +101,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           // It's a file
           const reader = new FileReader();
           reader.onload = (event) => {
-            const content = event.target?.result as string || '';
+            const content = (event.target?.result as string) || '';
             const fileNode: FileNode = {
               id: 'file_' + Math.random().toString(36).substring(2, 9),
               name: part,
@@ -145,86 +145,154 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     });
   };
 
-  const renderTree = (nodes: FileNode[], depth = 0) => {
-    return nodes.map((node) => {
-      const isFolder = node.type === 'folder';
-      const isOpen = openFolders[node.path] ?? node.isOpen ?? true;
-      const isActive = !isFolder && activeFilePath === node.path;
-      const badge = !isFolder ? getFileBadgeInfo(node.name) : null;
+  const renderInlineCreateInput = (depth: number) => {
+    const liveBadge = creatingType === 'file' && newItemName.includes('.')
+      ? getFileBadgeInfo(newItemName)
+      : null;
 
-      return (
-        <div key={node.id} className={styles.treeItemWrapper}>
-          <div
-            className={`${styles.treeItem} ${isActive ? styles.activeTreeItem : ''}`}
-            style={{ paddingLeft: `${depth * 14 + 10}px` }}
-            onClick={(e) => {
-              if (isFolder) {
-                toggleFolder(node.path, e);
-              } else {
-                onSelectFile(node);
+    return (
+      <div
+        key="inline-create-row"
+        className={styles.inlineCreateRow}
+        style={{ paddingLeft: `${depth * 14 + 10}px` }}
+      >
+        <span className={styles.fileSpacer} />
+        {creatingType === 'file' ? (
+          liveBadge ? (
+            <span
+              className={styles.fileTypeBadge}
+              style={{ color: liveBadge.color, backgroundColor: liveBadge.bg }}
+            >
+              {liveBadge.label}
+            </span>
+          ) : (
+            <FileCode size={13} className={styles.createIcon} />
+          )
+        ) : (
+          <Folder size={14} className={styles.folderIcon} />
+        )}
+        <form onSubmit={handleConfirmCreate} className={styles.inlineCreateForm}>
+          <input
+            type="text"
+            className={styles.inlineCreateInput}
+            placeholder={creatingType === 'file' ? 'filename.ext (e.g. index.js, main.cpp)' : 'folder-name'}
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setCreatingType(null);
+                setNewItemName('');
               }
             }}
-          >
-            {isFolder ? (
-              <span className={styles.chevronIcon} onClick={(e) => toggleFolder(node.path, e)}>
-                {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-              </span>
-            ) : (
-              <span className={styles.fileSpacer} />
-            )}
+            onBlur={() => {
+              if (!newItemName.trim()) {
+                setCreatingType(null);
+              }
+            }}
+            autoFocus
+          />
+        </form>
+      </div>
+    );
+  };
 
-            {isFolder ? (
-              isOpen ? (
-                <FolderOpen size={14} className={styles.folderIcon} />
-              ) : (
-                <Folder size={14} className={styles.folderIcon} />
-              )
-            ) : (
-              <span
-                className={styles.fileTypeBadge}
-                style={{ color: badge?.color, backgroundColor: badge?.bg }}
-              >
-                {badge?.label}
-              </span>
-            )}
+  const renderTree = (nodes: FileNode[], depth = 0, currentParentPath?: string) => {
+    return (
+      <>
+        {creatingType && targetParentPath === currentParentPath && renderInlineCreateInput(depth)}
+        {nodes.map((node) => {
+          const isFolder = node.type === 'folder';
+          const isOpen = openFolders[node.path] ?? node.isOpen ?? true;
+          const isActive = !isFolder && activeFilePath === node.path;
+          const badge = !isFolder ? getFileBadgeInfo(node.name) : null;
 
-            <span className={styles.nodeName}>{node.name}</span>
-
-            {/* Hover Actions */}
-            <div className={styles.hoverActions}>
-              {isFolder && (
-                <button
-                  className={styles.actionBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartCreate('file', node.path);
-                  }}
-                  title="New File in folder"
-                >
-                  <Plus size={12} />
-                </button>
-              )}
-              <button
-                className={`${styles.actionBtn} ${styles.deleteBtn}`}
+          return (
+            <div key={node.id} className={styles.treeItemWrapper}>
+              <div
+                className={`${styles.treeItem} ${isActive ? styles.activeTreeItem : ''}`}
+                style={{ paddingLeft: `${depth * 14 + 10}px` }}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteNode(node.path);
+                  if (isFolder) {
+                    toggleFolder(node.path, e);
+                  } else {
+                    onSelectFile(node);
+                  }
                 }}
-                title={isFolder ? 'Delete folder' : 'Delete file'}
               >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          </div>
+                {isFolder ? (
+                  <span className={styles.chevronIcon} onClick={(e) => toggleFolder(node.path, e)}>
+                    {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  </span>
+                ) : (
+                  <span className={styles.fileSpacer} />
+                )}
 
-          {isFolder && isOpen && node.children && (
-            <div className={styles.nestedChildren}>
-              {renderTree(node.children, depth + 1)}
+                {isFolder ? (
+                  isOpen ? (
+                    <FolderOpen size={14} className={styles.folderIcon} />
+                  ) : (
+                    <Folder size={14} className={styles.folderIcon} />
+                  )
+                ) : (
+                  <span
+                    className={styles.fileTypeBadge}
+                    style={{ color: badge?.color, backgroundColor: badge?.bg }}
+                  >
+                    {badge?.label}
+                  </span>
+                )}
+
+                <span className={styles.nodeName}>{node.name}</span>
+
+                {/* Hover Actions */}
+                <div className={styles.hoverActions}>
+                  {isFolder && (
+                    <>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartCreate('file', node.path);
+                        }}
+                        title="New File in folder (e.g. main.cpp, script.js)"
+                      >
+                        <FilePlus size={12} />
+                      </button>
+                      <button
+                        className={styles.actionBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartCreate('folder', node.path);
+                        }}
+                        title="New Folder in folder"
+                      >
+                        <FolderPlus size={12} />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteNode(node.path);
+                    }}
+                    title={isFolder ? 'Delete folder' : 'Delete file'}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {isFolder && isOpen && (
+                <div className={styles.nestedChildren}>
+                  {renderTree(node.children || [], depth + 1, node.path)}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      );
-    });
+          );
+        })}
+      </>
+    );
   };
 
   return (
@@ -235,43 +303,37 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       onDrop={(e) => {
         e.preventDefault();
         setIsDragOver(false);
-        // Drag-and-drop folder handling
       }}
     >
-      {/* Top Header matching reference */}
+      {/* Top Header matching VS Code Explorer */}
       <div className={styles.header}>
-        <div className={styles.newButtonContainer}>
+        <span className={styles.headerTitle}>EXPLORER</span>
+
+        <div className={styles.headerActions}>
           <button
-            className={styles.newPillBtn}
-            onClick={() => setShowNewMenu(!showNewMenu)}
+            className={styles.headerActionBtn}
+            onClick={() => handleStartCreate('file')}
+            title="New File (e.g. index.js, main.cpp, style.css)"
           >
-            <span>New</span>
-            <Plus size={14} />
+            <FilePlus size={14} />
           </button>
 
-          {showNewMenu && (
-            <div className={styles.newMenuDropdown}>
-              <button onClick={() => handleStartCreate('file')}>
-                <FilePlus size={13} />
-                <span>New File</span>
-              </button>
-              <button onClick={() => handleStartCreate('folder')}>
-                <FolderPlus size={13} />
-                <span>New Folder</span>
-              </button>
-            </div>
-          )}
-        </div>
+          <button
+            className={styles.headerActionBtn}
+            onClick={() => handleStartCreate('folder')}
+            title="New Folder..."
+          >
+            <FolderPlus size={14} />
+          </button>
 
-        {/* Project folder upload / dropdown button */}
-        <button
-          className={styles.openFolderBtn}
-          onClick={() => fileInputRef.current?.click()}
-          title="Open project folder from computer"
-        >
-          <Upload size={12} />
-          <span>Open Folder</span>
-        </button>
+          <button
+            className={styles.headerActionBtn}
+            onClick={() => fileInputRef.current?.click()}
+            title="Open Folder from computer"
+          >
+            <Upload size={14} />
+          </button>
+        </div>
 
         <input
           id="workspace-folder-picker"
@@ -286,35 +348,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         />
       </div>
 
-      {/* Inline Create Input Form */}
-      {creatingType && (
-        <form onSubmit={handleConfirmCreate} className={styles.inlineCreateForm}>
-          <span className={styles.createIcon}>
-            {creatingType === 'file' ? <FileCode size={13} /> : <Folder size={13} />}
-          </span>
-          <input
-            type="text"
-            className={styles.createInput}
-            placeholder={creatingType === 'file' ? 'filename.js' : 'folder-name'}
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            autoFocus
-            onBlur={() => {
-              if (!newItemName.trim()) setCreatingType(null);
-            }}
-          />
-        </form>
-      )}
-
       {/* File Tree List */}
       <div className={styles.treeList}>
-        {files.length === 0 ? (
+        {files.length === 0 && !creatingType ? (
           <div className={styles.emptyTree}>
             <p>Workspace is empty</p>
-            <span>Click "New +" or Open Folder to add files</span>
+            <span>Click the New File or Folder icon above to start</span>
           </div>
         ) : (
-          renderTree(files)
+          renderTree(files, 0, undefined)
         )}
       </div>
     </div>
