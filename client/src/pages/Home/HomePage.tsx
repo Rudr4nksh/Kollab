@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Plus, 
   ArrowRight, 
@@ -8,7 +8,7 @@ import {
   Terminal, 
   Users, 
   Play, 
-  Sparkles,
+  Zap,
   X
 } from 'lucide-react';
 import { Input } from '../../components/UI/Input.tsx';
@@ -33,6 +33,30 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [roomId, setRoomId] = useState('');
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // 3D Interactive Parallax on the Code Window
+  const [rotate, setRotate] = useState({ x: 12, y: -16 });
+  const mockupRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!mockupRef.current) return;
+    const rect = mockupRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Calculate subtle 3D tilt offset from base isometric angle
+    const rotX = 12 - ((y - centerY) / centerY) * 10;
+    const rotY = -16 + ((x - centerX) / centerX) * 12;
+
+    setRotate({ x: rotX, y: rotY });
+  };
+
+  const handleMouseLeave = () => {
+    // Return to default cinematic isometric angle
+    setRotate({ x: 12, y: -16 });
+  };
 
   const handleOpenModal = (mode: 'create' | 'join', initialRoomId: string = '') => {
     setModalMode(mode);
@@ -71,6 +95,11 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   return (
     <div className={styles.landingPage}>
+      {/* Background Matrix Grid */}
+      <div className={styles.bgGrid} />
+      <div className={styles.bgGlowOrb} />
+      <div className={styles.bgGlowOrbSecondary} />
+
       {/* Top Navbar */}
       <nav className={styles.navBar}>
         <div className={styles.navBrand}>
@@ -84,9 +113,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           <span className={styles.brandTitle}>Kollab</span>
         </div>
 
+        {/* Centered Navigation */}
         <div className={styles.navLinks}>
           <a href="#features">Features</a>
-          <a href="#how-it-works">How It Works</a>
+          <a href="#workflow">Workflow</a>
           <a 
             href="https://github.com/Rudr4nksh/Kollab" 
             target="_blank" 
@@ -111,34 +141,36 @@ export const HomePage: React.FC<HomePageProps> = ({
             className={styles.navCreateBtn}
             onClick={() => handleOpenModal('create')}
           >
-            Launch Workspace
+            New Workspace
           </button>
         </div>
       </nav>
 
       {/* Hero Section */}
       <section className={styles.heroSection}>
-        <div className={styles.heroTag}>
-          <Sparkles size={12} />
-          <span>Real-Time Code Collaboration</span>
+        <div className={styles.badgeWrapper}>
+          <div className={styles.heroBadge}>
+            <span className={styles.pulseDot} />
+            <span>Built by students, for students. No Discord lag.</span>
+          </div>
         </div>
 
         <h1 className={styles.heroHeading}>
-          Live collaborative code editor <br />
-          <span className={styles.heroGradient}>built for students &amp; developers.</span>
+          Code together like you're <br />
+          <span className={styles.heroGradient}>sitting at the same keyboard.</span>
         </h1>
 
         <p className={styles.heroSubtext}>
-          Open a persistent virtual room, drop in your project folder, and simultaneously edit 
-          code with remote cursors, live syntax highlighting, and an integrated console. Zero installation required.
+          Drop in your local project folder, share a 5-digit room ID, and collaborate in a high-performance 
+          dark slate IDE with real-time CRDT sync and in-browser execution.
         </p>
 
-        {/* Quick Launch Action Bar */}
+        {/* Quick Launch Bar */}
         <div className={styles.quickBar}>
           <input
             type="text"
             className={styles.quickInput}
-            placeholder="Your name (e.g. Alex)"
+            placeholder="Enter your name (e.g. Alex)"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -153,21 +185,47 @@ export const HomePage: React.FC<HomePageProps> = ({
             }}
           >
             <Plus size={14} />
-            <span>New Workspace</span>
+            <span>Create Session</span>
           </button>
           <button 
             className={styles.quickSecondaryBtn}
             onClick={() => handleOpenModal('join')}
           >
             <ArrowRight size={14} />
-            <span>Join with ID</span>
+            <span>Join Room</span>
           </button>
         </div>
 
-        {/* Realistic Interactive Mockup matching the Ceditor dark-slate screenshot */}
-        <div className={styles.mockupContainer}>
-          <div className={styles.mockupWindow}>
-            {/* Mockup Titlebar */}
+        {/* 3D Cinematic Isometric Editor Mockup */}
+        <div 
+          className={styles.perspectiveStage}
+          ref={mockupRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Floating 3D Glass Pill (Top Left) */}
+          <div className={`${styles.floatingGlassBadge} ${styles.badgeTopLeft}`}>
+            <Zap size={13} className={styles.badgeIconElectric} />
+            <span>Yjs CRDT &bull; 14ms Live Sync</span>
+          </div>
+
+          {/* Floating 3D Collaborator Tag (Bottom Right) */}
+          <div className={`${styles.floatingGlassBadge} ${styles.badgeBottomRight}`}>
+            <span className={styles.collaboratorAvatar}>S</span>
+            <div className={styles.collaboratorInfo}>
+              <span className={styles.collaboratorName}>Sam</span>
+              <span className={styles.collaboratorAction}>editing line 12...</span>
+            </div>
+          </div>
+
+          {/* The 3D Tilted Editor Window */}
+          <div 
+            className={styles.mockup3DWindow}
+            style={{
+              transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) rotateZ(3deg)`,
+            }}
+          >
+            {/* Titlebar */}
             <div className={styles.mockupTitlebar}>
               <div className={styles.mockupDots}>
                 <span className={styles.dotRed} />
@@ -176,22 +234,22 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
               <div className={styles.mockupBrand}>
                 <div className={styles.mockupBrandBadge}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="16 18 22 12 16 6" />
                     <polyline points="8 6 2 12 8 18" />
                   </svg>
                 </div>
-                <span>Kollab — Live Workspace</span>
+                <span>Kollab Workspace &bull; room-7F4K2</span>
               </div>
               <div className={styles.mockupRightStatus}>
-                <span className={styles.statusDot} />
-                <span>2 Collaborators</span>
+                <span className={styles.liveIndicatorDot} />
+                <span>2 Active Now</span>
               </div>
             </div>
 
-            {/* Mockup Body */}
+            {/* IDE Body */}
             <div className={styles.mockupBody}>
-              {/* Activity Bar Strip */}
+              {/* Activity Bar */}
               <div className={styles.mockupActivityBar}>
                 <div className={`${styles.mockupIcon} ${styles.mockupIconActive}`}>
                   <FolderTree size={14} />
@@ -204,7 +262,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
               </div>
 
-              {/* Explorer Sidebar */}
+              {/* File Tree */}
               <div className={styles.mockupExplorer}>
                 <div className={styles.mockupNewBtn}>
                   <span>New</span>
@@ -284,6 +342,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                       <span className={styles.cursorTag}>Alex</span>
                     </div>
                   </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>8</span>
+                    &nbsp;&nbsp;<span className={styles.tokenDecorator}>@override</span>
+                  </div>
+                  <div className={styles.codeLine}>
+                    <span className={styles.lineNum}>9</span>
+                    &nbsp;&nbsp;<span className={styles.tokenType}>Widget</span>{' '}
+                    <span className={styles.tokenFunc}>build</span>(BuildContext context) &#123;
+                  </div>
                 </div>
               </div>
             </div>
@@ -294,8 +361,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Features Section */}
       <section id="features" className={styles.featuresSection}>
         <div className={styles.sectionHeader}>
-          <h2>Engineered for seamless pair programming</h2>
-          <p>Everything you need for student group projects, live coding interviews, and quick code sharing.</p>
+          <div className={styles.smallSubheader}>DEVELOPER ARCHITECTURE</div>
+          <h2>Designed for actual software development</h2>
+          <p>No toy environments. Experience an authentic, multi-file IDE built on battle-tested open source tech.</p>
         </div>
 
         <div className={styles.featureCardsGrid}>
@@ -303,10 +371,10 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className={styles.cardIcon}>
               <FolderTree size={20} />
             </div>
-            <h3>Multi-File Project Explorer</h3>
+            <h3>Project Folder Drop</h3>
             <p>
-              Work with complex projects. Open or drag &amp; drop an entire project folder from your computer, 
-              manage files, and switch between open documents with tabbed navigation.
+              Drag &amp; drop an entire project directory from your computer. Kollab recursively maps your folders 
+              and files into the tree without uploading to third-party cloud lockers.
             </p>
           </div>
 
@@ -314,10 +382,10 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className={styles.cardIcon}>
               <Users size={20} />
             </div>
-            <h3>Real-Time Live Collaboration</h3>
+            <h3>CRDT Multi-User Engine</h3>
             <p>
-              Powered by CRDT synchronization. Multiple participants can type simultaneously without race conditions, 
-              view colored collaborator cursors, and track live presence.
+              Conflict-free replicated data types ensure simultaneous edits never clash or overwrite your classmate's 
+              code. See their active lines and live colored cursors.
             </p>
           </div>
 
@@ -325,37 +393,39 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className={styles.cardIcon}>
               <Terminal size={20} />
             </div>
-            <h3>Integrated Console &amp; Output</h3>
+            <h3>Integrated Console &amp; Runner</h3>
             <p>
-              Test and execute code directly in the browser with one click. View output logs, debug runtime errors, 
-              and render live HTML/CSS previews in real time.
+              Execute code with <strong>▶ Run</strong> directly in the browser. Capture console outputs, debug runtime 
+              stack traces, and test live web applications in the sandbox iframe.
             </p>
           </div>
         </div>
       </section>
 
-      {/* How it Works Section */}
-      <section id="how-it-works" className={styles.workflowSection}>
+      {/* Workflow Section */}
+      <section id="workflow" className={styles.workflowSection}>
         <div className={styles.sectionHeader}>
-          <h2>How Kollab Works</h2>
-          <p>Three simple steps to collaborate with anyone, anywhere.</p>
+          <div className={styles.smallSubheader}>HOW IT WORKS</div>
+          <h2>Zero setup. Three simple steps.</h2>
         </div>
 
         <div className={styles.stepsGrid}>
-          <div className={styles.stepItem}>
-            <div className={styles.stepNum}>01</div>
-            <h4>Create or Join a Room</h4>
-            <p>Click Launch Workspace to create a persistent room with an optional passcode, or join via Room ID.</p>
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumberBadge}>1</div>
+            <h4>Create Workspace</h4>
+            <p>Launch a room with an optional passcode. You automatically become the host.</p>
           </div>
-          <div className={styles.stepItem}>
-            <div className={styles.stepNum}>02</div>
-            <h4>Import or Add Files</h4>
-            <p>Drop your local project folder right into the file explorer or create new files with one click.</p>
+
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumberBadge}>2</div>
+            <h4>Import Your Files</h4>
+            <p>Drop your project folder or create new files in the sidebar with one click.</p>
           </div>
-          <div className={styles.stepItem}>
-            <div className={styles.stepNum}>03</div>
-            <h4>Code &amp; Run Together</h4>
-            <p>Write code simultaneously, see each other's cursor positions, and execute scripts in the console.</p>
+
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumberBadge}>3</div>
+            <h4>Code &amp; Execute</h4>
+            <p>Type simultaneously, test with the built-in console runner, and build together.</p>
           </div>
         </div>
       </section>
@@ -364,14 +434,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       <footer className={styles.footer}>
         <div className={styles.footerBrand}>
           <div className={styles.brandIconSmall}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="16 18 22 12 16 6" />
               <polyline points="8 6 2 12 8 18" />
             </svg>
           </div>
           <span>Kollab</span>
-          <span className={styles.footerMuted}>— 100% Free &amp; Open Source</span>
+          <span className={styles.footerMuted}>&bull; 100% Free &amp; Open Source</span>
         </div>
+
         <div className={styles.footerLinks}>
           <a href="https://github.com/Rudr4nksh/Kollab" target="_blank" rel="noreferrer">
             GitHub Repository
@@ -379,19 +450,19 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </footer>
 
-      {/* Modal Dialog for Launching or Joining Room */}
+      {/* Modal Dialog */}
       {modalMode && (
         <div className={styles.modalBackdrop} onClick={handleCloseModal}>
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div className={styles.modalHeaderBrand}>
                 <div className={styles.brandIconSmall}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="16 18 22 12 16 6" />
                     <polyline points="8 6 2 12 8 18" />
                   </svg>
                 </div>
-                <h3>{modalMode === 'create' ? 'Create New Workspace' : 'Join Existing Workspace'}</h3>
+                <h3>{modalMode === 'create' ? 'Create Collaborative Workspace' : 'Join Existing Workspace'}</h3>
               </div>
               <button className={styles.modalCloseBtn} onClick={handleCloseModal}>
                 <X size={16} />
@@ -426,7 +497,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               <Input
                 label={modalMode === 'join' ? 'Passcode (if protected)' : 'Passcode (optional)'}
                 type="password"
-                placeholder="Leave blank for open room"
+                placeholder="Leave blank for public room"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 leftIcon={<Shield size={14} />}
