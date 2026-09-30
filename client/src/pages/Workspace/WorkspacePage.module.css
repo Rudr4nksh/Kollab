@@ -3,114 +3,263 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-main);
+  background-color: var(--bg-activity-bar);
   overflow: hidden;
 }
 
-.mainLayout {
+/* Top Header Bar */
+.topHeader {
+  height: 42px;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  user-select: none;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.brandName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.separator {
+  width: 1px;
+  height: 16px;
+  background-color: var(--border-subtle);
+}
+
+.roomBadge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--bg-surface-elevated);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.roomPrefix {
+  color: var(--text-muted);
+}
+
+.roomId {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.lockIcon {
+  color: var(--accent-amber);
+}
+
+.headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.statusDot.connected {
+  background-color: var(--status-connected);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
+}
+
+.statusDot.offline {
+  background-color: var(--status-offline);
+}
+
+.statusText {
+  color: var(--text-secondary);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hostPill {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #38BDF8;
+  background-color: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.05em;
+}
+
+.iconNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  transition: all var(--transition-fast);
+}
+
+.iconNavBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+/* Main IDE Body */
+.ideBody {
   display: flex;
   flex: 1;
   min-height: 0;
-  padding: 12px;
-  gap: 12px;
-  background-color: var(--bg-main);
+  overflow: hidden;
+}
+
+/* 1. Left Activity Bar */
+.activityBar {
+  width: 44px;
+  background-color: var(--bg-activity-bar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 4px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.activityIcon {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.activityIcon:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-elevated);
+}
+
+.activeActivity {
+  color: var(--accent-cyan) !important;
+  background-color: var(--bg-surface-elevated);
+}
+
+/* Blue vertical pill indicator on the left edge from reference */
+.activePill {
+  position: absolute;
+  left: -4px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background-color: var(--accent-blue);
+  border-radius: 0 2px 2px 0;
+}
+
+/* 2. Left Sidebar (File Explorer) */
+.leftSidebar {
+  width: 230px;
+  flex-shrink: 0;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 3. Center Canvas */
+.centerCanvas {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-editor);
+  overflow: hidden;
 }
 
 .editorArea {
   flex: 1;
-  min-width: 0;
-  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg-editor);
 }
 
-.sidebar {
-  width: 280px;
+/* 4. Right Sidebar (Updates & Participants) */
+.rightSidebar {
+  width: 260px;
   flex-shrink: 0;
+  background-color: var(--bg-sidebar);
+  border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
   overflow: hidden;
-  transition: width var(--transition-normal), opacity var(--transition-normal);
 }
 
-.sidebarClosed {
-  width: 0;
-  opacity: 0;
-  pointer-events: none;
-  border: none;
-  padding: 0;
-  margin: 0;
+.rightParticipantsSection {
+  flex-shrink: 0;
+  max-height: 40%;
+  overflow-y: auto;
 }
 
-.panelSection {
-  display: flex;
-  flex-direction: column;
-}
-
-.activitySection {
+.rightActivitySection {
   flex: 1;
   min-height: 0;
+  border-top: 1px solid var(--border-subtle);
+  overflow-y: auto;
 }
 
-/* Mobile Tab Navigation */
-.mobileNav {
-  display: none;
-  height: 40px;
-  background-color: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-  align-items: center;
-  justify-content: space-around;
-  padding: 0 8px;
-  user-select: none;
-}
-
-.mobileTab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-}
-
-.mobileTab.activeTab {
-  color: #FFFFFF;
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-}
-
-/* Responsive Breakpoints */
-@media (max-width: 900px) {
-  .sidebar {
-    width: 240px;
+/* Responsive */
+@media (max-width: 960px) {
+  .rightSidebar {
+    width: 220px;
   }
 }
 
-@media (max-width: 720px) {
-  .mainLayout {
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .mobileNav {
-    display: flex;
-  }
-
-  .sidebar {
-    width: 100%;
-  }
-
-  .mobileHidden {
-    display: none !important;
-  }
-
-  .mobileHiddenAside {
-    display: none !important;
+@media (max-width: 760px) {
+  .rightSidebar {
+    display: none;
   }
 }

@@ -6,7 +6,10 @@ export type SupportedLanguage =
   | 'cpp' 
   | 'java' 
   | 'plaintext' 
-  | 'markdown';
+  | 'markdown'
+  | 'css'
+  | 'json'
+  | 'dart';
 
 export type UserRole = 'host' | 'participant';
 
@@ -33,6 +36,7 @@ export interface Participant {
   color: string;
   joinedAt: number;
   currentLine?: number;
+  activeFilePath?: string;
   cursor?: CursorPosition;
   selection?: SelectionRange;
 }
@@ -44,7 +48,9 @@ export type ActivityType =
   | 'edit' 
   | 'language' 
   | 'host_transfer' 
-  | 'kicked';
+  | 'kicked'
+  | 'file_created'
+  | 'run_code';
 
 export interface ActivityEvent {
   id: string;
@@ -72,6 +78,7 @@ export interface CreateRoomPayload {
   passcode?: string;
   displayName: string;
   language?: SupportedLanguage;
+  template?: 'web' | 'python' | 'javascript' | 'blank';
 }
 
 export interface JoinRoomPayload {
@@ -82,3 +89,21 @@ export interface JoinRoomPayload {
 }
 
 export type ConnectionState = 'connected' | 'reconnecting' | 'offline';
+
+export interface FileNode {
+  id: string;
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  content?: string;
+  language?: SupportedLanguage;
+  children?: FileNode[];
+  isOpen?: boolean;
+}
+
+export interface ConsoleLogItem {
+  id: string;
+  type: 'stdout' | 'stderr' | 'info' | 'system' | 'result';
+  text: string;
+  timestamp: string;
+}

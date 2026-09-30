@@ -8,11 +8,12 @@ import {
   getOrCreateUserId 
 } from './services/api.ts';
 import { getParticipantColor } from './services/colors.ts';
+import { createDefaultProject } from './services/fileUtils.ts';
 import type { 
   Participant, 
   ActivityEvent, 
   ConnectionState, 
-  SupportedLanguage 
+  FileNode 
 } from './types/index.ts';
 import type { ToastMessage } from './components/UI/Toast.tsx';
 
@@ -25,9 +26,9 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Workspace state
-  const [language, setLanguage] = useState<SupportedLanguage>('html');
-  const [documentContent, setDocumentContent] = useState<string>('');
+  // Multi-file workspace state
+  const [files, setFiles] = useState<FileNode[]>(() => createDefaultProject('web'));
+
   const [connectionState] = useState<ConnectionState>('connected');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
@@ -45,7 +46,21 @@ export const App: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Check URL param on mount (e.g., /?room=demo123)
+  const saveRecentRoom = (roomId: string, name: string) => {
+    try {
+      const stored = localStorage.getItem('kollab_recent_workspaces');
+      const recents = stored ? JSON.parse(stored) : [];
+      const updated = [
+        { roomId, name, timestamp: Date.now() },
+        ...recents.filter((r: any) => r.roomId !== roomId),
+      ].slice(0, 10);
+      localStorage.setItem('kollab_recent_workspaces', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Check URL query on mount (?room=demo123)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
@@ -72,14 +87,14 @@ export const App: React.FC = () => {
       setIsHost(!!res.isHost);
       setActiveRoomId(res.room?.roomId || roomId);
       setHasPasscode(!!res.room?.hasPassword);
-      if (res.room?.language) {
-        setLanguage(res.room.language);
-      }
+
       if (res.documentContent) {
-        setDocumentContent(res.documentContent);
+        // If single document was persisted, sync it to main file
+        setFiles((prev) =>
+          prev.map((f, idx) => (idx === 0 ? { ...f, content: res.documentContent } : f))
+        );
       }
 
-      // Initialize local user in participants list
       const myParticipant: Participant = {
         id: userId,
         socketId: 'local',
@@ -91,7 +106,6 @@ export const App: React.FC = () => {
       };
       setParticipants([myParticipant]);
 
-      // Add join activity
       const joinActivity: ActivityEvent = {
         id: 'act_' + Date.now(),
         roomId,
@@ -103,6 +117,7 @@ export const App: React.FC = () => {
       };
       setActivities([joinActivity]);
 
+      saveRecentRoom(roomId, name);
       window.history.pushState({}, '', `?room=${encodeURIComponent(roomId)}`);
       addToast('success', `Joined workspace ${roomId}`);
     } catch (err: any) {
@@ -112,7 +127,12 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleCreate = async (name: string, customRoomId?: string, passcode?: string) => {
+  const handleCreate = async (
+    name: string,
+    customRoomId?: string,
+    passcode?: string,
+    template: string = 'web'
+  ) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -126,10 +146,10 @@ export const App: React.FC = () => {
       setIsHost(true);
       setActiveRoomId(res.room.roomId);
       setHasPasscode(res.room.hasPassword);
-      setLanguage(res.room.language);
 
-      const defaultHtml = `<style>\n  .workspace {\n    background-color: #0E0F16;\n    color: #F2F2F5;\n    font-family: 'JetBrains Mono', monospace;\n    padding: 20px;\n  }\n</style>\n\n<script>\n  console.log("Welcome to Kollab!");\n</script>\n\n<div class=\"workspace\">\n  <h1>Collaborate. Code. Learn together.</h1>\n</div>\n`;
-      setDocumentContent(defaultHtml);
+      // Initialize project template
+      const starterFiles = createDefaultProject(template);
+      setFiles(starterFiles);
 
       const myParticipant: Participant = {
         id: userId,
@@ -153,6 +173,7 @@ export const App: React.FC = () => {
       };
       setActivities([createdActivity]);
 
+      saveRecentRoom(res.room.roomId, name);
       window.history.pushState({}, '', `?room=${encodeURIComponent(res.room.roomId)}`);
       addToast('success', `Created workspace ${res.room.roomId}`);
     } catch (err: any) {
@@ -167,31 +188,17 @@ export const App: React.FC = () => {
     window.history.pushState({}, '', window.location.pathname);
   };
 
-  const handleLanguageChange = (newLang: SupportedLanguage) => {
-    setLanguage(newLang);
-    addToast('info', `Switched language to ${newLang.toUpperCase()}`);
-    setActivities((prev) => [
-      {
-        id: 'act_' + Date.now(),
-        roomId: activeRoomId || '',
-        type: 'language',
-        userId,
-        userName: displayName,
-        details: newLang.toUpperCase(),
-        timestamp: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-  };
-
-  const handleContentChange = (val: string) => {
-    setDocumentContent(val);
-  };
-
-  const handleCursorChange = (line: number, _column: number) => {
-    setParticipants((prev) =>
-      prev.map((p) => (p.id === userId ? { ...p, currentLine: line } : p))
-    );
+  const handleRecordActivity = (type: string, details?: string) => {
+    const act: ActivityEvent = {
+      id: 'act_' + Date.now(),
+      roomId: activeRoomId || '',
+      type: type as any,
+      userId,
+      userName: displayName,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+    setActivities((prev) => [act, ...prev]);
   };
 
   return (
@@ -213,14 +220,12 @@ export const App: React.FC = () => {
           connectionState={connectionState}
           participants={participants}
           activities={activities}
-          initialContent={documentContent}
-          initialLanguage={language}
-          onContentChange={handleContentChange}
-          onLanguageChange={handleLanguageChange}
-          onCursorChange={handleCursorChange}
+          files={files}
+          onFilesChange={setFiles}
           onLeaveRoom={handleLeaveRoom}
           toasts={toasts}
           onDismissToast={handleDismissToast}
+          onRecordActivity={handleRecordActivity}
         />
       )}
     </div>

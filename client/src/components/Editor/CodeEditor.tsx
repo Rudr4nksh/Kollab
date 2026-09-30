@@ -131,6 +131,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       java: 'java',
       markdown: 'md',
       plaintext: 'txt',
+      dart: 'dart',
+      css: 'css',
+      json: 'json',
     };
     const ext = extMap[language] || 'txt';
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });

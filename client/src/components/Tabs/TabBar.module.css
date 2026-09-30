@@ -1,0 +1,168 @@
+.tabBar {
+  height: 38px;
+  background-color: var(--bg-activity-bar);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 6px;
+  user-select: none;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.navControls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.navBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-elevated);
+}
+
+.tabsContainer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  overflow-x: auto;
+  min-width: 0;
+  padding-bottom: 1px;
+}
+
+.tabsContainer::-webkit-scrollbar {
+  height: 0px;
+}
+
+/* Floating Rounded Tabs matching Ceditor screenshot */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  height: 28px;
+  background-color: var(--bg-tab-inactive);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border-color: #2F3946;
+}
+
+.activeTab {
+  background-color: var(--bg-tab-active) !important;
+  color: #FFFFFF !important;
+  border-color: #38475C !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.fileBadge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.tabName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.closeTabBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  border-radius: 3px;
+  margin-left: 2px;
+  transition: all var(--transition-fast);
+}
+
+.closeTabBtn:hover {
+  color: #FFFFFF;
+  background-color: rgba(248, 113, 113, 0.3);
+}
+
+/* Right Actions: Run & Copy */
+.rightActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.runBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  background-color: var(--accent-blue);
+  color: #FFFFFF;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all var(--transition-fast);
+}
+
+.runBtn:hover:not(:disabled) {
+  background-color: var(--accent-blue-hover);
+  transform: translateY(-1px);
+}
+
+.runBtn:disabled {
+  opacity: 0.6;
+}
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.copyBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+.copyBtn.copied {
+  color: var(--status-connected);
+  border-color: rgba(74, 222, 128, 0.3);
+}

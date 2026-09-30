@@ -1,0 +1,248 @@
+.consolePanel {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+  overflow: hidden;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.collapsedBar {
+  height: 28px;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+.collapsedBar:hover {
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-primary);
+}
+
+.collapsedLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logCount {
+  background-color: var(--bg-surface-elevated);
+  color: var(--accent-cyan);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.expandBtn {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.header {
+  height: 30px;
+  background-color: var(--bg-activity-bar);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.tabsGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.tabBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-sidebar);
+}
+
+.activeTab {
+  color: var(--accent-cyan);
+  font-weight: 600;
+  border-bottom: 2px solid var(--accent-blue);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.actionBtn:hover {
+  color: var(--text-primary);
+}
+
+.contentBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-sidebar);
+}
+
+.logList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  user-select: text;
+}
+
+.emptyLogs {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.logLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.logTime {
+  color: var(--text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.logPrefix {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.logText {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  flex: 1;
+}
+
+/* Log Types */
+.stdout .logText {
+  color: #F0F3F6;
+}
+
+.stderr {
+  color: #F87171;
+}
+.stderr .logPrefix {
+  color: #F87171;
+}
+
+.info .logText {
+  color: #38BDF8;
+}
+
+.system .logText {
+  color: #FBBF24;
+}
+
+.result .logText {
+  color: #4ADE80;
+}
+
+/* Interactive Console Prompt */
+.interactiveConsole {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.promptForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--bg-activity-bar);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.promptSymbol {
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.promptInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.promptSubmit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.promptSubmit:hover {
+  color: var(--accent-cyan);
+}
+
+/* Live Preview */
+.previewContainer {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: #FFFFFF;
+}
+
+.previewIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
