@@ -20,19 +20,19 @@
 }
 
 .count {
-  font-size: 11px;
+  font-size: 10.5px;
   font-family: var(--font-mono);
-  color: var(--text-muted);
-  background-color: var(--bg-surface-elevated);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  color: #A78BFA;
+  background-color: rgba(138, 75, 255, 0.1);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(138, 75, 255, 0.2);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .item {
@@ -40,16 +40,18 @@
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--transition-fast);
+  border-radius: 6px;
+  transition: all 150ms ease;
+  border: 1px solid transparent;
 }
 
 .item:hover {
-  background-color: var(--bg-surface-elevated);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .isMe {
   background-color: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .info {

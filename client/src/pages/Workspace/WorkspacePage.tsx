@@ -8,7 +8,9 @@ import {
   Share2, 
   Shield,
   PanelRightClose,
-  PanelRight
+  PanelRight,
+  Copy,
+  Check
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -71,6 +73,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUpdatesOpen, setIsUpdatesOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [copiedRoom, setCopiedRoom] = useState(false);
+
+  const handleCopyRoom = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedRoom(true);
+    setTimeout(() => setCopiedRoom(false), 2000);
+  };
 
   // Tabs & active file
   const [openFiles, setOpenFiles] = useState<FileNode[]>(() => {
@@ -362,10 +371,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <span>&lt;&nbsp;/&nbsp;&gt;</span>
           </div>
           <span className={styles.brandName}>Kollab</span>
+          <span className={styles.brandVersion}>v2.0</span>
 
           <div className={styles.separator} />
 
-          <div className={styles.roomBadge} title={`Signed in as ${displayName}`}>
+          <div 
+            className={styles.roomBadge} 
+            onClick={handleCopyRoom} 
+            title={`User: ${displayName} • Click to copy invite link`}
+          >
             <span className={styles.roomPrefix}>ROOM:</span>
             <span className={styles.roomId}>{roomId}</span>
             {hasPasscode && (
@@ -373,16 +387,30 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 <Shield size={12} className={styles.lockIcon} />
               </span>
             )}
+            {copiedRoom ? (
+              <Check size={12} className={styles.copiedIcon} />
+            ) : (
+              <Copy size={12} className={styles.copyIcon} />
+            )}
           </div>
         </div>
 
         <div className={styles.headerCenter}>
           <span className={`${styles.statusDot} ${styles[connectionState]}`} />
-          <span className={styles.statusText}>{connectionState === 'connected' ? 'Connected' : 'Offline'}</span>
+          <span className={styles.statusText}>{connectionState === 'connected' ? 'Live Session' : 'Offline'}</span>
         </div>
 
         <div className={styles.headerRight}>
           {isHost && <span className={styles.hostPill}>HOST</span>}
+
+          <button
+            className={styles.shareBtn}
+            onClick={() => setIsSettingsOpen(true)}
+            title="Room share & invite"
+          >
+            <Share2 size={12} />
+            <span>Share Room ↗</span>
+          </button>
 
           <button
             className={styles.iconNavBtn}
@@ -390,16 +418,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             title="Toggle updates panel"
           >
             {isUpdatesOpen ? <PanelRightClose size={13} /> : <PanelRight size={13} />}
-            <span>Updates</span>
-          </button>
-
-          <button
-            className={styles.iconNavBtn}
-            onClick={() => setIsSettingsOpen(true)}
-            title="Room share & settings"
-          >
-            <Share2 size={13} />
-            <span>Share</span>
+            <span>Feed</span>
           </button>
 
           <button
@@ -411,11 +430,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </button>
 
           <button
-            className={styles.iconNavBtn}
+            className={styles.leaveBtn}
             onClick={onLeaveRoom}
             title="Leave workspace"
           >
             <LogOut size={13} />
+            <span>Leave</span>
           </button>
         </div>
       </header>

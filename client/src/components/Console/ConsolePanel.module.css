@@ -1,8 +1,8 @@
 .consolePanel {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-sidebar);
-  border-top: 1px solid var(--border-subtle);
+  background-color: #07090D;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   user-select: none;
   flex-shrink: 0;
@@ -10,22 +10,23 @@
 
 .collapsedBar {
   height: 28px;
-  background-color: var(--bg-sidebar);
-  border-top: 1px solid var(--border-subtle);
+  background-color: #07090D;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: #9CA3AF;
   font-size: 11px;
   font-family: var(--font-mono);
   user-select: none;
+  transition: all 150ms ease;
 }
 
 .collapsedBar:hover {
-  background-color: var(--bg-surface-elevated);
-  color: var(--text-primary);
+  background-color: #0B0E14;
+  color: #FFFFFF;
 }
 
 .collapsedLeft {
@@ -35,8 +36,9 @@
 }
 
 .logCount {
-  background-color: var(--bg-surface-elevated);
-  color: var(--accent-cyan);
+  background-color: rgba(167, 139, 250, 0.15);
+  color: #A78BFA;
+  border: 1px solid rgba(167, 139, 250, 0.3);
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 10px;
@@ -45,17 +47,20 @@
 .expandBtn {
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: #6B7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .header {
-  height: 30px;
-  background-color: var(--bg-activity-bar);
-  border-bottom: 1px solid var(--border-subtle);
+  height: 32px;
+  background-color: #050608;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px;
+  padding: 0 10px;
 }
 
 .tabsGroup {
@@ -71,20 +76,23 @@
   padding: 4px 8px;
   font-size: 11px;
   font-family: var(--font-mono);
-  color: var(--text-muted);
+  color: #6B7280;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 150ms ease;
 }
 
 .tabBtn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-sidebar);
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .activeTab {
-  color: var(--accent-cyan);
+  color: #A78BFA !important;
   font-weight: 600;
-  border-bottom: 2px solid var(--accent-blue);
+  border-bottom: 2px solid #8A4BFF;
 }
 
 .headerActions {
@@ -99,13 +107,16 @@
   gap: 4px;
   padding: 3px 6px;
   font-size: 11px;
-  color: var(--text-muted);
+  color: #6B7280;
+  background: transparent;
+  border: none;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
+  cursor: pointer;
+  transition: color 150ms ease;
 }
 
 .actionBtn:hover {
-  color: var(--text-primary);
+  color: #FFFFFF;
 }
 
 .contentBody {
@@ -114,7 +125,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-sidebar);
+  background-color: #07090D;
 }
 
 .logList {
@@ -200,12 +211,12 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background-color: var(--bg-activity-bar);
-  border-top: 1px solid var(--border-subtle);
+  background-color: #050608;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .promptSymbol {
-  color: var(--accent-cyan);
+  color: #A78BFA;
   font-family: var(--font-mono);
   font-weight: 700;
 }
