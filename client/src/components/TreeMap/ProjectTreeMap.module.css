@@ -1,297 +1,350 @@
-.treeMapWrapper {
+.serpentineWrapper {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1040px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.treeCanvasContainer {
-  background-color: #0D1117;
-  border: 1px solid #30363D;
-  border-radius: 16px;
-  padding: 32px 28px;
   position: relative;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  user-select: none;
 }
 
-/* Root Node */
-.rootNodeRow {
+.topIndicatorRow {
   display: flex;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
-.rootNodeBadge {
+.architecturePill {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  background-color: #161B22;
-  border: 1px solid #388BFD;
-  border-radius: 12px;
-  padding: 10px 20px;
-  box-shadow: 0 8px 24px rgba(47, 129, 247, 0.2);
-}
-
-.rootIconPulse {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(47, 129, 247, 0.15);
-  color: #58A6FF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rootInfo {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-.rootSub {
+  gap: 8px;
+  padding: 6px 16px;
+  background-color: rgba(14, 18, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: #8B949E;
-}
-
-.rootTitle {
-  font-family: var(--font-mono);
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #F0F6FC;
-}
-
-.liveMeshPill {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  color: #3FB950;
-  background-color: rgba(63, 185, 80, 0.12);
-  border: 1px solid rgba(63, 185, 80, 0.3);
-  padding: 3px 8px;
-  border-radius: 20px;
+  letter-spacing: 0.08em;
+  color: #A78BFA;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-/* Branch Connector SVG */
-.svgBranchWrapper {
+.pulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #38BDF8;
+  box-shadow: 0 0 8px #38BDF8;
+  animation: pulseBeacon 2s infinite ease-in-out;
+}
+
+@keyframes pulseBeacon {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.5; }
+}
+
+/* 2D Serpentine Canvas Stage */
+.canvasStage {
   width: 100%;
-  height: 44px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  height: 970px;
+  position: relative;
+  background: radial-gradient(circle at 50% 50%, rgba(138, 75, 255, 0.06) 0%, rgba(5, 6, 8, 0.8) 70%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
 }
 
-.branchSvg {
+.serpentineSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  z-index: 1;
+  pointer-events: all;
 }
 
-.pulsePath {
-  animation: svgDashPulse 1.8s linear infinite;
+.animatedStrokePulse {
+  animation: svgPulseOffset 2s linear infinite;
 }
 
-@keyframes svgDashPulse {
+@keyframes svgPulseOffset {
   to {
-    stroke-dashoffset: -16;
+    stroke-dashoffset: -22;
   }
 }
 
-/* 4 Branches Columns */
-.branchesGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-top: 10px;
-}
-
-.branchColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.categoryHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: #161B22;
-  border: 1px solid #30363D;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #F0F6FC;
-}
-
-.categoryIcon {
-  display: flex;
-  align-items: center;
-}
-
-.categoryTitle {
-  font-size: 12px;
-}
-
-/* Leaf Nodes */
-.leafNodesList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.leafCard {
-  background-color: #161B22;
-  border: 1px solid #21262D;
-  border-radius: 10px;
-  padding: 12px;
+.branchGroup {
   cursor: pointer;
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 180ms ease;
+}
+
+.branchGroup:hover .beaconRing {
+  transform-origin: center;
+  stroke-width: 2.5;
+}
+
+.branchLine {
+  transition: stroke 200ms ease, stroke-width 200ms ease;
+}
+
+.beaconRing {
+  transition: all 200ms ease;
+}
+
+.activeBeaconRing {
+  animation: activeRingGlow 2.5s infinite ease-in-out;
+}
+
+@keyframes activeRingGlow {
+  0%, 100% {
+    r: 16;
+    opacity: 0.8;
+  }
+  50% {
+    r: 22;
+    opacity: 0.35;
+  }
+}
+
+.nodeLabel {
+  letter-spacing: 0.05em;
+  user-select: none;
+  transition: fill 150ms ease;
+}
+
+/* Cards Overlay Layer */
+.cardsOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.serpentineCard {
+  position: absolute;
+  width: 300px;
+  background-color: rgba(11, 14, 20, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 16px 18px;
   text-align: left;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
 
-.leafCard:hover {
-  border-color: #58A6FF;
+.serpentineCard:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.22);
+  background-color: rgba(16, 20, 28, 0.98);
+}
+
+.cardLeft {
+  left: 20px;
+}
+
+.cardRight {
+  right: 20px;
+}
+
+.cardSelected {
+  border-color: rgba(255, 255, 255, 0.32);
+  background-color: #10141D;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(138, 75, 255, 0.15);
   transform: translateY(-2px);
-  background-color: #1C2128;
 }
 
-.leafCardSelected {
-  background-color: #1C2128;
-  border-color: #58A6FF;
-}
-
-.leafTop {
+.cardHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
-.leafFileBadge {
+.cardIconBox {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.leafFilename {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #F0F6FC;
+.cardMeta {
+  display: flex;
+  flex-direction: column;
 }
 
-.leafTag {
+.cardCategory {
   font-family: var(--font-mono);
   font-size: 9.5px;
-  padding: 1px 6px;
-  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cardTitle {
+  font-size: 13.5px;
   font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
+  line-height: 1.3;
 }
 
-.leafSub {
-  font-size: 11px;
-  color: #8B949E;
+.cardDesc {
+  font-size: 12px;
+  color: #9CA3AF;
+  line-height: 1.5;
+  margin: 0 0 10px;
 }
 
-/* Inspector Detail Panel below Tree */
-.nodeInspectorPanel {
-  background-color: #161B22;
-  border: 1px solid #30363D;
-  border-top-width: 3px;
-  border-radius: 12px;
-  padding: 22px 28px;
-  text-align: left;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-  animation: fadeIn 200ms ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.inspectorHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.inspectorTitleGroup {
+.cardMetricsList {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.inspectorCatTag {
+.metricPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #D1D5DB;
   font-family: var(--font-mono);
-  font-size: 10px;
+}
+
+.activeTagBadge {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
-.inspectorTitle {
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 700;
-  color: #FFFFFF;
+/* Inspector Bottom Panel */
+.inspectorPanel {
+  background-color: #0E121A;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 18px 24px;
+  text-align: left;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inspectorLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .inspectorBadge {
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   border: 1px solid;
-  border-radius: 6px;
-  padding: 3px 10px;
-  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  padding: 2px 7px;
+  letter-spacing: 0.08em;
 }
 
-.inspectorDesc {
-  font-size: 13.5px;
-  color: #C9D1D9;
-  line-height: 1.6;
-  margin-bottom: 16px;
-  max-width: 800px;
+.inspectorLeft h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
 }
 
-.inspectorMetaGrid {
+.inspectorTagline {
+  font-size: 12.5px;
+  color: #9CA3AF;
+  font-style: italic;
+}
+
+.inspectorGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  border-top: 1px solid #21262D;
-  padding-top: 14px;
+  gap: 16px;
 }
 
-.metaItem {
+.specBox {
+  background-color: #080A0E;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 14px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.specLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #6B7280;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.specValue {
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: #8B949E;
+  font-weight: 600;
+  color: #E5E7EB;
 }
 
-.metaDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+/* =========================================================================
+   RESPONSIVENESS (Mobile & Tablet)
+   ========================================================================= */
 
 @media (max-width: 900px) {
-  .branchesGrid {
-    grid-template-columns: repeat(2, 1fr);
+  .canvasStage {
+    height: auto;
+    padding: 20px;
   }
-  .svgBranchWrapper {
+
+  .serpentineSvg {
     display: none;
   }
-  .inspectorMetaGrid {
+
+  .cardsOverlay {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .serpentineCard {
+    position: static;
+    width: 100%;
+  }
+
+  .inspectorGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
