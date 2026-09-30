@@ -3,9 +3,7 @@ import {
   FolderTree, 
   Zap, 
   Terminal, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Sparkles
+  ShieldCheck
 } from 'lucide-react';
 import { playThockSound } from '../../utils/audioEffects.ts';
 import styles from './ProjectTreeMap.module.css';
@@ -396,19 +394,13 @@ export const ProjectTreeMap: React.FC = () => {
               <div 
                 key={b.id} 
                 className={`${styles.serpentineCard} ${b.side === 'left' ? styles.cardLeft : styles.cardRight} ${isLit ? styles.cardLit : styles.cardDormant} ${isSelected ? styles.cardSelected : ''}`}
-                style={{ 
-                  top: `${b.cardTop}px`,
-                  borderColor: isLit ? b.color : undefined
-                }}
+                style={{ top: `${b.cardTop}px` }}
                 onClick={() => handleSelectBranch(b.id)}
               >
                 <div className={styles.cardHeader}>
                   <div 
                     className={styles.cardIconBox} 
-                    style={{ 
-                      color: isLit ? b.color : '#6B7280', 
-                      backgroundColor: isLit ? `${b.color}20` : 'rgba(255, 255, 255, 0.05)' 
-                    }}
+                    style={{ color: isLit ? b.color : '#6B7280' }}
                   >
                     {b.icon}
                   </div>
@@ -428,18 +420,11 @@ export const ProjectTreeMap: React.FC = () => {
                 <div className={styles.cardMetricsList}>
                   {b.metrics.map((m, i) => (
                     <div key={i} className={styles.metricPill}>
-                      <CheckCircle2 size={11} style={{ color: isLit ? b.color : '#4B5563' }} />
+                      <span style={{ color: isLit ? b.color : '#4B5563', fontSize: '13px' }}>&bull;</span>
                       <span style={{ color: isLit ? '#D1D5DB' : '#6B7280' }}>{m}</span>
                     </div>
                   ))}
                 </div>
-
-                {isLit && (
-                  <div className={styles.activeTagBadge} style={{ borderColor: b.color, color: b.color }}>
-                    <Sparkles size={11} />
-                    <span>{isSelected ? 'CURRENT INSPECTION FOCUS' : 'SYSTEM ENERGIZED'}</span>
-                  </div>
-                )}
               </div>
             );
           })}

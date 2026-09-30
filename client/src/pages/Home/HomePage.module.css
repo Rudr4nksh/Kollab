@@ -677,26 +677,26 @@
 }
 
 /* =========================================================================
-   AUTHENTIC STORY / PROBLEM SECTION (Crafted & Humanized)
+   AUTHENTIC STORY / PROBLEM SECTION (Crafted, Humanized & 100% Transparent)
    ========================================================================= */
 
 .storySection {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 40px 20px 80px;
+  padding: 60px 20px 80px;
   position: relative;
   z-index: 1;
 }
 
 .storyCard {
-  background: linear-gradient(180deg, rgba(14, 18, 26, 0.95) 0%, rgba(8, 10, 15, 0.98) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 38px 42px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 56px;
   align-items: center;
 }
 
@@ -706,18 +706,18 @@
 
 .storyContent h3 {
   font-family: 'Newsreader', 'Instrument Serif', Georgia, serif;
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 400;
-  line-height: 1.25;
+  line-height: 1.2;
   color: #FFFFFF;
-  margin: 12px 0 16px;
+  margin: 12px 0 18px;
 }
 
 .storyContent p {
-  font-size: 14.5px;
+  font-size: 15px;
   color: #9CA3AF;
-  line-height: 1.65;
-  margin-bottom: 14px;
+  line-height: 1.7;
+  margin-bottom: 16px;
 }
 
 .storyContent strong {
@@ -727,56 +727,57 @@
 .comparisonBox {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 22px;
   text-align: left;
 }
 
 .compRowBad {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  background-color: rgba(239, 68, 68, 0.05);
-  border: 1px solid rgba(239, 68, 68, 0.18);
-  border-radius: 10px;
-  padding: 14px 16px;
-  color: #E5E7EB;
-  font-size: 13px;
-  line-height: 1.5;
+  gap: 14px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: #9CA3AF;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .compRowBad svg {
   color: #EF4444;
+  opacity: 0.8;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .compRowBad strong {
-  color: #FCA5A5;
+  color: #D1D5DB;
   font-weight: 600;
 }
 
 .compRowGood {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  background-color: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 10px;
-  padding: 14px 16px;
-  color: #FFFFFF;
-  font-size: 13px;
-  line-height: 1.5;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.1);
+  gap: 14px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: #F3F4F6;
+  font-size: 14.5px;
+  line-height: 1.55;
+  box-shadow: none;
 }
 
 .compRowGood svg {
   color: #10B981;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .compRowGood strong {
-  color: #6EE7B7;
+  color: #FFFFFF;
   font-weight: 600;
 }
 
