@@ -141,9 +141,28 @@ export const HomePage: React.FC<HomePageProps> = ({
     requestUpdateRef.current = requestUpdate;
     requestUpdate();
 
+    // IntersectionObserver for scroll-reveal on all boxes below
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add(styles.boxRevealed);
+          }
+        });
+      },
+      {
+        threshold: 0.08,
+        rootMargin: '0px 0px -40px 0px',
+      }
+    );
+
+    const boxes = document.querySelectorAll('[data-scroll-box]');
+    boxes.forEach((box) => observer.observe(box));
+
     return () => {
       if (animId) cancelAnimationFrame(animId);
       window.removeEventListener('scroll', onScroll);
+      observer.disconnect();
     };
   }, []);
 
@@ -595,7 +614,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Relatable / Humanized Story Section */}
       <section id="story" className={styles.storySection}>
-        <div className={styles.storyCard}>
+        <div className={`${styles.storyCard} ${styles.scrollBox}`} data-scroll-box>
           <div className={styles.storyContent}>
             <div className={styles.smallSubheader}>THE REAL PROBLEM</div>
             <h3>We built this because coding with friends shouldn't hurt.</h3>
@@ -634,13 +653,13 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Interactive Hacker Terminal Section */}
       <section id="terminal" className={styles.terminalSection}>
-        <div className={styles.sectionHeader}>
+        <div className={`${styles.sectionHeader} ${styles.scrollBox}`} data-scroll-box>
           <div className={styles.smallSubheader}>LIVE INTERACTIVE CLI</div>
           <h2>Test the engine directly in your browser</h2>
           <p>Type commands below or click the shortcut pills to test our system specs.</p>
         </div>
 
-        <div className={styles.terminalCard}>
+        <div className={`${styles.terminalCard} ${styles.scrollBox}`} data-scroll-box>
           <div className={styles.terminalBar}>
             <span>bash &bull; kollab-cli &bull; guest@kollab</span>
             <span>UTF-8</span>
@@ -654,7 +673,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <span>{item.cmd}</span>
                 </div>
                 {item.out.map((line, j) => (
-                  <div key={j} style={{ color: line.startsWith('  [') ? '#38BDF8' : '#94A3B8' }}>
+                  <div key={j} style={{ color: line.startsWith('  [') ? '#FF7A59' : '#94A3B8' }}>
                     {line}
                   </div>
                 ))}
@@ -696,14 +715,14 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Features / Architecture Specs */}
       <section id="features" className={styles.featuresSection}>
-        <div className={styles.sectionHeader}>
+        <div className={`${styles.sectionHeader} ${styles.scrollBox}`} data-scroll-box>
           <div className={styles.smallSubheader}>TECHNICAL FOUNDATION</div>
           <h2>Built for real code, not toy snippets</h2>
           <p>Fast, lightweight, and engineered specifically for multi-file student collaboration.</p>
         </div>
 
         <div className={styles.featureCardsGrid}>
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger1}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <FolderTree size={20} />
             </div>
@@ -714,7 +733,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </p>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger2}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <Users size={20} />
             </div>
@@ -725,7 +744,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </p>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger3}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <TerminalIcon size={20} />
             </div>
@@ -736,7 +755,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </p>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger4}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <Shield size={20} />
             </div>
@@ -747,7 +766,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </p>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger5}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <Zap size={20} />
             </div>
@@ -758,7 +777,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             </p>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.scrollBox} ${styles.stagger6}`} data-scroll-box>
             <div className={styles.cardIcon}>
               <Cpu size={20} />
             </div>
@@ -773,23 +792,23 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* 3-Step Workflow */}
       <section className={styles.workflowSection}>
-        <div className={styles.sectionHeader}>
+        <div className={`${styles.sectionHeader} ${styles.scrollBox}`} data-scroll-box>
           <div className={styles.smallSubheader}>GET STARTED IN 10 SECONDS</div>
           <h2>How it works</h2>
         </div>
 
         <div className={styles.stepsGrid}>
-          <div className={styles.stepCard}>
+          <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger1}`} data-scroll-box>
             <div className={styles.stepNumber}>01</div>
             <h3>Create a Room</h3>
             <p>Enter your name and pick a room name. No email, no password, no waitlist.</p>
           </div>
-          <div className={styles.stepCard}>
+          <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger2}`} data-scroll-box>
             <div className={styles.stepNumber}>02</div>
             <h3>Drop Your Project</h3>
             <p>Drop your local project folder to populate the file tree, or start with a fresh file.</p>
           </div>
-          <div className={styles.stepCard}>
+          <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger3}`} data-scroll-box>
             <div className={styles.stepNumber}>03</div>
             <h3>Share the 5-Digit ID</h3>
             <p>Send the room ID to your lab partners. Edit code together simultaneously with zero lag.</p>
@@ -798,7 +817,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </section>
 
       {/* CTA Section */}
-      <section className={styles.ctaSection}>
+      <section className={`${styles.ctaSection} ${styles.scrollBox}`} data-scroll-box>
         <h2 className={styles.ctaHeading}>Ready to collaborate without the headaches?</h2>
         <p className={styles.ctaSubtext}>Start an instant session right now. Free forever.</p>
         <div className={styles.ctaButtons}>
@@ -827,7 +846,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             href="https://github.com/Rudr4nksh" 
             target="_blank" 
             rel="noreferrer"
-            style={{ color: '#38BDF8', textDecoration: 'none', fontWeight: 600 }}
+            style={{ color: '#FF7A59', textDecoration: 'none', fontWeight: 600 }}
           >
             Rudranksh Parial
           </a>
