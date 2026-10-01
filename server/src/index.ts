@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 4000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 app.use(cors({
-  origin: [CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: true,
   credentials: true,
 }));
 
@@ -23,14 +23,17 @@ import { roomRouter } from './rooms/roomRoutes.js';
 app.use(express.json({ limit: '2mb' }));
 app.use('/api/rooms', roomRouter);
 
+import { setupSocketIO } from './socket/roomSocket.js';
+
 export const io = new SocketIOServer(server, {
   cors: {
-    origin: [CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true,
   },
   maxHttpBufferSize: 2e6, // 2MB
 });
+
+setupSocketIO(io);
 
 // Health check endpoint
 app.get('/api/health', async (_req, res) => {

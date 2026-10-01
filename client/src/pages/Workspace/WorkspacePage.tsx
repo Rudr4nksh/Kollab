@@ -39,6 +39,7 @@ import {
   getLanguageFromFilename,
   findFirstFileNode
 } from '../../services/fileUtils.ts';
+import { socketService } from '../../services/socket.ts';
 import styles from './WorkspacePage.module.css';
 
 interface WorkspacePageProps {
@@ -141,6 +142,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     setOpenFiles((prev) =>
       prev.map((f) => (f.path === activeFilePath ? { ...f, content: newContent } : f))
     );
+    socketService.emitFileContentChange(roomId, activeFilePath, newContent, userId);
   };
 
   // Create new file
@@ -155,6 +157,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       content: '',
     };
 
+    let nextFiles: FileNode[] = [];
     if (parentPath) {
       const addToParent = (nodes: FileNode[]): FileNode[] => {
         return nodes.map((n) => {
@@ -167,12 +170,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           return n;
         });
       };
-      onFilesChange(addToParent(files));
+      nextFiles = addToParent(files);
     } else {
-      onFilesChange([...files, newFile]);
+      nextFiles = [...files, newFile];
     }
 
+    onFilesChange(nextFiles);
     handleSelectFile(newFile);
+    socketService.emitFilesTreeUpdate(roomId, nextFiles, userId, `created file ${name}`, 'file_created');
     if (onRecordActivity) {
       onRecordActivity('file_created', `created file ${name}`);
     }
@@ -190,6 +195,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       children: [],
     };
 
+    let nextFiles: FileNode[] = [];
     if (parentPath) {
       const addToParent = (nodes: FileNode[]): FileNode[] => {
         return nodes.map((n) => {
@@ -202,10 +208,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           return n;
         });
       };
-      onFilesChange(addToParent(files));
+      nextFiles = addToParent(files);
     } else {
-      onFilesChange([...files, newFolder]);
+      nextFiles = [...files, newFolder];
     }
+
+    onFilesChange(nextFiles);
+    socketService.emitFilesTreeUpdate(roomId, nextFiles, userId, `created folder ${name}`, 'folder_created');
   };
 
   // Delete node (file or directory)
@@ -224,6 +233,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
     const updatedFiles = deleteRecursive(files);
     onFilesChange(updatedFiles);
+    socketService.emitFilesTreeUpdate(roomId, updatedFiles, userId, `deleted ${targetPath}`, 'file_deleted');
 
     // Remove deleted file or all files inside the deleted folder from open tabs
     const remainingOpenFiles = openFiles.filter((f) => !isTargetOrDescendant(f.path));
@@ -270,6 +280,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     onFilesChange(nextFiles);
     setOpenFiles([initialFile]);
     setActiveFilePath(initialFile.path);
+    socketService.emitFilesTreeUpdate(roomId, nextFiles, userId, `created project folder ${clean}`, 'folder_created');
     if (onRecordActivity) {
       onRecordActivity('folder_created', `created folder ${clean}`);
     }
@@ -574,7 +585,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onCreateFile={handleCreateFile}
                 onCreateFolder={handleCreateFolder}
                 onDeleteNode={handleDeleteNode}
-                onImportFolder={(imported) => onFilesChange(imported)}
+                onImportFolder={(imported) => {
+                  onFilesChange(imported);
+                  socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
+                }}
                 isHost={isHost}
               />
             )}
@@ -609,8 +623,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                     f.path === activeFilePath ? { ...f, language: lang } : f
                   );
                   onFilesChange(updated);
+                  socketService.emitFilesTreeUpdate(roomId, updated, userId, `changed language to ${lang}`, 'file_created');
                 }}
                 onContentChange={handleContentChange}
+                onCursorChange={(line, column) => {
+                  socketService.emitCursorMove(roomId, userId, activeFilePath, { line, column });
+                }}
+                onSelectionChange={(selection) => {
+                  socketService.emitSelectionChange(roomId, userId, activeFilePath, selection);
+                }}
                 participants={participants}
                 currentUserId={userId}
               />

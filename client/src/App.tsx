@@ -7,6 +7,8 @@ import {
   getStoredDisplayName, 
   getOrCreateUserId 
 } from './services/api.ts';
+import { socketService } from './services/socket.ts';
+import { updateFileContentInTree } from './services/fileUtils.ts';
 import { getParticipantColor } from './services/colors.ts';
 import type { 
   Participant, 
@@ -28,7 +30,7 @@ export const App: React.FC = () => {
   // Multi-file workspace state - starts empty as requested
   const [files, setFiles] = useState<FileNode[]>([]);
 
-  const [connectionState] = useState<ConnectionState>('connected');
+  const [connectionState, setConnectionState] = useState<ConnectionState>('connected');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -70,6 +72,94 @@ export const App: React.FC = () => {
       }
     }
   }, []);
+
+  // Listen for socket connection status
+  useEffect(() => {
+    return socketService.onConnectionStateChange((state) => {
+      setConnectionState(state);
+    });
+  }, []);
+
+  // Sync real-time multiplayer socket events when in a room
+  useEffect(() => {
+    if (!activeRoomId) return;
+
+    socketService.joinRoom({
+      roomId: activeRoomId,
+      userId,
+      displayName,
+      role: isHost ? 'host' : 'participant',
+    });
+
+    const unsubs = [
+      socketService.onRoomJoined((data) => {
+        if (data.files && data.files.length > 0) {
+          setFiles(data.files);
+        }
+        if (data.participants && data.participants.length > 0) {
+          setParticipants(data.participants);
+        }
+      }),
+
+      socketService.onParticipantsUpdated((updatedList) => {
+        setParticipants(updatedList);
+      }),
+
+      socketService.onFilesTreeUpdate((data) => {
+        if (data.userId !== userId) {
+          setFiles(data.files);
+        }
+      }),
+
+      socketService.onFileContentUpdate((data) => {
+        if (data.userId !== userId) {
+          setFiles((prev) => updateFileContentInTree(prev, data.filePath, data.content));
+        }
+      }),
+
+      socketService.onPeerCursor((data) => {
+        if (data.userId !== userId) {
+          setParticipants((prev) =>
+            prev.map((p) =>
+              p.id === data.userId
+                ? {
+                    ...p,
+                    cursor: data.cursor,
+                    currentLine: data.line,
+                    activeFilePath: data.filePath,
+                  }
+                : p
+            )
+          );
+        }
+      }),
+
+      socketService.onPeerSelection((data) => {
+        if (data.userId !== userId) {
+          setParticipants((prev) =>
+            prev.map((p) =>
+              p.id === data.userId
+                ? {
+                    ...p,
+                    selection: data.selection,
+                    activeFilePath: data.filePath,
+                  }
+                : p
+            )
+          );
+        }
+      }),
+
+      socketService.onActivityEvent((act) => {
+        setActivities((prev) => [act, ...prev.slice(0, 49)]);
+      }),
+    ];
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+      socketService.leaveRoom();
+    };
+  }, [activeRoomId, userId, displayName, isHost]);
 
   const handleJoin = async (roomId: string, name: string, passcode?: string) => {
     setIsLoading(true);
@@ -190,7 +280,10 @@ export const App: React.FC = () => {
   };
 
   const handleLeaveRoom = () => {
+    socketService.leaveRoom();
     setActiveRoomId(null);
+    setFiles([]);
+    setParticipants([]);
     window.history.pushState({}, '', window.location.pathname);
   };
 

@@ -6,11 +6,26 @@ export type SupportedLanguage =
   | 'cpp' 
   | 'java' 
   | 'plaintext' 
-  | 'markdown';
+  | 'markdown'
+  | 'css'
+  | 'json'
+  | 'dart';
 
 export type UserRole = 'host' | 'participant';
 
 export type PresenceStatus = 'active' | 'typing' | 'idle';
+
+export interface CursorPosition {
+  line: number;
+  column: number;
+}
+
+export interface SelectionRange {
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+}
 
 export interface Participant {
   id: string;
@@ -21,16 +36,9 @@ export interface Participant {
   color: string;
   joinedAt: number;
   currentLine?: number;
-  cursor?: {
-    line: number;
-    column: number;
-  };
-  selection?: {
-    startLineNumber: number;
-    startColumn: number;
-    endLineNumber: number;
-    endColumn: number;
-  };
+  activeFilePath?: string;
+  cursor?: CursorPosition;
+  selection?: SelectionRange;
 }
 
 export type ActivityType = 
@@ -40,7 +48,11 @@ export type ActivityType =
   | 'edit' 
   | 'language' 
   | 'host_transfer' 
-  | 'kicked';
+  | 'kicked'
+  | 'file_created'
+  | 'file_deleted'
+  | 'folder_created'
+  | 'run_code';
 
 export interface ActivityEvent {
   id: string;
@@ -50,6 +62,17 @@ export interface ActivityEvent {
   userName: string;
   details?: string;
   timestamp: string;
+}
+
+export interface FileNode {
+  id: string;
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  content?: string;
+  language?: SupportedLanguage;
+  children?: FileNode[];
+  isOpen?: boolean;
 }
 
 export interface RoomMetadata {
