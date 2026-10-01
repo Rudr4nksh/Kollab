@@ -390,16 +390,33 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               onChange={(e) => onLanguageChange(e.target.value as SupportedLanguage)}
               title="Change language mode"
             >
-              <option value="javascript">JavaScript</option>
-              <option value="typescript">TypeScript</option>
-              <option value="python">Python</option>
-              <option value="html">HTML</option>
-              <option value="css">CSS</option>
+              <option value="javascript">JavaScript (JS / JSX)</option>
+              <option value="typescript">TypeScript (TS / TSX)</option>
+              <option value="html">HTML5</option>
+              <option value="css">CSS3</option>
+              <option value="scss">SCSS / SASS</option>
               <option value="json">JSON</option>
-              <option value="markdown">Markdown</option>
+              <option value="yaml">YAML</option>
+              <option value="xml">XML / SVG</option>
+              <option value="php">PHP</option>
+              <option value="ruby">Ruby</option>
+              <option value="graphql">GraphQL</option>
+              <option value="c">C</option>
               <option value="cpp">C++</option>
               <option value="java">Java</option>
-              <option value="dart">Dart</option>
+              <option value="rust">Rust</option>
+              <option value="go">Go</option>
+              <option value="kotlin">Kotlin</option>
+              <option value="csharp">C# (.NET)</option>
+              <option value="swift">Swift</option>
+              <option value="dart">Dart (Flutter)</option>
+              <option value="python">Python (AI / ML / Data)</option>
+              <option value="r">R (Statistics / Data)</option>
+              <option value="julia">Julia (Scientific ML)</option>
+              <option value="sql">SQL</option>
+              <option value="shell">Shell / Bash</option>
+              <option value="markdown">Markdown</option>
+              <option value="dockerfile">Dockerfile</option>
               <option value="plaintext">Plaintext</option>
             </select>
           ) : (
