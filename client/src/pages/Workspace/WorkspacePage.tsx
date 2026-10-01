@@ -320,31 +320,21 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     }
   };
 
-  // Helper to create root project folder and initialize with first file
+  // Helper to create root project folder (clean, empty folder without default files)
   const handleCreateProjectFolder = (folderName: string = 'project') => {
     const clean = folderName.trim().replace(/^\/+/, '') || 'project';
     const folderPath = `/${clean}`;
-    const initialFile: FileNode = {
-      id: 'file_' + Math.random().toString(36).substring(2, 9),
-      name: 'index.js',
-      path: `${folderPath}/index.js`,
-      type: 'file',
-      language: 'javascript',
-      content: `// Project: ${clean}\nconsole.log("Welcome to ${clean}!");\n`,
-    };
     const newFolder: FileNode = {
       id: 'folder_' + Math.random().toString(36).substring(2, 9),
       name: clean,
       path: folderPath,
       type: 'folder',
       isOpen: true,
-      children: [initialFile],
+      children: [],
     };
 
     const nextFiles = [...files, newFolder];
     onFilesChange(nextFiles);
-    setOpenFiles([initialFile]);
-    setActiveFilePath(initialFile.path);
     socketService.emitFilesTreeUpdate(roomId, nextFiles, userId, `created project folder ${clean}`, 'folder_created');
     if (onRecordActivity) {
       onRecordActivity('folder_created', `created folder ${clean}`);

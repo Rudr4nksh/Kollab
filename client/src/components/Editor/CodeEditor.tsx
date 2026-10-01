@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { KOLLAB_THEME_NAME, kollabTheme } from './monacoTheme.ts';
+import { registerLanguageCompletions } from './languageCompletions.ts';
 import type { SupportedLanguage, Participant } from '../../types/index.ts';
 import styles from './CodeEditor.module.css';
 
@@ -61,6 +62,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     // Define custom obsidian theme
     monaco.editor.defineTheme(KOLLAB_THEME_NAME, kollabTheme);
     monaco.editor.setTheme(KOLLAB_THEME_NAME);
+
+    // Register rich language autocompletions & snippets for C++, Python, Java, Dart, HTML, CSS, JS, etc.
+    registerLanguageCompletions(monaco);
 
     // Initial stats
     setLineCount(ed.getModel()?.getLineCount() || 1);
@@ -180,6 +184,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
       activeParticipantIds.add(p.id);
 
+      // On line 1, display tag below the line (top: 22px) so it is never hidden behind the tab bar
+      const isFirstLine = targetLine <= 1;
+      const tagTop = isFirstLine ? '22px' : '-19px';
+      const tagRadius = isFirstLine ? '0 3px 3px 3px' : '3px 3px 3px 0';
+
       const existing = widgetsMapRef.current.get(p.id);
       if (existing) {
         // Update widget position dynamically
@@ -189,6 +198,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         });
         existing.tagNode.textContent = p.name;
         existing.tagNode.style.backgroundColor = p.color;
+        existing.tagNode.style.top = tagTop;
+        existing.tagNode.style.borderRadius = tagRadius;
         existing.caretNode.style.backgroundColor = p.color;
         existing.caretNode.style.boxShadow = `0 0 6px ${p.color}`;
 
@@ -207,6 +218,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         tag.className = 'remote-name-tag';
         tag.textContent = p.name;
         tag.style.backgroundColor = p.color;
+        tag.style.top = tagTop;
+        tag.style.borderRadius = tagRadius;
 
         container.appendChild(caret);
         container.appendChild(tag);
@@ -331,7 +344,36 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             tabSize: 2,
             wordWrap: 'on',
             automaticLayout: true,
-            padding: { top: 10, bottom: 10 },
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: {
+              other: true,
+              comments: true,
+              strings: true,
+            },
+            acceptSuggestionOnCommitCharacter: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: 'allDocuments',
+            suggest: {
+              showWords: true,
+              showSnippets: true,
+              showKeywords: true,
+              showFunctions: true,
+              showClasses: true,
+              showVariables: true,
+              showModules: true,
+              showConstructors: true,
+              showFields: true,
+              showMethods: true,
+              showProperties: true,
+              showValues: true,
+              showConstants: true,
+              showEnums: true,
+              showEnumMembers: true,
+              preview: true,
+              insertMode: 'insert',
+            },
+            padding: { top: 20, bottom: 14 },
           }}
         />
       </div>
