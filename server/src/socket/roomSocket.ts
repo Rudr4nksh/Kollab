@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { prisma } from '../database/prisma.js';
+import { RoomService } from '../rooms/RoomService.js';
 import type { 
   Participant, 
   FileNode, 
@@ -41,6 +42,10 @@ interface RoomSession {
 
 const activeRooms = new Map<string, RoomSession>();
 
+function norm(id: string): string {
+  return (id || '').trim().toLowerCase();
+}
+
 function updateContentInTree(nodes: FileNode[], path: string, content: string): FileNode[] {
   return nodes.map((node) => {
     if (node.path === path) {
@@ -77,17 +82,18 @@ export function setupSocketIO(io: SocketIOServer) {
       role?: UserRole;
     }) => {
       const { roomId, userId, displayName, role = 'participant' } = payload;
-      currentRoomId = roomId;
+      const roomIdKey = norm(roomId);
+      currentRoomId = roomIdKey;
       currentUserId = userId;
 
-      socket.join(roomId);
+      socket.join(roomIdKey);
 
-      let session = activeRooms.get(roomId);
+      let session = activeRooms.get(roomIdKey);
       if (!session) {
         // Initialize room session
         let initialFiles: FileNode[] = [];
         try {
-          const dbRoom = await prisma.room.findUnique({ where: { roomId } });
+          const dbRoom = await RoomService.findRoomRecord(roomId);
           if (dbRoom && dbRoom.document && dbRoom.document.trim().length > 0) {
             initialFiles = [
               {
@@ -105,11 +111,11 @@ export function setupSocketIO(io: SocketIOServer) {
         }
 
         session = {
-          roomId,
+          roomId: roomIdKey,
           participants: new Map(),
           files: initialFiles,
         };
-        activeRooms.set(roomId, session);
+        activeRooms.set(roomIdKey, session);
       }
 
       const participant: Participant = {
@@ -132,12 +138,12 @@ export function setupSocketIO(io: SocketIOServer) {
       });
 
       // Broadcast updated participants list to everyone in room
-      io.to(roomId).emit('participants-updated', Array.from(session.participants.values()));
+      io.to(roomIdKey).emit('participants-updated', Array.from(session.participants.values()));
 
       // Broadcast join activity
       const joinActivity: ActivityEvent = {
         id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-        roomId,
+        roomId: roomIdKey,
         type: 'join',
         userId,
         userName: displayName,
@@ -145,18 +151,21 @@ export function setupSocketIO(io: SocketIOServer) {
         timestamp: new Date().toISOString(),
       };
 
-      io.to(roomId).emit('activity-event', joinActivity);
+      io.to(roomIdKey).emit('activity-event', joinActivity);
 
       try {
-        await prisma.activity.create({
-          data: {
-            roomId,
-            type: 'join',
-            userId,
-            userName: displayName,
-            details: 'joined the room',
-          },
-        });
+        const dbRoom = await RoomService.findRoomRecord(roomId);
+        if (dbRoom) {
+          await prisma.activity.create({
+            data: {
+              roomId: dbRoom.roomId,
+              type: 'join',
+              userId,
+              userName: displayName,
+              details: 'joined the room',
+            },
+          });
+        }
       } catch {
         // Non-blocking
       }
@@ -170,12 +179,13 @@ export function setupSocketIO(io: SocketIOServer) {
       userId: string;
     }) => {
       const { roomId, filePath, content, userId } = data;
-      const session = activeRooms.get(roomId);
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
       if (session) {
         session.files = updateContentInTree(session.files, filePath, content);
 
         // Broadcast code update to all OTHER participants in the room
-        socket.to(roomId).emit('file-content-update', {
+        socket.to(roomIdKey).emit('file-content-update', {
           filePath,
           content,
           userId,
@@ -189,13 +199,16 @@ export function setupSocketIO(io: SocketIOServer) {
           try {
             const firstFile = findFileInTree(session.files, filePath) || session.files[0];
             if (firstFile && firstFile.content !== undefined) {
-              await prisma.room.update({
-                where: { roomId },
-                data: {
-                  document: firstFile.content,
-                  language: firstFile.language || 'javascript',
-                },
-              });
+              const dbRoom = await RoomService.findRoomRecord(roomId);
+              if (dbRoom) {
+                await prisma.room.update({
+                  where: { roomId: dbRoom.roomId },
+                  data: {
+                    document: firstFile.content,
+                    language: firstFile.language || 'javascript',
+                  },
+                });
+              }
             }
           } catch {
             // Ignore DB save errors in background
@@ -213,12 +226,13 @@ export function setupSocketIO(io: SocketIOServer) {
       actionType?: 'file_created' | 'file_deleted' | 'folder_created';
     }) => {
       const { roomId, files, userId, actionDetails, actionType = 'file_created' } = data;
-      const session = activeRooms.get(roomId);
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
       if (session) {
         session.files = files;
 
         // Broadcast updated file tree to peers
-        socket.to(roomId).emit('files-tree-update', {
+        socket.to(roomIdKey).emit('files-tree-update', {
           files,
           userId,
         });
@@ -227,7 +241,7 @@ export function setupSocketIO(io: SocketIOServer) {
           const participant = session.participants.get(socket.id);
           const act: ActivityEvent = {
             id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-            roomId,
+            roomId: roomIdKey,
             type: actionType,
             userId,
             userName: participant?.name || 'Collaborator',
@@ -235,7 +249,7 @@ export function setupSocketIO(io: SocketIOServer) {
             timestamp: new Date().toISOString(),
           };
 
-          io.to(roomId).emit('activity-event', act);
+          io.to(roomIdKey).emit('activity-event', act);
         }
       }
     });
@@ -248,7 +262,8 @@ export function setupSocketIO(io: SocketIOServer) {
       cursor: CursorPosition;
     }) => {
       const { roomId, userId, filePath, cursor } = data;
-      const session = activeRooms.get(roomId);
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
       if (session) {
         const participant = session.participants.get(socket.id);
         if (participant) {
@@ -257,7 +272,7 @@ export function setupSocketIO(io: SocketIOServer) {
           participant.activeFilePath = filePath;
         }
 
-        socket.to(roomId).emit('peer-cursor', {
+        socket.to(roomIdKey).emit('peer-cursor', {
           userId,
           filePath,
           cursor,
@@ -274,7 +289,8 @@ export function setupSocketIO(io: SocketIOServer) {
       selection: SelectionRange;
     }) => {
       const { roomId, userId, filePath, selection } = data;
-      const session = activeRooms.get(roomId);
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
       if (session) {
         const participant = session.participants.get(socket.id);
         if (participant) {
@@ -282,7 +298,7 @@ export function setupSocketIO(io: SocketIOServer) {
           participant.activeFilePath = filePath;
         }
 
-        socket.to(roomId).emit('peer-selection', {
+        socket.to(roomIdKey).emit('peer-selection', {
           userId,
           filePath,
           selection,
