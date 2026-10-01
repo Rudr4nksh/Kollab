@@ -95,17 +95,47 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     participants.forEach((p) => {
       if (p.id === currentUserId) return; // Don't decorate own cursor
 
-      if (p.currentLine && p.currentLine > 0) {
+      const targetLine = p.cursor?.line || p.currentLine;
+      const targetCol = p.cursor?.column || 1;
+
+      if (targetLine && targetLine > 0) {
         // Subtle line highlight
         newDecorations.push({
-          range: new monaco.Range(p.currentLine, 1, p.currentLine, 1),
+          range: new monaco.Range(targetLine, 1, targetLine, 1),
           options: {
             isWholeLine: true,
-            className: `remote-line-highlight remote-user-${p.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+            className: `remote-line-highlight`,
             overviewRuler: {
               color: p.color,
               position: monaco.editor.OverviewRulerLane.Left,
             },
+          },
+        });
+
+        // Remote cursor caret and badge
+        newDecorations.push({
+          range: new monaco.Range(targetLine, targetCol, targetLine, targetCol),
+          options: {
+            className: `remote-cursor-caret`,
+            hoverMessage: { value: `**${p.name}**` },
+            before: {
+              content: p.name,
+              inlineClassName: `remote-cursor-tag`,
+            },
+          },
+        });
+      }
+
+      if (p.selection) {
+        newDecorations.push({
+          range: new monaco.Range(
+            p.selection.startLineNumber,
+            p.selection.startColumn,
+            p.selection.endLineNumber,
+            p.selection.endColumn
+          ),
+          options: {
+            className: `yRemoteSelection`,
           },
         });
       }

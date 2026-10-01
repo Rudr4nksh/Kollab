@@ -1,0 +1,336 @@
+import { Server as SocketIOServer, Socket } from 'socket.io';
+import { prisma } from '../database/prisma.js';
+import type { 
+  Participant, 
+  FileNode, 
+  ActivityEvent, 
+  UserRole,
+  CursorPosition,
+  SelectionRange
+} from '../types/index.js';
+
+const PARTICIPANT_COLORS = [
+  '#7357E8', // Violet
+  '#38BDF8', // Cyan
+  '#34D399', // Emerald
+  '#F472B6', // Rose
+  '#FBBF24', // Amber
+  '#A78BFA', // Purple
+  '#4ADE80', // Mint
+  '#FB923C', // Orange
+  '#2DD4BF', // Teal
+  '#E879F9', // Fuchsia
+];
+
+function getParticipantColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % PARTICIPANT_COLORS.length;
+  return PARTICIPANT_COLORS[index];
+}
+
+interface RoomSession {
+  roomId: string;
+  participants: Map<string, Participant>; // socketId -> Participant
+  files: FileNode[];
+  saveTimeout?: NodeJS.Timeout;
+}
+
+const activeRooms = new Map<string, RoomSession>();
+
+function updateContentInTree(nodes: FileNode[], path: string, content: string): FileNode[] {
+  return nodes.map((node) => {
+    if (node.path === path) {
+      return { ...node, content };
+    }
+    if (node.children) {
+      return { ...node, children: updateContentInTree(node.children, path, content) };
+    }
+    return node;
+  });
+}
+
+function findFileInTree(nodes: FileNode[], path: string): FileNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.children) {
+      const found = findFileInTree(node.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+export function setupSocketIO(io: SocketIOServer) {
+  io.on('connection', (socket: Socket) => {
+    let currentRoomId: string | null = null;
+    let currentUserId: string | null = null;
+
+    // Join room
+    socket.on('join-room', async (payload: {
+      roomId: string;
+      userId: string;
+      displayName: string;
+      role?: UserRole;
+    }) => {
+      const { roomId, userId, displayName, role = 'participant' } = payload;
+      currentRoomId = roomId;
+      currentUserId = userId;
+
+      socket.join(roomId);
+
+      let session = activeRooms.get(roomId);
+      if (!session) {
+        // Initialize room session
+        let initialFiles: FileNode[] = [];
+        try {
+          const dbRoom = await prisma.room.findUnique({ where: { roomId } });
+          if (dbRoom && dbRoom.document && dbRoom.document.trim().length > 0) {
+            initialFiles = [
+              {
+                id: 'file_main',
+                name: 'main.js',
+                path: '/main.js',
+                type: 'file',
+                language: 'javascript',
+                content: dbRoom.document,
+              },
+            ];
+          }
+        } catch {
+          // fallback to empty
+        }
+
+        session = {
+          roomId,
+          participants: new Map(),
+          files: initialFiles,
+        };
+        activeRooms.set(roomId, session);
+      }
+
+      const participant: Participant = {
+        id: userId,
+        socketId: socket.id,
+        name: displayName || 'Anonymous',
+        role,
+        status: 'active',
+        color: getParticipantColor(userId),
+        joinedAt: Date.now(),
+      };
+
+      session.participants.set(socket.id, participant);
+
+      // Send initial room snapshot to joining user
+      socket.emit('room-joined', {
+        participants: Array.from(session.participants.values()),
+        files: session.files,
+        yourParticipant: participant,
+      });
+
+      // Broadcast updated participants list to everyone in room
+      io.to(roomId).emit('participants-updated', Array.from(session.participants.values()));
+
+      // Broadcast join activity
+      const joinActivity: ActivityEvent = {
+        id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        roomId,
+        type: 'join',
+        userId,
+        userName: displayName,
+        details: 'joined the room',
+        timestamp: new Date().toISOString(),
+      };
+
+      io.to(roomId).emit('activity-event', joinActivity);
+
+      try {
+        await prisma.activity.create({
+          data: {
+            roomId,
+            type: 'join',
+            userId,
+            userName: displayName,
+            details: 'joined the room',
+          },
+        });
+      } catch {
+        // Non-blocking
+      }
+    });
+
+    // File Content Editing (Real-time code synchronization)
+    socket.on('file-content-change', (data: {
+      roomId: string;
+      filePath: string;
+      content: string;
+      userId: string;
+    }) => {
+      const { roomId, filePath, content, userId } = data;
+      const session = activeRooms.get(roomId);
+      if (session) {
+        session.files = updateContentInTree(session.files, filePath, content);
+
+        // Broadcast code update to all OTHER participants in the room
+        socket.to(roomId).emit('file-content-update', {
+          filePath,
+          content,
+          userId,
+        });
+
+        // Debounce save to database (save after 1.5 seconds of inactivity)
+        if (session.saveTimeout) {
+          clearTimeout(session.saveTimeout);
+        }
+        session.saveTimeout = setTimeout(async () => {
+          try {
+            const firstFile = findFileInTree(session.files, filePath) || session.files[0];
+            if (firstFile && firstFile.content !== undefined) {
+              await prisma.room.update({
+                where: { roomId },
+                data: {
+                  document: firstFile.content,
+                  language: firstFile.language || 'javascript',
+                },
+              });
+            }
+          } catch {
+            // Ignore DB save errors in background
+          }
+        }, 1500);
+      }
+    });
+
+    // Full file tree update (create file, create folder, delete file/folder, import)
+    socket.on('files-tree-update', (data: {
+      roomId: string;
+      files: FileNode[];
+      userId: string;
+      actionDetails?: string;
+      actionType?: 'file_created' | 'file_deleted' | 'folder_created';
+    }) => {
+      const { roomId, files, userId, actionDetails, actionType = 'file_created' } = data;
+      const session = activeRooms.get(roomId);
+      if (session) {
+        session.files = files;
+
+        // Broadcast updated file tree to peers
+        socket.to(roomId).emit('files-tree-update', {
+          files,
+          userId,
+        });
+
+        if (actionDetails) {
+          const participant = session.participants.get(socket.id);
+          const act: ActivityEvent = {
+            id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            roomId,
+            type: actionType,
+            userId,
+            userName: participant?.name || 'Collaborator',
+            details: actionDetails,
+            timestamp: new Date().toISOString(),
+          };
+
+          io.to(roomId).emit('activity-event', act);
+        }
+      }
+    });
+
+    // Cursor position broadcast
+    socket.on('cursor-move', (data: {
+      roomId: string;
+      userId: string;
+      filePath: string;
+      cursor: CursorPosition;
+    }) => {
+      const { roomId, userId, filePath, cursor } = data;
+      const session = activeRooms.get(roomId);
+      if (session) {
+        const participant = session.participants.get(socket.id);
+        if (participant) {
+          participant.cursor = cursor;
+          participant.currentLine = cursor.line;
+          participant.activeFilePath = filePath;
+        }
+
+        socket.to(roomId).emit('peer-cursor', {
+          userId,
+          filePath,
+          cursor,
+          line: cursor.line,
+        });
+      }
+    });
+
+    // Selection range broadcast
+    socket.on('selection-change', (data: {
+      roomId: string;
+      userId: string;
+      filePath: string;
+      selection: SelectionRange;
+    }) => {
+      const { roomId, userId, filePath, selection } = data;
+      const session = activeRooms.get(roomId);
+      if (session) {
+        const participant = session.participants.get(socket.id);
+        if (participant) {
+          participant.selection = selection;
+          participant.activeFilePath = filePath;
+        }
+
+        socket.to(roomId).emit('peer-selection', {
+          userId,
+          filePath,
+          selection,
+        });
+      }
+    });
+
+    // Clean disconnect / leave room
+    const handleLeave = async () => {
+      if (!currentRoomId) return;
+      const session = activeRooms.get(currentRoomId);
+      if (!session) return;
+
+      const participant = session.participants.get(socket.id);
+      session.participants.delete(socket.id);
+
+      // If room is empty, clear timeout and cleanup
+      if (session.participants.size === 0) {
+        if (session.saveTimeout) {
+          clearTimeout(session.saveTimeout);
+        }
+      } else {
+        // Notify others
+        io.to(currentRoomId).emit(
+          'participants-updated',
+          Array.from(session.participants.values())
+        );
+
+        if (participant) {
+          const leaveActivity: ActivityEvent = {
+            id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            roomId: currentRoomId,
+            type: 'leave',
+            userId: participant.id,
+            userName: participant.name,
+            details: 'left the room',
+            timestamp: new Date().toISOString(),
+          };
+
+          io.to(currentRoomId).emit('activity-event', leaveActivity);
+        }
+      }
+
+      socket.leave(currentRoomId);
+      currentRoomId = null;
+    };
+
+    socket.on('leave-room', handleLeave);
+    socket.on('disconnect', handleLeave);
+  });
+}
