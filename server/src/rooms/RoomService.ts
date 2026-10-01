@@ -80,20 +80,14 @@ export class RoomService {
       passwordHash = await bcrypt.hash(payload.passcode.trim(), 10);
     }
 
-    // Default template for HTML or requested language
-    const defaultContent = payload.language === 'javascript' || payload.language === 'typescript'
-      ? `// SyncPad Workspace\nconsole.log("Hello, collaborative world!");\n`
-      : payload.language === 'python'
-      ? `# SyncPad Workspace\nprint("Hello, collaborative world!")\n`
-      : `<style>\n  .workspace {\n    background-color: #0E0F16;\n    color: #F2F2F5;\n    font-family: 'JetBrains Mono', monospace;\n  }\n</style>\n\n<script>\n  console.log("Welcome to SyncPad!");\n</script>\n\n<div class="workspace">\n  <h1>Collaborate. Code. Learn together.</h1>\n</div>\n`;
-
+    // New rooms start completely empty
     const room = await prisma.room.create({
       data: {
         roomId: targetRoomId,
         passwordHash,
         hostUserId: creatorUserId,
-        language: payload.language || 'html',
-        document: defaultContent,
+        language: payload.language || 'javascript',
+        document: '',
       },
     });
 
