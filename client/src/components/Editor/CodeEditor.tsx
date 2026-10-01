@@ -7,6 +7,7 @@ import styles from './CodeEditor.module.css';
 
 interface CodeEditorProps {
   value?: string;
+  filePath?: string;
   language: SupportedLanguage;
   onLanguageChange: (lang: SupportedLanguage) => void;
   onContentChange?: (val: string) => void;
@@ -23,8 +24,16 @@ interface CodeEditorProps {
   readOnly?: boolean;
 }
 
+interface RemoteWidgetEntry {
+  widget: editor.IContentWidget;
+  containerNode: HTMLElement;
+  caretNode: HTMLElement;
+  tagNode: HTMLElement;
+}
+
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
+  filePath,
   language,
   onLanguageChange,
   onContentChange,
@@ -38,6 +47,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const decorationsRef = useRef<string[]>([]);
+  const widgetsMapRef = useRef<Map<string, RemoteWidgetEntry>>(new Map());
+  const isApplyingRemoteRef = useRef<boolean>(false);
+  const prevFilePathRef = useRef<string | undefined>(filePath);
 
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
   const [lineCount, setLineCount] = useState(1);
@@ -46,7 +58,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     editorRef.current = ed;
     monacoRef.current = monaco;
 
-    // Define custom theme
+    // Define custom obsidian theme
     monaco.editor.defineTheme(KOLLAB_THEME_NAME, kollabTheme);
     monaco.editor.setTheme(KOLLAB_THEME_NAME);
 
@@ -74,6 +86,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     ed.onDidChangeModelContent(() => {
       setLineCount(ed.getModel()?.getLineCount() || 1);
+      // If the content change was caused by a remote socket update, don't re-emit
+      if (isApplyingRemoteRef.current) {
+        return;
+      }
       if (onContentChange) {
         onContentChange(ed.getValue());
       }
@@ -84,49 +100,157 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  // Render remote participant line highlights & decorations
+  // Synchronize file path changes (switching tabs)
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    if (prevFilePathRef.current !== filePath) {
+      prevFilePathRef.current = filePath;
+      isApplyingRemoteRef.current = true;
+      ed.setValue(value || '');
+      ed.setPosition({ lineNumber: 1, column: 1 });
+      isApplyingRemoteRef.current = false;
+      setLineCount(ed.getModel()?.getLineCount() || 1);
+    }
+  }, [filePath, value]);
+
+  // Synchronize remote content updates cleanly without cursor resets
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed || value === undefined) return;
+    // Only apply if file paths match and content differs
+    if (prevFilePathRef.current === filePath && value !== ed.getValue()) {
+      const model = ed.getModel();
+      if (!model) return;
+
+      const selections = ed.getSelections();
+      isApplyingRemoteRef.current = true;
+
+      ed.executeEdits('remote-sync', [
+        {
+          range: model.getFullModelRange(),
+          text: value,
+          forceMoveMarkers: true,
+        },
+      ]);
+
+      if (selections && selections.length > 0) {
+        ed.setSelections(selections);
+      }
+      isApplyingRemoteRef.current = false;
+      setLineCount(model.getLineCount());
+    }
+  }, [value, filePath]);
+
+  // Render high-visibility remote cursors (Monaco IContentWidget) and line highlights
   useEffect(() => {
     const ed = editorRef.current;
     const monaco = monacoRef.current;
     if (!ed || !monaco) return;
 
-    const newDecorations: editor.IModelDeltaDecoration[] = [];
+    const activeParticipantIds = new Set<string>();
 
     participants.forEach((p) => {
-      if (p.id === currentUserId) return; // Don't decorate own cursor
+      // Don't render cursor for self
+      if (p.id === currentUserId) return;
+
+      // Only show remote cursor if the peer is active on the same file
+      if (p.activeFilePath && filePath && p.activeFilePath !== filePath) {
+        return;
+      }
 
       const targetLine = p.cursor?.line || p.currentLine;
       const targetCol = p.cursor?.column || 1;
 
+      if (!targetLine || targetLine < 1) return;
+
+      activeParticipantIds.add(p.id);
+
+      const existing = widgetsMapRef.current.get(p.id);
+      if (existing) {
+        // Update widget position dynamically
+        existing.widget.getPosition = () => ({
+          position: { lineNumber: targetLine, column: targetCol },
+          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+        });
+        existing.tagNode.textContent = p.name;
+        existing.tagNode.style.backgroundColor = p.color;
+        existing.caretNode.style.backgroundColor = p.color;
+        existing.caretNode.style.boxShadow = `0 0 6px ${p.color}`;
+
+        ed.layoutContentWidget(existing.widget);
+      } else {
+        // Build new ContentWidget DOM
+        const container = document.createElement('div');
+        container.className = 'remote-cursor-container';
+
+        const caret = document.createElement('div');
+        caret.className = 'remote-caret-bar';
+        caret.style.backgroundColor = p.color;
+        caret.style.boxShadow = `0 0 6px ${p.color}`;
+
+        const tag = document.createElement('div');
+        tag.className = 'remote-name-tag';
+        tag.textContent = p.name;
+        tag.style.backgroundColor = p.color;
+
+        container.appendChild(caret);
+        container.appendChild(tag);
+
+        const widget: editor.IContentWidget = {
+          getId: () => `cursor_widget_${p.id}`,
+          getDomNode: () => container,
+          getPosition: () => ({
+            position: { lineNumber: targetLine, column: targetCol },
+            preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+          }),
+        };
+
+        ed.addContentWidget(widget);
+        widgetsMapRef.current.set(p.id, {
+          widget,
+          containerNode: container,
+          caretNode: caret,
+          tagNode: tag,
+        });
+      }
+    });
+
+    // Remove widgets for peers that disconnected or switched files
+    widgetsMapRef.current.forEach((entry, id) => {
+      if (!activeParticipantIds.has(id)) {
+        ed.removeContentWidget(entry.widget);
+        widgetsMapRef.current.delete(id);
+      }
+    });
+
+    // Model delta decorations for subtle active line highlight & multi-char selection
+    const newDecorations: editor.IModelDeltaDecoration[] = [];
+
+    participants.forEach((p) => {
+      if (p.id === currentUserId) return;
+      if (p.activeFilePath && filePath && p.activeFilePath !== filePath) return;
+
+      const targetLine = p.cursor?.line || p.currentLine;
       if (targetLine && targetLine > 0) {
-        // Subtle line highlight
         newDecorations.push({
           range: new monaco.Range(targetLine, 1, targetLine, 1),
           options: {
             isWholeLine: true,
-            className: `remote-line-highlight`,
+            className: 'remote-line-highlight',
             overviewRuler: {
               color: p.color,
               position: monaco.editor.OverviewRulerLane.Left,
             },
           },
         });
-
-        // Remote cursor caret and badge
-        newDecorations.push({
-          range: new monaco.Range(targetLine, targetCol, targetLine, targetCol),
-          options: {
-            className: `remote-cursor-caret`,
-            hoverMessage: { value: `**${p.name}**` },
-            before: {
-              content: p.name,
-              inlineClassName: `remote-cursor-tag`,
-            },
-          },
-        });
       }
 
-      if (p.selection) {
+      if (
+        p.selection &&
+        (p.selection.startLineNumber !== p.selection.endLineNumber ||
+          p.selection.startColumn !== p.selection.endColumn)
+      ) {
         newDecorations.push({
           range: new monaco.Range(
             p.selection.startLineNumber,
@@ -135,14 +259,27 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             p.selection.endColumn
           ),
           options: {
-            className: `yRemoteSelection`,
+            className: 'remote-selection',
           },
         });
       }
     });
 
     decorationsRef.current = ed.deltaDecorations(decorationsRef.current, newDecorations);
-  }, [participants, currentUserId]);
+  }, [participants, currentUserId, filePath]);
+
+  // Clean up all content widgets on unmount
+  useEffect(() => {
+    return () => {
+      const ed = editorRef.current;
+      if (ed) {
+        widgetsMapRef.current.forEach((entry) => {
+          ed.removeContentWidget(entry.widget);
+        });
+        widgetsMapRef.current.clear();
+      }
+    };
+  }, []);
 
   return (
     <div className={styles.editorContainer}>
@@ -150,7 +287,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <MonacoEditor
           height="100%"
           language={language}
-          value={value}
+          defaultValue={value}
           theme={KOLLAB_THEME_NAME}
           onMount={handleEditorDidMount}
           options={{
@@ -185,7 +322,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         />
       </div>
 
-      {/* Modern micro status bar */}
+      {/* Micro status bar */}
       <footer className={styles.statusBar}>
         <div className={styles.statusLeft}>
           <span className={styles.statusItem}>UTF-8</span>

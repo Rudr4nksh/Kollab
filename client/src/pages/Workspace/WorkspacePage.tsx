@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   FolderTree, 
   Users, 
@@ -50,6 +50,7 @@ interface WorkspacePageProps {
   hasPasscode?: boolean;
   connectionState: ConnectionState;
   participants: Participant[];
+  setParticipants?: React.Dispatch<React.SetStateAction<Participant[]>>;
   activities: ActivityEvent[];
   files: FileNode[];
   onFilesChange: (files: FileNode[]) => void;
@@ -67,6 +68,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   hasPasscode,
   connectionState,
   participants,
+  setParticipants,
   activities,
   files,
   onFilesChange,
@@ -133,6 +135,69 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         setActiveFilePath('');
       }
     }
+  };
+
+  // Auto-activate the first file when joining or when files arrive from socket
+  useEffect(() => {
+    if (files.length === 0) return;
+    const currentActiveExists = activeFilePath && findFileByPath(files, activeFilePath);
+    if (!currentActiveExists) {
+      const firstFile = findFirstFileNode(files);
+      if (firstFile) {
+        setActiveFilePath(firstFile.path);
+        setOpenFiles((prev) => {
+          const valid = prev.filter((f) => !!findFileByPath(files, f.path));
+          return valid.length > 0 ? valid : [firstFile];
+        });
+      }
+    } else {
+      // Keep open files updated with latest content from files tree
+      setOpenFiles((prev) =>
+        prev
+          .map((f) => findFileByPath(files, f.path))
+          .filter((f): f is FileNode => !!f)
+      );
+    }
+  }, [files]);
+
+  const handleLocalCursorChange = (line: number, column: number) => {
+    if (setParticipants) {
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.id === userId
+            ? {
+                ...p,
+                cursor: { line, column },
+                currentLine: line,
+                activeFilePath,
+              }
+            : p
+        )
+      );
+    }
+    socketService.emitCursorMove(roomId, userId, activeFilePath, { line, column });
+  };
+
+  const handleLocalSelectionChange = (selection: {
+    startLineNumber: number;
+    startColumn: number;
+    endLineNumber: number;
+    endColumn: number;
+  }) => {
+    if (setParticipants) {
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.id === userId
+            ? {
+                ...p,
+                selection,
+                activeFilePath,
+              }
+            : p
+        )
+      );
+    }
+    socketService.emitSelectionChange(roomId, userId, activeFilePath, selection);
   };
 
   // Editor content changes
@@ -617,6 +682,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             {activeFile ? (
               <CodeEditor
                 value={activeFile.content || ''}
+                filePath={activeFilePath}
                 language={(activeFile.language || getLanguageFromFilename(activeFile.name)) as SupportedLanguage}
                 onLanguageChange={(lang) => {
                   const updated = files.map((f) =>
@@ -626,12 +692,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   socketService.emitFilesTreeUpdate(roomId, updated, userId, `changed language to ${lang}`, 'file_created');
                 }}
                 onContentChange={handleContentChange}
-                onCursorChange={(line, column) => {
-                  socketService.emitCursorMove(roomId, userId, activeFilePath, { line, column });
-                }}
-                onSelectionChange={(selection) => {
-                  socketService.emitSelectionChange(roomId, userId, activeFilePath, selection);
-                }}
+                onCursorChange={handleLocalCursorChange}
+                onSelectionChange={handleLocalSelectionChange}
                 participants={participants}
                 currentUserId={userId}
               />

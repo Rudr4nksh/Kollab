@@ -318,6 +318,7 @@ export const App: React.FC = () => {
           hasPasscode={hasPasscode}
           connectionState={connectionState}
           participants={participants}
+          setParticipants={setParticipants}
           activities={activities}
           files={files}
           onFilesChange={setFiles}
