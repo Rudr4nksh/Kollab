@@ -68,12 +68,19 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     // Track cursor and selection changes
     ed.onDidChangeCursorPosition((e) => {
       setCursorPos({ line: e.position.lineNumber, column: e.position.column });
+      // When remote updates are being applied, do NOT broadcast internal cursor shifts back to peers!
+      if (isApplyingRemoteRef.current) {
+        return;
+      }
       if (onCursorChange) {
         onCursorChange(e.position.lineNumber, e.position.column);
       }
     });
 
     ed.onDidChangeCursorSelection((e) => {
+      if (isApplyingRemoteRef.current) {
+        return;
+      }
       if (onSelectionChange) {
         onSelectionChange({
           startLineNumber: e.selection.startLineNumber,
@@ -109,12 +116,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       isApplyingRemoteRef.current = true;
       ed.setValue(value || '');
       ed.setPosition({ lineNumber: 1, column: 1 });
-      isApplyingRemoteRef.current = false;
+      setTimeout(() => {
+        isApplyingRemoteRef.current = false;
+      }, 50);
       setLineCount(ed.getModel()?.getLineCount() || 1);
     }
   }, [filePath, value]);
 
-  // Synchronize remote content updates cleanly without cursor resets
+  // Synchronize remote content updates cleanly without cursor resets or echo loops
   useEffect(() => {
     const ed = editorRef.current;
     if (!ed || value === undefined) return;
@@ -130,14 +139,19 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         {
           range: model.getFullModelRange(),
           text: value,
-          forceMoveMarkers: true,
+          forceMoveMarkers: false,
         },
       ]);
 
       if (selections && selections.length > 0) {
         ed.setSelections(selections);
       }
-      isApplyingRemoteRef.current = false;
+
+      // Keep flag true long enough to discard Monaco's internal deferred cursor events
+      setTimeout(() => {
+        isApplyingRemoteRef.current = false;
+      }, 80);
+
       setLineCount(model.getLineCount());
     }
   }, [value, filePath]);

@@ -177,7 +177,7 @@ export const App: React.FC = () => {
       setActiveRoomId(res.room?.roomId || roomId);
       setHasPasscode(!!res.room?.hasPassword);
 
-      if (res.documentContent) {
+      if (res.documentContent && res.documentContent.trim().length > 0) {
         // If single document was persisted in existing room
         setFiles([
           {
@@ -185,7 +185,7 @@ export const App: React.FC = () => {
             name: 'main.js',
             path: '/main.js',
             type: 'file',
-            language: 'javascript',
+            language: (res.room?.language as any) || 'javascript',
             content: res.documentContent,
           },
         ]);
