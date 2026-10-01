@@ -77,7 +77,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   // Activity bar active tool
   const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isUpdatesOpen, setIsUpdatesOpen] = useState(true);
+  const [isUpdatesOpen, setIsUpdatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [copiedRoom, setCopiedRoom] = useState(false);
 
@@ -94,11 +94,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const [activeFilePath, setActiveFilePath] = useState<string>(() => {
     return files[0]?.path || '';
   });
-  const [newProjectName, setNewProjectName] = useState('project');
+  const [newProjectName, setNewProjectName] = useState('');
   const [newDirectFileName, setNewDirectFileName] = useState('');
 
   // Console & execution state
-  const [consoleOpen, setConsoleOpen] = useState(true);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<ConsoleLogItem[]>([
     {
@@ -277,7 +277,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   const handleCenterCreateFolderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleCreateProjectFolder(newProjectName || 'project');
+    const val = newProjectName.trim();
+    if (!val) {
+      handleCreateProjectFolder('project');
+      return;
+    }
+    if (/\.[a-zA-Z0-9]+$/.test(val)) {
+      handleCreateFile(val);
+      setNewProjectName('');
+    } else {
+      handleCreateProjectFolder(val);
+    }
   };
 
   const handleCenterCreateFileSubmit = (e: React.FormEvent) => {
@@ -488,10 +498,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           <button
             className={styles.iconNavBtn}
             onClick={() => setIsUpdatesOpen(!isUpdatesOpen)}
-            title="Toggle updates panel"
+            title={isUpdatesOpen ? "Hide peer updates panel" : "Show peer updates panel"}
           >
             {isUpdatesOpen ? <PanelRightClose size={13} /> : <PanelRight size={13} />}
-            <span>Feed</span>
           </button>
 
           <button
@@ -609,63 +618,52 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               <div className={styles.emptyEditorState}>
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
-                    <FolderPlus size={30} className={styles.emptyFolderIcon} />
+                    <FolderPlus size={24} className={styles.emptyFolderIcon} />
                   </div>
                   <h2 className={styles.emptyTitle}>create the project folder to start</h2>
                   <p className={styles.emptySubtitle}>
-                    Collaborate on multi-file code in real-time. Create your root project directory or open an existing local project.
+                    Enter a project name or open a local directory to begin collaborating.
                   </p>
 
                   <form onSubmit={handleCenterCreateFolderSubmit} className={styles.emptyForm}>
-                    <div className={styles.inputWrapper}>
-                      <Folder size={14} className={styles.inputFolderIcon} />
-                      <input
-                        type="text"
-                        className={styles.emptyFolderInput}
-                        placeholder="project-name (e.g. my-app, src)"
-                        value={newProjectName}
-                        onChange={(e) => setNewProjectName(e.target.value)}
-                        autoFocus
-                      />
+                    <div className={styles.unifiedInputRow}>
+                      <div className={styles.inputWrapper}>
+                        <Folder size={14} className={styles.inputFolderIcon} />
+                        <input
+                          type="text"
+                          className={styles.emptyFolderInput}
+                          placeholder="project-name or filename.ext"
+                          value={newProjectName}
+                          onChange={(e) => setNewProjectName(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <button type="submit" className={styles.createFolderPrimaryBtn}>
+                        <span>Create</span>
+                      </button>
                     </div>
-                    <button type="submit" className={styles.createFolderPrimaryBtn}>
-                      <FolderPlus size={14} />
-                      <span>Create Project Folder</span>
-                    </button>
                   </form>
 
-                  <div className={styles.emptyDivider}>
-                    <span>or create a file directly</span>
-                  </div>
-
-                  <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
-                    <div className={styles.inputWrapper}>
-                      <FileCode size={14} className={styles.inputFolderIcon} />
-                      <input
-                        type="text"
-                        className={styles.emptyFolderInput}
-                        placeholder="filename.ext (e.g. main.cpp, index.html, app.js)"
-                        value={newDirectFileName}
-                        onChange={(e) => setNewDirectFileName(e.target.value)}
-                      />
-                    </div>
-                    <button type="submit" className={styles.createFolderPrimaryBtn}>
-                      <FilePlus size={14} />
-                      <span>Create File</span>
-                    </button>
-                  </form>
-
-                  <div className={styles.emptyActionRow}>
+                  <div className={styles.emptyQuickLinks}>
                     <button
                       type="button"
-                      className={styles.emptySecondaryBtn}
+                      className={styles.ghostLinkBtn}
+                      onClick={() => handleCreateFile('main.js')}
+                    >
+                      <FilePlus size={12} />
+                      <span>Quick File (main.js)</span>
+                    </button>
+                    <span className={styles.linkDot}>•</span>
+                    <button
+                      type="button"
+                      className={styles.ghostLinkBtn}
                       onClick={() => {
                         const input = document.getElementById('workspace-folder-picker') as HTMLInputElement;
                         input?.click();
                       }}
                     >
-                      <Upload size={13} />
-                      <span>Open Folder from Computer</span>
+                      <Upload size={12} />
+                      <span>Open Local Folder</span>
                     </button>
                   </div>
                 </div>
@@ -674,28 +672,29 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               <div className={styles.emptyEditorState}>
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
-                    <FileCode size={30} className={styles.emptyFileIcon} />
+                    <FileCode size={24} className={styles.emptyFileIcon} />
                   </div>
                   <h3 className={styles.emptyTitle}>No file open</h3>
                   <p className={styles.emptySubtitle}>
-                    Select a file from the explorer on the left or create a new file with any extension (.js, .html, .cpp, .py).
+                    Select a file from the explorer on the left or create a new file.
                   </p>
                   <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
-                    <div className={styles.inputWrapper}>
-                      <FileCode size={14} className={styles.inputFolderIcon} />
-                      <input
-                        type="text"
-                        className={styles.emptyFolderInput}
-                        placeholder="filename.ext (e.g. main.cpp, script.js)"
-                        value={newDirectFileName}
-                        onChange={(e) => setNewDirectFileName(e.target.value)}
-                        autoFocus
-                      />
+                    <div className={styles.unifiedInputRow}>
+                      <div className={styles.inputWrapper}>
+                        <FileCode size={14} className={styles.inputFolderIcon} />
+                        <input
+                          type="text"
+                          className={styles.emptyFolderInput}
+                          placeholder="filename.ext (e.g. main.cpp, script.js)"
+                          value={newDirectFileName}
+                          onChange={(e) => setNewDirectFileName(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <button type="submit" className={styles.createFolderPrimaryBtn}>
+                        <span>Create</span>
+                      </button>
                     </div>
-                    <button type="submit" className={styles.createFolderPrimaryBtn}>
-                      <FilePlus size={14} />
-                      <span>Create New File</span>
-                    </button>
                   </form>
                 </div>
               </div>
