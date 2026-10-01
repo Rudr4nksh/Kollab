@@ -5,37 +5,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 8px;
+  padding: 0 12px 0 10px;
   user-select: none;
   flex-shrink: 0;
   gap: 12px;
-}
-
-.navControls {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.navBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  color: #6B7280;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  transition: all 150ms ease;
-  cursor: pointer;
-}
-
-.navBtn:hover {
-  color: #FFFFFF;
-  background-color: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .tabsContainer {

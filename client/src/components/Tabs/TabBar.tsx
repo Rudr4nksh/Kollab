@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, ChevronLeft, ChevronRight, X, Play, Copy, Check } from 'lucide-react';
+import { X, Play, Copy, Check } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
 import { getFileBadgeInfo } from '../../services/fileUtils.ts';
 import styles from './TabBar.module.css';
@@ -11,7 +11,6 @@ interface TabBarProps {
   onCloseTab: (path: string, e: React.MouseEvent) => void;
   onRunCode: () => void;
   onCopyCode: () => void;
-  onHomeClick?: () => void;
   isRunning?: boolean;
 }
 
@@ -22,7 +21,6 @@ export const TabBar: React.FC<TabBarProps> = ({
   onCloseTab,
   onRunCode,
   onCopyCode,
-  onHomeClick,
   isRunning,
 }) => {
   const [copied, setCopied] = React.useState(false);
@@ -35,19 +33,6 @@ export const TabBar: React.FC<TabBarProps> = ({
 
   return (
     <div className={styles.tabBar}>
-      {/* Navigation Controls matching reference */}
-      <div className={styles.navControls}>
-        <button className={styles.navBtn} onClick={onHomeClick} title="Workspace Home">
-          <Home size={14} />
-        </button>
-        <button className={styles.navBtn} title="Back">
-          <ChevronLeft size={14} />
-        </button>
-        <button className={styles.navBtn} title="Forward">
-          <ChevronRight size={14} />
-        </button>
-      </div>
-
       {/* Tabs Container */}
       <div className={styles.tabsContainer}>
         {openFiles.length === 0 ? (

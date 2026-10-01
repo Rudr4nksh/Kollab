@@ -5,11 +5,10 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  background-color: #07090D;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .editorFrame {
@@ -17,7 +16,71 @@
   min-height: 0;
   width: 100%;
   position: relative;
-  background-color: var(--bg-editor);
+  background-color: #07090D;
+}
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 12px;
+  background-color: #050608;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #717888;
+  user-select: none;
+}
+
+.statusLeft,
+.statusRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusItem {
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+
+.statusLangBadge {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: #9da7b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statusLangSelect {
+  background: transparent;
+  border: none;
+  color: #9da7b8;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+}
+
+.statusLangSelect:hover {
+  color: #FFFFFF;
+}
+
+.statusLangSelect option {
+  background-color: #07090D;
+  color: #FFFFFF;
+}
+
+.statusDivider {
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 8px;
 }
 
 /* Global styles injected into Monaco Editor DOM for remote cursors and highlights */

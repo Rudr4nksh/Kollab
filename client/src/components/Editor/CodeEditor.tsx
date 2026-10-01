@@ -1,7 +1,6 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { EditorToolbar } from './EditorToolbar.tsx';
 import { KOLLAB_THEME_NAME, kollabTheme } from './monacoTheme.ts';
 import type { SupportedLanguage, Participant } from '../../types/index.ts';
 import styles from './CodeEditor.module.css';
@@ -115,49 +114,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     decorationsRef.current = ed.deltaDecorations(decorationsRef.current, newDecorations);
   }, [participants, currentUserId]);
 
-  const handleCopyCode = useCallback(() => {
-    const textToCopy = editorRef.current ? editorRef.current.getValue() : value || '';
-    navigator.clipboard.writeText(textToCopy);
-  }, [value]);
-
-  const handleDownloadCode = useCallback(() => {
-    const text = editorRef.current ? editorRef.current.getValue() : value || '';
-    const extMap: Record<SupportedLanguage, string> = {
-      html: 'html',
-      javascript: 'js',
-      typescript: 'ts',
-      python: 'py',
-      cpp: 'cpp',
-      java: 'java',
-      markdown: 'md',
-      plaintext: 'txt',
-      dart: 'dart',
-      css: 'css',
-      json: 'json',
-    };
-    const ext = extMap[language] || 'txt';
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `kollab-document.${ext}`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [language, value]);
-
   return (
     <div className={styles.editorContainer}>
-      <EditorToolbar
-        language={language}
-        onLanguageChange={onLanguageChange}
-        onCopyCode={handleCopyCode}
-        onDownloadCode={handleDownloadCode}
-        cursorLine={cursorPos.line}
-        cursorColumn={cursorPos.column}
-        lineCount={lineCount}
-        readOnly={readOnly}
-      />
-
       <div className={styles.editorFrame}>
         <MonacoEditor
           height="100%"
@@ -182,7 +140,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             renderLineHighlight: 'line',
             renderWhitespace: 'selection',
             minimap: {
-              enabled: false, // Clean developer tool feel without clutter
+              enabled: false,
             },
             scrollbar: {
               verticalScrollbarSize: 8,
@@ -192,10 +150,55 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             tabSize: 2,
             wordWrap: 'on',
             automaticLayout: true,
-            padding: { top: 12, bottom: 12 },
+            padding: { top: 10, bottom: 10 },
           }}
         />
       </div>
+
+      {/* Modern micro status bar */}
+      <footer className={styles.statusBar}>
+        <div className={styles.statusLeft}>
+          <span className={styles.statusItem}>UTF-8</span>
+          <span className={styles.statusDivider}>•</span>
+          {onLanguageChange ? (
+            <select
+              className={styles.statusLangSelect}
+              value={language}
+              onChange={(e) => onLanguageChange(e.target.value as SupportedLanguage)}
+              title="Change language mode"
+            >
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="python">Python</option>
+              <option value="html">HTML</option>
+              <option value="css">CSS</option>
+              <option value="json">JSON</option>
+              <option value="markdown">Markdown</option>
+              <option value="cpp">C++</option>
+              <option value="java">Java</option>
+              <option value="dart">Dart</option>
+              <option value="plaintext">Plaintext</option>
+            </select>
+          ) : (
+            <span className={styles.statusLangBadge}>{language.toUpperCase()}</span>
+          )}
+          {readOnly && (
+            <>
+              <span className={styles.statusDivider}>•</span>
+              <span className={styles.statusItem}>Read-Only</span>
+            </>
+          )}
+        </div>
+        <div className={styles.statusRight}>
+          <span className={styles.statusItem}>
+            Ln {cursorPos.line}, Col {cursorPos.column}
+          </span>
+          <span className={styles.statusDivider}>•</span>
+          <span className={styles.statusItem}>
+            {lineCount} {lineCount === 1 ? 'line' : 'lines'}
+          </span>
+        </div>
+      </footer>
     </div>
   );
 };
