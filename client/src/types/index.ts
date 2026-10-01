@@ -1,15 +1,36 @@
 export type SupportedLanguage = 
-  | 'html' 
+  // Web Development
   | 'javascript' 
   | 'typescript' 
-  | 'python' 
+  | 'html' 
+  | 'css' 
+  | 'scss'
+  | 'json' 
+  | 'yaml'
+  | 'xml'
+  | 'php'
+  | 'ruby'
+  | 'graphql'
+  // DSA & Systems Programming
+  | 'c'
   | 'cpp' 
   | 'java' 
-  | 'plaintext' 
+  | 'rust'
+  | 'go'
+  | 'kotlin'
+  | 'csharp'
+  | 'swift'
+  | 'dart'
+  // AI / ML & Data Science
+  | 'python' 
+  | 'r'
+  | 'julia'
+  | 'sql'
+  | 'shell'
+  // General & Docs
   | 'markdown'
-  | 'css'
-  | 'json'
-  | 'dart';
+  | 'dockerfile'
+  | 'plaintext';
 
 export type UserRole = 'host' | 'participant';
 

@@ -1,26 +1,50 @@
 import type { FileNode, SupportedLanguage } from '../types/index.ts';
 
 export function getLanguageFromFilename(filename: string): SupportedLanguage {
-  const ext = filename.split('.').pop()?.toLowerCase();
+  const lower = filename.toLowerCase();
+  if (lower === 'dockerfile' || lower.endsWith('.dockerfile')) {
+    return 'dockerfile';
+  }
+  const ext = lower.split('.').pop();
   switch (ext) {
+    // Web Development
     case 'html':
     case 'htm':
       return 'html';
     case 'js':
     case 'mjs':
     case 'cjs':
+    case 'jsx':
       return 'javascript';
     case 'ts':
     case 'tsx':
       return 'typescript';
     case 'css':
       return 'css';
+    case 'scss':
+    case 'sass':
+    case 'less':
+      return 'scss';
     case 'json':
       return 'json';
-    case 'py':
-      return 'python';
-    case 'dart':
-      return 'dart';
+    case 'yaml':
+    case 'yml':
+      return 'yaml';
+    case 'xml':
+    case 'svg':
+      return 'xml';
+    case 'php':
+      return 'php';
+    case 'rb':
+    case 'ruby':
+      return 'ruby';
+    case 'graphql':
+    case 'gql':
+      return 'graphql';
+
+    // DSA & Systems Programming
+    case 'c':
+      return 'c';
     case 'cpp':
     case 'cc':
     case 'cxx':
@@ -29,6 +53,38 @@ export function getLanguageFromFilename(filename: string): SupportedLanguage {
       return 'cpp';
     case 'java':
       return 'java';
+    case 'rs':
+    case 'rust':
+      return 'rust';
+    case 'go':
+      return 'go';
+    case 'kt':
+    case 'kts':
+      return 'kotlin';
+    case 'cs':
+      return 'csharp';
+    case 'swift':
+      return 'swift';
+    case 'dart':
+      return 'dart';
+
+    // AI / ML & Data Science
+    case 'py':
+    case 'ipynb':
+    case 'pyw':
+      return 'python';
+    case 'r':
+      return 'r';
+    case 'jl':
+      return 'julia';
+    case 'sql':
+      return 'sql';
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return 'shell';
+
+    // Docs & General
     case 'md':
     case 'markdown':
       return 'markdown';
@@ -38,36 +94,93 @@ export function getLanguageFromFilename(filename: string): SupportedLanguage {
 }
 
 export function getFileBadgeInfo(filename: string): { label: string; color: string; bg: string } {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (filename === '.gitignore') {
-    return { label: 'git', color: '#4ADE80', bg: 'rgba(74, 222, 128, 0.15)' };
+  const lower = filename.toLowerCase();
+  const ext = lower.split('.').pop() || '';
+  if (filename === '.gitignore' || filename === '.env') {
+    return { label: 'CFG', color: '#4ADE80', bg: 'rgba(74, 222, 128, 0.15)' };
   }
+  if (lower === 'dockerfile' || lower.endsWith('.dockerfile')) {
+    return { label: 'DOCKER', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+  }
+
   switch (ext) {
+    // Web
     case 'js':
+    case 'mjs':
+    case 'cjs':
       return { label: 'JS', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
+    case 'jsx':
+      return { label: 'JSX', color: '#67E8F9', bg: 'rgba(103, 232, 249, 0.15)' };
     case 'ts':
-    case 'tsx':
       return { label: 'TS', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
-    case 'py':
-      return { label: 'PY', color: '#FCD34D', bg: 'rgba(252, 211, 77, 0.15)' };
-    case 'dart':
-      return { label: 'DART', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+    case 'tsx':
+      return { label: 'TSX', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
     case 'html':
+    case 'htm':
       return { label: 'HTML', color: '#FB923C', bg: 'rgba(251, 146, 60, 0.15)' };
     case 'css':
       return { label: 'CSS', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+    case 'scss':
+    case 'sass':
+      return { label: 'SCSS', color: '#F472B6', bg: 'rgba(244, 114, 182, 0.15)' };
+    case 'json':
+      return { label: '{}', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
+    case 'yaml':
+    case 'yml':
+      return { label: 'YAML', color: '#FB7185', bg: 'rgba(251, 113, 133, 0.15)' };
+    case 'xml':
+      return { label: 'XML', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
+    case 'php':
+      return { label: 'PHP', color: '#A78BFA', bg: 'rgba(167, 139, 250, 0.15)' };
+    case 'rb':
+      return { label: 'RUBY', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' };
+    case 'graphql':
+    case 'gql':
+      return { label: 'GQL', color: '#EC4899', bg: 'rgba(236, 72, 153, 0.15)' };
+
+    // DSA
+    case 'c':
+      return { label: 'C', color: '#93C5FD', bg: 'rgba(147, 197, 253, 0.15)' };
     case 'cpp':
     case 'cc':
     case 'cxx':
-    case 'c':
     case 'h':
     case 'hpp':
       return { label: 'C++', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
     case 'java':
       return { label: 'JAVA', color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)' };
-    case 'json':
-      return { label: '{}', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
+    case 'rs':
+      return { label: 'RUST', color: '#F97316', bg: 'rgba(249, 115, 22, 0.15)' };
+    case 'go':
+      return { label: 'GO', color: '#00ADD8', bg: 'rgba(0, 173, 216, 0.15)' };
+    case 'kt':
+    case 'kts':
+      return { label: 'KT', color: '#A855F7', bg: 'rgba(168, 85, 247, 0.15)' };
+    case 'cs':
+      return { label: 'C#', color: '#818CF8', bg: 'rgba(129, 140, 248, 0.15)' };
+    case 'swift':
+      return { label: 'SWIFT', color: '#F97316', bg: 'rgba(249, 115, 22, 0.15)' };
+    case 'dart':
+      return { label: 'DART', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+
+    // AI / ML
+    case 'py':
+    case 'ipynb':
+    case 'pyw':
+      return { label: 'PY', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.15)' };
+    case 'r':
+      return { label: 'R', color: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)' };
+    case 'jl':
+      return { label: 'JULIA', color: '#9333EA', bg: 'rgba(147, 51, 234, 0.15)' };
+    case 'sql':
+      return { label: 'SQL', color: '#EAB308', bg: 'rgba(234, 179, 8, 0.15)' };
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return { label: 'SH', color: '#22C55E', bg: 'rgba(34, 197, 94, 0.15)' };
+
     case 'md':
+    case 'markdown':
       return { label: 'MD', color: '#C084FC', bg: 'rgba(192, 132, 252, 0.15)' };
     default:
       return { label: 'TXT', color: '#8B949E', bg: 'rgba(139, 148, 158, 0.12)' };

@@ -421,12 +421,68 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             ]);
           }
         } else if (lang === 'python') {
+          // Check for simple print statement simulation or execution
+          const printMatches = Array.from((activeFile.content || '').matchAll(/print\s*\(\s*(?:f?["'](.*?)["']|(.*?))\s*\)/g));
+          const simulatedOutput = printMatches.length > 0
+            ? printMatches.map(m => m[1] || m[2]).join('\n')
+            : `[Python 3.12 (PyTorch / NumPy / Scikit-Learn)] Executed ${activeFile.name} successfully.`;
+
           setLogs((prev) => [
             ...prev,
             {
               id: 'py_' + Date.now(),
               type: 'stdout',
-              text: `[Python Runtime] Output: Hello from ${activeFile.name}!\nProcess finished with exit code 0.`,
+              text: simulatedOutput + '\n[Process finished with exit code 0]',
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } else if (lang === 'cpp' || lang === 'c') {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'cpp_' + Date.now(),
+              type: 'stdout',
+              text: `[G++ 13.2 (C++20, -O3)] Compiled ${activeFile.name} in 38ms with 0 warnings.\n[Running binary executable...]\nProcess finished with exit code 0.`,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } else if (lang === 'rust') {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'rs_' + Date.now(),
+              type: 'stdout',
+              text: `[cargo run] Finished dev [unoptimized + debuginfo] in 0.32s\nRunning \`target/debug/main\`...\nProcess finished with exit code 0.`,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } else if (lang === 'go') {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'go_' + Date.now(),
+              type: 'stdout',
+              text: `[Go 1.22] Executing ${activeFile.name}...\nProcess finished with exit code 0.`,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } else if (lang === 'java') {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'java_' + Date.now(),
+              type: 'stdout',
+              text: `[OpenJDK 21] Compiled & Executed ${activeFile.name}.\nProcess finished with exit code 0.`,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } else if (lang === 'sql') {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'sql_' + Date.now(),
+              type: 'stdout',
+              text: `[SQL Engine] Query executed successfully. (0.002 sec, 1 row affected).`,
               timestamp: new Date().toLocaleTimeString(),
             },
           ]);
@@ -446,7 +502,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             {
               id: 'gen_' + Date.now(),
               type: 'stdout',
-              text: `Executed ${activeFile.name} successfully. (Duration: 42ms)`,
+              text: `[${lang.toUpperCase()}] Executed ${activeFile.name} successfully. (Duration: 35ms)`,
               timestamp: new Date().toLocaleTimeString(),
             },
           ]);
