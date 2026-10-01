@@ -89,6 +89,16 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // Auto-detect invite link with ?room= parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    if (roomParam) {
+      setRoomId(roomParam.trim());
+      setModalMode('join');
+    }
+  }, []);
+
   // High-Performance Parallax Refs (Zero React Re-renders, sleeps when idle)
   const mockupRef = useRef<HTMLDivElement>(null);
   const mockupWindowRef = useRef<HTMLDivElement>(null);

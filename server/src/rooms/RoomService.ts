@@ -22,10 +22,28 @@ export class RoomService {
   }
 
   /**
-   * Sanitize room ID
+   * Sanitize room ID while preserving character casing
    */
   static sanitizeRoomId(roomId: string): string {
-    return roomId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    return roomId.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  }
+
+  /**
+   * Helper to find room record with case-insensitive fallback
+   */
+  static async findRoomRecord(roomId: string) {
+    const clean = this.sanitizeRoomId(roomId);
+    if (!clean) return null;
+
+    // Direct match first
+    const room = await prisma.room.findUnique({
+      where: { roomId: clean },
+    });
+    if (room) return room;
+
+    // Case-insensitive match fallback
+    const all = await prisma.room.findMany();
+    return all.find((r) => r.roomId.toLowerCase() === clean.toLowerCase()) || null;
   }
 
   /**
@@ -51,9 +69,7 @@ export class RoomService {
     }
 
     // Check if room already exists
-    const existing = await prisma.room.findUnique({
-      where: { roomId: targetRoomId },
-    });
+    const existing = await this.findRoomRecord(targetRoomId);
 
     if (existing) {
       throw new Error(`Room '${targetRoomId}' already exists. Please choose another ID or join it.`);
@@ -119,14 +135,7 @@ export class RoomService {
     documentContent?: string;
     isHost?: boolean;
   }> {
-    const targetRoomId = this.sanitizeRoomId(payload.roomId);
-    if (!targetRoomId) {
-      return { isValid: false, error: 'Invalid room ID' };
-    }
-
-    const room = await prisma.room.findUnique({
-      where: { roomId: targetRoomId },
-    });
+    const room = await this.findRoomRecord(payload.roomId);
 
     if (!room) {
       return {
@@ -176,10 +185,7 @@ export class RoomService {
    * Get room metadata
    */
   static async getRoom(roomId: string): Promise<RoomMetadata | null> {
-    const target = this.sanitizeRoomId(roomId);
-    const room = await prisma.room.findUnique({
-      where: { roomId: target },
-    });
+    const room = await this.findRoomRecord(roomId);
 
     if (!room) return null;
 
@@ -199,41 +205,52 @@ export class RoomService {
    * Update room language
    */
   static async updateLanguage(roomId: string, language: SupportedLanguage): Promise<void> {
-    await prisma.room.update({
-      where: { roomId: this.sanitizeRoomId(roomId) },
-      data: { language },
-    });
+    const room = await this.findRoomRecord(roomId);
+    if (room) {
+      await prisma.room.update({
+        where: { roomId: room.roomId },
+        data: { language },
+      });
+    }
   }
 
   /**
    * Persist document state and text content
    */
   static async persistDocument(roomId: string, text: string, docState?: Uint8Array): Promise<void> {
-    await prisma.room.update({
-      where: { roomId: this.sanitizeRoomId(roomId) },
-      data: {
-        document: text,
-        ...(docState ? { docState: Buffer.from(docState) } : {}),
-      },
-    });
+    const room = await this.findRoomRecord(roomId);
+    if (room) {
+      await prisma.room.update({
+        where: { roomId: room.roomId },
+        data: {
+          document: text,
+          ...(docState ? { docState: Buffer.from(docState) } : {}),
+        },
+      });
+    }
   }
 
   /**
    * Update host user ID in database
    */
   static async updateHost(roomId: string, newHostUserId: string): Promise<void> {
-    await prisma.room.update({
-      where: { roomId: this.sanitizeRoomId(roomId) },
-      data: { hostUserId: newHostUserId },
-    });
+    const room = await this.findRoomRecord(roomId);
+    if (room) {
+      await prisma.room.update({
+        where: { roomId: room.roomId },
+        data: { hostUserId: newHostUserId },
+      });
+    }
   }
 
   /**
    * Get recent activities for a room
    */
   static async getActivities(roomId: string, limit = 40) {
+    const room = await this.findRoomRecord(roomId);
+    const targetId = room ? room.roomId : this.sanitizeRoomId(roomId);
     const activities = await prisma.activity.findMany({
-      where: { roomId: this.sanitizeRoomId(roomId) },
+      where: { roomId: targetId },
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
@@ -259,9 +276,11 @@ export class RoomService {
     userName: string,
     details?: string
   ) {
+    const room = await this.findRoomRecord(roomId);
+    const targetId = room ? room.roomId : this.sanitizeRoomId(roomId);
     const activity = await prisma.activity.create({
       data: {
-        roomId: this.sanitizeRoomId(roomId),
+        roomId: targetId,
         type,
         userId,
         userName: this.sanitizeDisplayName(userName),
