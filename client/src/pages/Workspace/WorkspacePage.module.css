@@ -416,9 +416,30 @@
 
 .emptyForm {
   width: 100%;
+  max-width: 440px;
+  margin: 0 auto 14px auto;
   display: flex;
-  flex-direction: column;
-  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.unifiedInputPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 3px 4px 3px 14px;
+  height: 42px;
+  box-sizing: border-box;
+  transition: all 160ms ease;
+}
+
+.unifiedInputPill:focus-within {
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
 }
 
 .unifiedInputRow {
@@ -459,10 +480,33 @@
   color: #FFFFFF;
   font-family: var(--font-mono);
   font-size: 12.5px;
+  min-width: 0;
 }
 
 .emptyFolderInput::placeholder {
   color: #555D6E;
+}
+
+.createFolderInsideBtn {
+  height: 34px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  color: #050608;
+  border: none;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.createFolderInsideBtn:hover {
+  background: #E5E7EB;
+  transform: translateY(-0.5px);
 }
 
 .createFolderPrimaryBtn {

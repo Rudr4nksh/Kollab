@@ -360,10 +360,20 @@
   color: #FFFFFF;
   padding: 6px 4px;
   font-family: inherit;
+  resize: none;
+  min-height: 22px;
+  max-height: 120px;
+  line-height: 1.4;
+  overflow-y: auto;
 }
 
 .textInput::placeholder {
   color: #5C6270;
+}
+
+.codeBtnActive {
+  color: #5865F2 !important;
+  background-color: rgba(88, 101, 242, 0.15) !important;
 }
 
 .sendBtn {

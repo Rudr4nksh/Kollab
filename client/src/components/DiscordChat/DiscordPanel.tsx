@@ -43,7 +43,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
   const [isSpeakingLocally, setIsSpeakingLocally] = useState(voiceService.isSpeaking);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync voice service state changes
   useEffect(() => {
@@ -101,10 +101,71 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  // Automatically wrap code or toggle code formatting
+  const handleToggleWrapCode = () => {
+    const trimmed = inputText.trim();
+    if (!trimmed) {
+      setInputText('```\n\n```');
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.selectionStart = 4;
+          inputRef.current.selectionEnd = 4;
+        }
+      }, 0);
+      return;
+    }
+
+    if (trimmed.startsWith('```') && trimmed.endsWith('```')) {
+      // Unwrap if already wrapped
+      const unwrapped = trimmed.replace(/^```[a-z]*\n?([\s\S]*?)\n?```$/i, '$1').trim();
+      setInputText(unwrapped);
+    } else {
+      // Automatically wrap whatever code is in the box
+      setInputText(`\`\`\`\n${trimmed}\n\`\`\``);
+    }
+    inputRef.current?.focus();
+  };
+
+  // Automatically wrap pasted code
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const paste = e.clipboardData.getData('text');
+    if (!paste) return;
+
+    // Detect if pasted text looks like code (multi-line, indentation, or typical code syntax)
+    const isMultiLine = paste.includes('\n') || paste.includes('\r');
+    const isCodeSyntax = /^(const|let|var|function|import|export|class|def|for|while|if|return|public|private|#include|<html)\b|[{};=><()[\]]/m.test(paste);
+
+    // If it's already wrapped in ```, let default paste happen
+    if (paste.trim().startsWith('```') && paste.trim().endsWith('```')) {
+      return;
+    }
+
+    if (isMultiLine || (paste.length > 25 && isCodeSyntax)) {
+      e.preventDefault();
+      const wrapped = `\`\`\`\n${paste.trim()}\n\`\`\``;
+      const el = inputRef.current;
+      if (el) {
+        const start = el.selectionStart || 0;
+        const end = el.selectionEnd || 0;
+        const nextVal = inputText.substring(0, start) + wrapped + inputText.substring(end);
+        setInputText(nextVal);
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = start + wrapped.length;
+            inputRef.current.selectionEnd = start + wrapped.length;
+          }
+        }, 0);
+      } else {
+        setInputText((prev) => (prev ? `${prev}\n${wrapped}` : wrapped));
+      }
     }
   };
 
@@ -334,23 +395,21 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
       {/* Message Input Box */}
       <div className={styles.chatInputWrapper}>
         <form onSubmit={handleSend} className={styles.inputCard}>
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             className={styles.textInput}
-            placeholder="Type a message... (wrap code with ```)"
+            placeholder="type to chat"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
           />
           <button
             type="button"
-            className={styles.iconBtn}
-            onClick={() => {
-              setInputText((prev) => prev + (prev ? '\n```\n\n```' : '```\n\n```'));
-              inputRef.current?.focus();
-            }}
-            title="Insert Code Snippet"
+            className={`${styles.iconBtn} ${inputText.includes('```') ? styles.codeBtnActive : ''}`}
+            onClick={handleToggleWrapCode}
+            title={inputText.trim() ? "Automatically wrap code in ```" : "Insert Code Block (```)"}
           >
             <Code size={14} />
           </button>
