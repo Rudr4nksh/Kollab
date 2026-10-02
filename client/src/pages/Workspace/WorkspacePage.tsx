@@ -122,6 +122,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [consoleTab, setConsoleTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('output');
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<ConsoleLogItem[]>([
     {
@@ -384,163 +385,122 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     setNewDirectFileName('');
   };
 
-  // Run Code execution (interactive JS sandbox or simulation)
-  const handleRunCode = useCallback(() => {
+  // Run Code execution (Server compiler runner or dedicated live HTML preview)
+  const handleRunCode = useCallback(async () => {
     if (!activeFile) return;
+
+    const lang = activeFile.language || getLanguageFromFilename(activeFile.name);
+
+    // If HTML or CSS, open dedicated separate Live Preview tab
+    if (lang === 'html' || activeFile.name.endsWith('.html') || activeFile.name.endsWith('.htm')) {
+      setConsoleOpen(true);
+      setConsoleTab('preview');
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: 'prev_' + Date.now(),
+          type: 'info',
+          text: `[Live Preview] Switched to dedicated website preview for ${activeFile.name}.`,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+      return;
+    }
+
+    // For programming languages (C++, C, Python, JavaScript, Java, etc.): run real runner
     setIsRunning(true);
     setConsoleOpen(true);
+    setConsoleTab('output');
 
-    const time = new Date().toLocaleTimeString();
+    const startTime = new Date().toLocaleTimeString();
     setLogs((prev) => [
       ...prev,
       {
         id: 'run_' + Date.now(),
         type: 'info',
-        text: `▶ Running ${activeFile.name}...`,
-        timestamp: time,
+        text: `▶ Running ${activeFile.name} (${lang})...`,
+        timestamp: startTime,
       },
     ]);
 
-    setTimeout(() => {
-      try {
-        const lang = activeFile.language || getLanguageFromFilename(activeFile.name);
+    try {
+      const res = await fetch('/api/runner/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: lang,
+          code: activeFile.content || '',
+          filename: activeFile.name,
+        }),
+      });
 
-        if (lang === 'javascript') {
-          // Capture console.log in an isolated evaluation
-          const capturedLogs: string[] = [];
-          const customConsole = {
-            log: (...args: any[]) => capturedLogs.push(args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')),
-            error: (...args: any[]) => capturedLogs.push('ERROR: ' + args.join(' ')),
-            warn: (...args: any[]) => capturedLogs.push('WARN: ' + args.join(' ')),
-          };
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with ${res.status}`);
+      }
 
-          const runFn = new Function('console', activeFile.content || '');
-          const result = runFn(customConsole);
+      const data = await res.json();
+      const finishTime = new Date().toLocaleTimeString();
 
-          capturedLogs.forEach((logText) => {
-            setLogs((prev) => [
-              ...prev,
-              {
-                id: 'log_' + Math.random().toString(36),
-                type: logText.startsWith('ERROR:') ? 'stderr' : 'stdout',
-                text: logText,
-                timestamp: new Date().toLocaleTimeString(),
-              },
-            ]);
-          });
-
-          if (result !== undefined) {
-            setLogs((prev) => [
-              ...prev,
-              {
-                id: 'res_' + Date.now(),
-                type: 'result',
-                text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result),
-                timestamp: new Date().toLocaleTimeString(),
-              },
-            ]);
-          }
-        } else if (lang === 'python') {
-          // Check for simple print statement simulation or execution
-          const printMatches = Array.from((activeFile.content || '').matchAll(/print\s*\(\s*(?:f?["'](.*?)["']|(.*?))\s*\)/g));
-          const simulatedOutput = printMatches.length > 0
-            ? printMatches.map(m => m[1] || m[2]).join('\n')
-            : `[Python 3.12 (PyTorch / NumPy / Scikit-Learn)] Executed ${activeFile.name} successfully.`;
-
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'py_' + Date.now(),
-              type: 'stdout',
-              text: simulatedOutput + '\n[Process finished with exit code 0]',
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'cpp' || lang === 'c') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'cpp_' + Date.now(),
-              type: 'stdout',
-              text: `[G++ 13.2 (C++20, -O3)] Compiled ${activeFile.name} in 38ms with 0 warnings.\n[Running binary executable...]\nProcess finished with exit code 0.`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'rust') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'rs_' + Date.now(),
-              type: 'stdout',
-              text: `[cargo run] Finished dev [unoptimized + debuginfo] in 0.32s\nRunning \`target/debug/main\`...\nProcess finished with exit code 0.`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'go') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'go_' + Date.now(),
-              type: 'stdout',
-              text: `[Go 1.22] Executing ${activeFile.name}...\nProcess finished with exit code 0.`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'java') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'java_' + Date.now(),
-              type: 'stdout',
-              text: `[OpenJDK 21] Compiled & Executed ${activeFile.name}.\nProcess finished with exit code 0.`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'sql') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'sql_' + Date.now(),
-              type: 'stdout',
-              text: `[SQL Engine] Query executed successfully. (0.002 sec, 1 row affected).`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else if (lang === 'html' || lang === 'css') {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'html_' + Date.now(),
-              type: 'info',
-              text: `Compiled ${activeFile.name} to Live Preview frame.`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        } else {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'gen_' + Date.now(),
-              type: 'stdout',
-              text: `[${lang.toUpperCase()}] Executed ${activeFile.name} successfully. (Duration: 35ms)`,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-        }
-      } catch (err: any) {
+      if (data.compilerError) {
         setLogs((prev) => [
           ...prev,
           {
-            id: 'err_' + Date.now(),
+            id: 'cerr_' + Date.now(),
             type: 'stderr',
-            text: err.toString(),
-            timestamp: new Date().toLocaleTimeString(),
+            text: data.compilerError.trim(),
+            timestamp: finishTime,
           },
         ]);
-      } finally {
-        setIsRunning(false);
+      } else {
+        if (data.stdout) {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'out_' + Date.now(),
+              type: 'stdout',
+              text: data.stdout.trimEnd(),
+              timestamp: finishTime,
+            },
+          ]);
+        }
+        if (data.stderr) {
+          setLogs((prev) => [
+            ...prev,
+            {
+              id: 'err_' + Date.now(),
+              type: 'stderr',
+              text: data.stderr.trimEnd(),
+              timestamp: finishTime,
+            },
+          ]);
+        }
       }
-    }, 150);
+
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: 'stat_' + Date.now(),
+          type: data.exitCode === 0 ? 'system' : 'stderr',
+          text: data.exitCode === 0
+            ? `✓ [Process finished with exit code 0 in ${data.executionTimeMs}ms]`
+            : `✕ [Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
+          timestamp: finishTime,
+        },
+      ]);
+    } catch (err: any) {
+      setLogs((prev) => [
+        ...prev,
+        {
+          id: 'err_' + Date.now(),
+          type: 'stderr',
+          text: `Execution failed: ${err.message}`,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+    } finally {
+      setIsRunning(false);
+    }
   }, [activeFile]);
 
   // Execute console command prompt
@@ -877,6 +837,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             onToggleOpen={() => setConsoleOpen(!consoleOpen)}
             userName={displayName}
             roomId={roomId}
+            activeTab={consoleTab}
+            onTabChange={setConsoleTab}
             onCreateFile={handleCreateFile}
             onCreateFolder={handleCreateFolder}
             onDeleteNode={handleDeleteNode}

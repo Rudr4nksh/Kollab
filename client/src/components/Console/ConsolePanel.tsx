@@ -10,7 +10,14 @@ import {
   AlertCircle,
   FileText,
   FolderGit2,
-  GitBranch
+  GitBranch,
+  ExternalLink,
+  RotateCw,
+  Monitor,
+  Tablet,
+  Smartphone,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import type { ConsoleLogItem, FileNode } from '../../types/index.ts';
 import { findFileByPath, getLanguageFromFilename } from '../../services/fileUtils.ts';
@@ -38,6 +45,8 @@ interface ConsolePanelProps {
   onToggleOpen: () => void;
   userName?: string;
   roomId?: string;
+  activeTab?: 'terminal' | 'output' | 'problems' | 'preview';
+  onTabChange?: (tab: 'terminal' | 'output' | 'problems' | 'preview') => void;
   onCreateFile?: (name: string, parentPath?: string) => void;
   onCreateFolder?: (name: string, parentPath?: string) => void;
   onDeleteNode?: (path: string) => void;
@@ -56,6 +65,8 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onToggleOpen,
   userName = 'collaborator',
   roomId = 'workspace',
+  activeTab,
+  onTabChange,
   onCreateFile,
   onCreateFolder,
   onDeleteNode,
@@ -63,7 +74,22 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onFilesChange,
   onGitPush,
 }) => {
-  const [tab, setTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('terminal');
+  const [tab, setInternalTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>(activeTab || 'terminal');
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [previewKey, setPreviewKey] = useState(0);
+
+  useEffect(() => {
+    if (activeTab) {
+      setInternalTab(activeTab);
+    }
+  }, [activeTab]);
+
+  const handleSetTab = (newTab: 'terminal' | 'output' | 'problems' | 'preview') => {
+    setInternalTab(newTab);
+    if (onTabChange) {
+      onTabChange(newTab);
+    }
+  };
   const [inputVal, setInputVal] = useState('');
   const [cwd, setCwd] = useState('/');
   const [gitBranch, setGitBranch] = useState(gitService.getBranch());
@@ -784,11 +810,50 @@ These are common Git commands:
         break;
       }
 
+      case 'g++':
+      case 'gcc':
+      case 'cpp':
+      case 'c': {
+        const srcArg = args.find((a) => !a.startsWith('-')) || (activeFilePath ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!srcArg) {
+          addOut(`fatal error: no input files`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, srcArg);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`${cmd}: ${srcArg}: No such file or directory`, 'stderr');
+          } else {
+            addOut(`Compiling & executing ${node.name}...`, 'info');
+            try {
+              const res = await fetch('/api/runner/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  language: cmd === 'gcc' || cmd === 'c' ? 'c' : 'cpp',
+                  code: node.content || '',
+                  filename: node.name,
+                }),
+              });
+              const data = await res.json();
+              if (data.compilerError) {
+                addOut(data.compilerError.trim(), 'stderr');
+              } else {
+                if (data.stdout) addOut(data.stdout.trimEnd());
+                if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
+                addOut(`[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
+              }
+            } catch (err: any) {
+              addOut(`Execution error: ${err.message}`, 'stderr');
+            }
+          }
+        }
+        break;
+      }
+
       case 'node': {
         const scriptArg = args[0];
         if (!scriptArg) {
-          addOut(`Welcome to Node.js v20.12.2.
-Type '.exit' or run a file using: node <filename.js>`, 'info');
+          addOut(`Welcome to Node.js v20.12.2.\nType '.exit' or run a file using: node <filename.js>`, 'info');
         } else if (scriptArg === '-e' || scriptArg === '--eval') {
           const codeToEval = args.slice(1).join(' ').replace(/^["']|["']$/g, '');
           try {
@@ -811,19 +876,21 @@ Type '.exit' or run a file using: node <filename.js>`, 'info');
             addOut(`node: cannot find module '${scriptArg}'`, 'stderr');
           } else {
             try {
-              const captured: string[] = [];
-              const mockConsole = {
-                log: (...a: any[]) => captured.push(a.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ')),
-                error: (...a: any[]) => captured.push('ERROR: ' + a.join(' ')),
-                warn: (...a: any[]) => captured.push('WARN: ' + a.join(' ')),
-              };
-              const fn = new Function('console', node.content || '');
-              const res = fn(mockConsole);
-              captured.forEach((c) => addOut(c, c.startsWith('ERROR:') ? 'stderr' : 'stdout'));
-              if (res !== undefined) addOut(String(res), 'success');
-              addOut(`[Process exited with code 0]`, 'system');
+              const res = await fetch('/api/runner/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  language: 'javascript',
+                  code: node.content || '',
+                  filename: node.name,
+                }),
+              });
+              const data = await res.json();
+              if (data.stdout) addOut(data.stdout.trimEnd());
+              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
+              addOut(`[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
             } catch (err: any) {
-              addOut(err.stack || err.toString(), 'stderr');
+              addOut(`Execution error: ${err.message}`, 'stderr');
             }
           }
         }
@@ -832,23 +899,32 @@ Type '.exit' or run a file using: node <filename.js>`, 'info');
 
       case 'python':
       case 'python3': {
-        const pyFile = args[0];
+        const pyFile = args[0] || (activeFilePath?.endsWith('.py') ? findFileByPath(files, activeFilePath)?.name : '');
         if (!pyFile) {
-          addOut(`Python 3.12.3 (main, Apr  9 2024, 08:08:12) [GCC 11.4.0] on linux
-Type "help", "copyright", "credits" or "license" for more information.`, 'info');
+          addOut(`Python 3.12 (Kollab Native Runner)\nType 'python <filename.py>' to execute script.`, 'info');
         } else {
           const target = normalizePath(cwd, pyFile);
           const node = getNodeAtPath(files, target);
           if (!node || node.type !== 'file') {
             addOut(`python: can't open file '${pyFile}': [Errno 2] No such file or directory`, 'stderr');
           } else {
-            const printMatches = Array.from((node.content || '').matchAll(/print\s*\(\s*(?:f?["'](.*?)["']|(.*?))\s*\)/g));
-            if (printMatches.length > 0) {
-              printMatches.forEach((m) => addOut(m[1] || m[2] || ''));
-            } else {
-              addOut(`[Python 3.12] Executed ${node.name} successfully.`);
+            try {
+              const res = await fetch('/api/runner/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  language: 'python',
+                  code: node.content || '',
+                  filename: node.name,
+                }),
+              });
+              const data = await res.json();
+              if (data.stdout) addOut(data.stdout.trimEnd());
+              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
+              addOut(`[Process finished with exit code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
+            } catch (err: any) {
+              addOut(`Execution error: ${err.message}`, 'stderr');
             }
-            addOut(`[Process finished with exit code 0]`, 'system');
           }
         }
         break;
@@ -862,23 +938,33 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
         } else {
           const lang = targetNode.language || getLanguageFromFilename(targetNode.name);
           addOut(`▶ Running ${targetNode.name} (${lang})...`, 'info');
-          if (lang === 'javascript') {
-            try {
-              const captured: string[] = [];
-              const mockConsole = {
-                log: (...a: any[]) => captured.push(a.join(' ')),
-                error: (...a: any[]) => captured.push('ERROR: ' + a.join(' ')),
-              };
-              const fn = new Function('console', targetNode.content || '');
-              const res = fn(mockConsole);
-              captured.forEach((c) => addOut(c));
-              if (res !== undefined) addOut(String(res), 'success');
-              addOut(`[Done] exited with code 0 in 12ms`, 'system');
-            } catch (err: any) {
-              addOut(err.toString(), 'stderr');
+
+          if (lang === 'html' || targetNode.name.endsWith('.html') || targetNode.name.endsWith('.htm')) {
+            handleSetTab('preview');
+            addOut(`Switched to Live Preview tab for ${targetNode.name}.`, 'success');
+            break;
+          }
+
+          try {
+            const res = await fetch('/api/runner/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                language: lang,
+                code: targetNode.content || '',
+                filename: targetNode.name,
+              }),
+            });
+            const data = await res.json();
+            if (data.compilerError) {
+              addOut(data.compilerError.trim(), 'stderr');
+            } else {
+              if (data.stdout) addOut(data.stdout.trimEnd());
+              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
+              addOut(`[Process finished with exit code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
             }
-          } else {
-            addOut(`[${lang.toUpperCase()}] Compilation and execution complete with code 0.`, 'success');
+          } catch (err: any) {
+            addOut(`Execution error: ${err.message}`, 'stderr');
           }
         }
         break;
@@ -951,39 +1037,108 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
   };
 
   // Build live HTML/CSS/JS preview iframe bundle
+  // Build live HTML/CSS/JS preview iframe bundle
   const generatePreviewSrc = () => {
-    let html = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+    let html = '';
     let css = '';
     let js = '';
 
     const extractFiles = (nodes: FileNode[]) => {
       nodes.forEach((n) => {
         if (n.type === 'file') {
-          if (n.name.endsWith('.html')) html += n.content || '';
-          if (n.name.endsWith('.css')) css += n.content || '';
-          if (n.name.endsWith('.js')) js += n.content || '';
+          if (n.name.endsWith('.css')) css += `\n/* ${n.name} */\n` + (n.content || '');
+          if (n.name.endsWith('.js') && !n.name.endsWith('.config.js')) js += `\n// ${n.name}\n` + (n.content || '');
+          if (!html && (n.name.endsWith('.html') || n.name.endsWith('.htm'))) {
+            if (!activeFilePath?.endsWith('.html')) {
+              html = n.content || '';
+            }
+          }
         }
         if (n.children) extractFiles(n.children);
       });
     };
     extractFiles(files);
 
-    if (!html.includes('<body') && activeFileContent) {
-      html += `<body>${activeFileContent}</body>`;
+    if (activeFilePath && (activeFilePath.endsWith('.html') || activeFilePath.endsWith('.htm'))) {
+      const activeNode = findFileByPath(files, activeFilePath);
+      html = activeNode?.content || activeFileContent || '';
     }
 
-    return `
-      ${html}
-      <style>${css}</style>
-      <script>
-        try {
-          ${js}
-        } catch (err) {
-          console.error("Preview Script Error:", err);
-        }
-      </script>
-      </html>
-    `;
+    if (!html) {
+      return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #0f172a;
+      color: #94a3b8;
+      text-align: center;
+    }
+    .card {
+      background: #1e293b;
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      max-width: 440px;
+    }
+    h2 { color: #f8fafc; margin-top: 0; font-size: 18px; }
+    p { font-size: 13px; line-height: 1.5; color: #94a3b8; }
+    code { background: #334155; padding: 2px 6px; border-radius: 4px; color: #38bdf8; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🌐 Live Website Preview</h2>
+    <p>Create or open an <code>index.html</code> file in your workspace to preview your website.</p>
+  </div>
+</body>
+</html>`;
+    }
+
+    let bundled = html;
+    if (css) {
+      if (bundled.includes('</head>')) {
+        bundled = bundled.replace('</head>', `<style>\n${css}\n</style>\n</head>`);
+      } else {
+        bundled = `<style>\n${css}\n</style>\n` + bundled;
+      }
+    }
+
+    const scriptPayload = `
+<script>
+  window.addEventListener('error', function(e) {
+    console.error('[Preview Error]', e.message, 'at ' + (e.filename || '') + ':' + e.lineno);
+  });
+  try {
+    ${js}
+  } catch (err) {
+    console.error('[Preview Script Error]', err);
+  }
+</script>
+`;
+
+    if (bundled.includes('</body>')) {
+      bundled = bundled.replace('</body>', `${scriptPayload}\n</body>`);
+    } else {
+      bundled += scriptPayload;
+    }
+
+    return bundled;
+  };
+
+  const handleOpenPreviewNewTab = () => {
+    const src = generatePreviewSrc();
+    const blob = new Blob([src], { type: 'text/html;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank', 'noopener,noreferrer');
   };
 
   if (!isOpen) {
@@ -1010,14 +1165,14 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
         <div className={styles.tabsGroup}>
           <button
             className={`${styles.tabBtn} ${tab === 'terminal' ? styles.activeTab : ''}`}
-            onClick={() => setTab('terminal')}
+            onClick={() => handleSetTab('terminal')}
           >
             <Terminal size={12} />
             <span>TERMINAL</span>
           </button>
           <button
             className={`${styles.tabBtn} ${tab === 'output' ? styles.activeTab : ''}`}
-            onClick={() => setTab('output')}
+            onClick={() => handleSetTab('output')}
           >
             <FileText size={12} />
             <span>OUTPUT</span>
@@ -1025,7 +1180,7 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
           </button>
           <button
             className={`${styles.tabBtn} ${tab === 'problems' ? styles.activeTab : ''}`}
-            onClick={() => setTab('problems')}
+            onClick={() => handleSetTab('problems')}
           >
             <AlertCircle size={12} />
             <span>PROBLEMS</span>
@@ -1033,7 +1188,7 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
           </button>
           <button
             className={`${styles.tabBtn} ${tab === 'preview' ? styles.activeTab : ''}`}
-            onClick={() => setTab('preview')}
+            onClick={() => handleSetTab('preview')}
           >
             <Eye size={12} />
             <span>PREVIEW</span>
@@ -1219,12 +1374,91 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
         {/* Live Preview Tab */}
         {tab === 'preview' && (
           <div className={styles.previewContainer}>
-            <iframe
-              title="Live HTML Preview"
-              sandbox="allow-scripts allow-modals"
-              srcDoc={generatePreviewSrc()}
-              className={styles.previewIframe}
-            />
+            <div className={styles.previewToolbar}>
+              <div className={styles.previewUrlBar}>
+                <Lock size={11} className={styles.previewLockIcon} />
+                <span className={styles.previewUrlText}>
+                  {`http://localhost:5173/preview${activeFilePath ? (activeFilePath.endsWith('.html') ? activeFilePath : '/index.html') : '/index.html'}`}
+                </span>
+                <button
+                  type="button"
+                  className={styles.previewReloadBtn}
+                  onClick={() => setPreviewKey((k) => k + 1)}
+                  title="Reload Preview"
+                >
+                  <RotateCw size={11} />
+                </button>
+              </div>
+
+              <div className={styles.viewportControls}>
+                <button
+                  type="button"
+                  className={`${styles.viewportBtn} ${previewViewport === 'desktop' ? styles.viewportBtnActive : ''}`}
+                  onClick={() => setPreviewViewport('desktop')}
+                  title="Desktop View (100%)"
+                >
+                  <Monitor size={12} />
+                  <span>Desktop</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.viewportBtn} ${previewViewport === 'tablet' ? styles.viewportBtnActive : ''}`}
+                  onClick={() => setPreviewViewport('tablet')}
+                  title="Tablet View (768px)"
+                >
+                  <Tablet size={12} />
+                  <span>Tablet</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.viewportBtn} ${previewViewport === 'mobile' ? styles.viewportBtnActive : ''}`}
+                  onClick={() => setPreviewViewport('mobile')}
+                  title="Mobile View (375px)"
+                >
+                  <Smartphone size={12} />
+                  <span>Mobile</span>
+                </button>
+              </div>
+
+              <div className={styles.previewToolbarRight}>
+                <span className={styles.securityPill} title="Safe isolated origin (null). Scripts inside cannot access GitHub tokens or parent localStorage.">
+                  <ShieldCheck size={11} />
+                  <span>Sandboxed (Safe Origin)</span>
+                </span>
+
+                <button
+                  type="button"
+                  className={styles.openExternalBtn}
+                  onClick={handleOpenPreviewNewTab}
+                  title="Open this website in a separate browser tab"
+                >
+                  <ExternalLink size={12} />
+                  <span>Open in New Tab ↗</span>
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.previewFrameWrapper}>
+              <div
+                className={styles.previewFrameContainer}
+                style={{
+                  width:
+                    previewViewport === 'mobile'
+                      ? '375px'
+                      : previewViewport === 'tablet'
+                      ? '768px'
+                      : '100%',
+                }}
+              >
+                <iframe
+                  key={previewKey}
+                  title="Live HTML Preview"
+                  sandbox="allow-scripts allow-forms allow-modals allow-popups"
+                  srcDoc={generatePreviewSrc()}
+                  className={styles.previewIframe}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>
