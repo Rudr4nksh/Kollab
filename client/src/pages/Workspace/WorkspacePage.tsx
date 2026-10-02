@@ -881,6 +881,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             onCreateFolder={handleCreateFolder}
             onDeleteNode={handleDeleteNode}
             onUpdateFileContent={handleContentChange}
+            onFilesChange={(newFiles) => {
+              onFilesChange(newFiles);
+              socketService.emitFilesTreeUpdate(roomId, newFiles, userId, 'updated workspace files via git', 'file_created');
+              if (newFiles.length > 0 && (!activeFilePath || !findFileByPath(newFiles, activeFilePath))) {
+                const first = findFirstFileNode(newFiles);
+                if (first) {
+                  setActiveFilePath(first.path);
+                  setOpenFiles([first]);
+                }
+              }
+            }}
           />
         </main>
 

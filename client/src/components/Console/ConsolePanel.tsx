@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { ConsoleLogItem, FileNode } from '../../types/index.ts';
 import { findFileByPath, getLanguageFromFilename } from '../../services/fileUtils.ts';
+import { gitService } from '../../services/gitService.ts';
 import styles from './ConsolePanel.module.css';
 
 interface TerminalLineItem {
@@ -21,6 +22,7 @@ interface TerminalLineItem {
   command?: string;
   cwd?: string;
   user?: string;
+  branch?: string;
 }
 
 interface ConsolePanelProps {
@@ -38,6 +40,7 @@ interface ConsolePanelProps {
   onCreateFolder?: (name: string, parentPath?: string) => void;
   onDeleteNode?: (path: string) => void;
   onUpdateFileContent?: (path: string, content: string) => void;
+  onFilesChange?: (files: FileNode[]) => void;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
@@ -54,13 +57,23 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onCreateFolder,
   onDeleteNode,
   onUpdateFileContent,
+  onFilesChange,
 }) => {
   const [tab, setTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('terminal');
   const [inputVal, setInputVal] = useState('');
   const [cwd, setCwd] = useState('/');
+  const [gitBranch, setGitBranch] = useState(gitService.getBranch());
   const [isMaximized, setIsMaximized] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  // Initialize git repository with existing files if not initialized yet
+  useEffect(() => {
+    if (files.length > 0 && !gitService.getHeadCommit()) {
+      gitService.init(files, userName);
+      setGitBranch(gitService.getBranch());
+    }
+  }, [files, userName]);
 
   const [terminalLines, setTerminalLines] = useState<TerminalLineItem[]>([
     {
@@ -146,7 +159,7 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
   };
 
   // Execute terminal shell command
-  const executeTerminalCommand = (rawCmd: string) => {
+  const executeTerminalCommand = async (rawCmd: string) => {
     const trimmed = rawCmd.trim();
     if (!trimmed) {
       setTerminalLines((prev) => [
@@ -157,6 +170,7 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
           command: '',
           cwd,
           user: userName,
+          branch: gitBranch,
         },
       ]);
       return;
@@ -169,6 +183,7 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
       command: trimmed,
       cwd,
       user: userName,
+      branch: gitBranch,
     };
 
     // Update history
@@ -191,22 +206,38 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
     switch (cmd) {
       case 'help':
         addOut(`Kollab VS Code Shell - Supported Commands:
-  ls, dir           List files and directories in current folder
-  cd <dir>          Change directory (e.g. cd project, cd .., cd /)
-  pwd               Print working directory path
-  cat, type <file>  View content of a file
-  touch <file>      Create a new file in workspace
-  mkdir <dir>       Create a new folder in workspace
-  rm, del <target>  Remove a file or folder from workspace
-  echo <text>       Print text or write to file (e.g. echo "code" > main.js)
-  node <file>       Execute JavaScript with Node.js engine
-  python <file>     Execute Python code
-  run               Execute current active editor file
-  tree              Display ASCII directory structure
-  git status        Show workspace git status
-  clear, cls        Clear terminal output
-  whoami            Print current collaborator username
-  date              Print current date and time`, 'info');
+  File Operations:
+    ls, dir           List files and directories in current folder
+    cd <dir>          Change directory (e.g. cd project, cd .., cd /)
+    pwd               Print working directory path
+    cat, type <file>  View content of a file
+    touch <file>      Create a new file in workspace
+    mkdir <dir>       Create a new folder in workspace
+    rm, del <target>  Remove a file or folder from workspace
+    echo <text>       Print text or write to file (e.g. echo "code" > main.js)
+    tree              Display ASCII directory structure
+
+  Git & GitHub:
+    git init          Initialize Git repository
+    git status        Show working tree status
+    git add <file>    Add file contents to the index (e.g. git add .)
+    git commit -m     Record changes to repository
+    git log           Show commit history (--oneline supported)
+    git branch        List, create, or delete branches
+    git checkout      Switch branches or restore files (-b supported)
+    git diff          Show changes between commits and working tree
+    git reset         Unstage changes or reset files
+    git clone <url>   Clone public GitHub repository into workspace
+    git remote        Manage tracked remote repositories
+    git push          Push commits to remote origin
+
+  Execution & General:
+    node <file>       Execute JavaScript with Node.js engine
+    python <file>     Execute Python code
+    run               Execute current active editor file
+    clear, cls        Clear terminal output
+    whoami            Print current collaborator username
+    date              Print current date and time`, 'info');
         break;
 
       case 'clear':
@@ -368,23 +399,163 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
       }
 
       case 'git': {
-        const sub = args[0];
-        if (sub === 'status') {
-          addOut(`On branch main
-Your branch is up to date with 'origin/main'.
+        const sub = args[0]?.toLowerCase();
+        if (!sub) {
+          addOut(`usage: git [--version] [--help] <command> [<args>]
 
-Workspace files: ${files.length} tracked items
-nothing to commit, working tree clean`, 'info');
-        } else if (sub === 'branch') {
-          addOut(`* main`, 'success');
+These are common Git commands:
+   init       Create an empty Git repository
+   clone      Clone a repository into workspace
+   status     Show the working tree status
+   add        Add file contents to the index
+   commit     Record changes to the repository
+   log        Show commit logs
+   diff       Show changes between commits, commit and working tree
+   branch     List, create, or delete branches
+   checkout   Switch branches or restore working tree files
+   remote     Manage set of tracked repositories
+   push       Push changes to remote repository
+   reset      Unstage changes or reset HEAD`);
+          break;
+        }
+
+        if (sub === 'init') {
+          const res = gitService.init(files, userName);
+          setGitBranch(gitService.getBranch());
+          addOut(res, 'success');
+        } else if (sub === 'status') {
+          const st = gitService.getStatus(files);
+          addOut(`On branch ${st.branch}`);
+          addOut(`Your branch is up to date with 'origin/${st.branch}'.\n`);
+
+          if (st.staged.length > 0) {
+            addOut(`Changes to be committed:\n  (use "git restore --staged <file>..." to unstage)`);
+            st.staged.forEach((s) => {
+              const label = s.status === 'A' ? 'new file:   ' : s.status === 'M' ? 'modified:   ' : 'deleted:    ';
+              addOut(`\t${label} ${s.path}`, 'success');
+            });
+            addOut('');
+          }
+
+          if (st.unstaged.length > 0) {
+            addOut(`Changes not staged for commit:\n  (use "git add <file>..." to update what will be committed)\n  (use "git restore <file>..." to discard changes in working directory)`);
+            st.unstaged.forEach((u) => {
+              const label = u.status === 'M' ? 'modified:   ' : 'deleted:    ';
+              addOut(`\t${label} ${u.path}`, 'stderr');
+            });
+            addOut('');
+          }
+
+          if (st.untracked.length > 0) {
+            addOut(`Untracked files:\n  (use "git add <file>..." to include in what will be committed)`);
+            st.untracked.forEach((u) => {
+              addOut(`\t${u}`, 'stderr');
+            });
+            addOut('');
+          }
+
+          if (st.staged.length === 0 && st.unstaged.length === 0 && st.untracked.length === 0) {
+            addOut('nothing to commit, working tree clean', 'info');
+          }
+        } else if (sub === 'add') {
+          const target = args[1] || '.';
+          const res = gitService.add(target, files);
+          addOut(res, 'info');
+        } else if (sub === 'commit') {
+          const mIdx = args.indexOf('-m');
+          let msg = '';
+          if (mIdx !== -1 && args[mIdx + 1]) {
+            msg = args.slice(mIdx + 1).join(' ').replace(/^["']|["']$/g, '');
+          }
+          if (!msg) {
+            addOut(`error: switch 'm' requires a value (e.g. git commit -m "commit message")`, 'stderr');
+          } else {
+            const res = gitService.commit(msg, files, userName);
+            addOut(res.output, res.success ? 'success' : 'stderr');
+          }
         } else if (sub === 'log') {
-          addOut(`commit 2a265d7a (HEAD -> main)
-Author: ${userName} <user@kollab.dev>
-Date:   ${new Date().toDateString()}
-
-    feat: synchronized collaborative workspace session`, 'info');
+          const isOneLine = args.includes('--oneline');
+          const logsList = gitService.getLog(isOneLine);
+          logsList.forEach((l) => addOut(l));
+        } else if (sub === 'branch') {
+          if (args.length === 1) {
+            gitService.listBranches().forEach((b) => addOut(b));
+          } else if (args[1] === '-d' || args[1] === '-D') {
+            const bName = args[2];
+            addOut(gitService.deleteBranch(bName), 'info');
+          } else if (args[1] === '-M' || args[1] === '-m') {
+            const newName = args[2];
+            addOut(gitService.createBranch(newName), 'info');
+            setGitBranch(gitService.getBranch());
+          } else {
+            addOut(gitService.createBranch(args[1]), 'info');
+          }
+        } else if (sub === 'checkout' || sub === 'switch') {
+          if (args[1] === '-b' || args[1] === '-c') {
+            const bName = args[2];
+            if (!bName) {
+              addOut(`fatal: missing branch name for -b`, 'stderr');
+            } else {
+              addOut(gitService.checkoutNewBranch(bName), 'success');
+              setGitBranch(gitService.getBranch());
+            }
+          } else {
+            const bName = args[1];
+            if (!bName) {
+              addOut(`fatal: you must specify a branch to checkout`, 'stderr');
+            } else {
+              const res = gitService.checkoutBranch(bName);
+              addOut(res.output, res.success ? 'success' : 'stderr');
+              if (res.success) {
+                setGitBranch(gitService.getBranch());
+                if (res.files && onFilesChange) {
+                  onFilesChange(res.files);
+                }
+              }
+            }
+          }
+        } else if (sub === 'diff') {
+          const targetFile = args[1];
+          const diffs = gitService.getDiff(targetFile, files);
+          diffs.forEach((d) => addOut(d, d.startsWith('+') ? 'success' : d.startsWith('-') ? 'stderr' : 'info'));
+        } else if (sub === 'reset' || sub === 'restore') {
+          const target = args.find((a) => a !== 'reset' && a !== 'restore' && a !== '--staged');
+          addOut(gitService.reset(target), 'info');
+        } else if (sub === 'remote') {
+          if (args[1] === 'add') {
+            const rName = args[2] || 'origin';
+            const rUrl = args[3];
+            if (!rUrl) {
+              addOut(`usage: git remote add <name> <url>`, 'stderr');
+            } else {
+              addOut(gitService.setRemote(rName, rUrl), 'success');
+            }
+          } else {
+            gitService.getRemotes().forEach((r) => addOut(r));
+          }
+        } else if (sub === 'push') {
+          const remote = args[1] || 'origin';
+          const bName = args[2];
+          gitService.push(remote, bName).forEach((p) => addOut(p));
+        } else if (sub === 'pull') {
+          addOut(`Already up to date.`, 'info');
+        } else if (sub === 'clone') {
+          const repoUrl = args[1];
+          if (!repoUrl) {
+            addOut(`fatal: You must specify a repository to clone (e.g. git clone https://github.com/facebook/react)`, 'stderr');
+          } else {
+            addOut(`Cloning into '${repoUrl}'...`, 'info');
+            const res = await gitService.cloneGitHub(repoUrl);
+            addOut(res.message, res.success ? 'success' : 'stderr');
+            if (res.success) {
+              setGitBranch(gitService.getBranch());
+              if (res.files && onFilesChange) {
+                onFilesChange(res.files);
+              }
+            }
+          }
         } else {
-          addOut(`git: '${sub}' is not a simulated command. Try 'git status', 'git branch', or 'git log'.`, 'stderr');
+          addOut(`git: '${sub}' is not a git command. See 'git --help'.`, 'stderr');
         }
         break;
       }
@@ -508,9 +679,9 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
     setTerminalLines((prev) => [...prev, cmdEcho, ...outputLines]);
   };
 
-  const handleTerminalSubmit = (e: React.FormEvent) => {
+  const handleTerminalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    executeTerminalCommand(inputVal);
+    await executeTerminalCommand(inputVal);
     setInputVal('');
   };
 
@@ -536,8 +707,13 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      // Autocomplete command or file
-      const commands = ['help', 'ls', 'cd', 'pwd', 'cat', 'touch', 'mkdir', 'rm', 'echo', 'node', 'python', 'run', 'tree', 'git', 'clear'];
+      // Autocomplete command, git subcommands, or files
+      const gitSubcommands = ['status', 'add', 'commit', 'branch', 'checkout', 'diff', 'log', 'push', 'pull', 'clone', 'remote', 'init', 'reset'];
+      const commands = [
+        'help', 'ls', 'cd', 'pwd', 'cat', 'touch', 'mkdir', 'rm', 'echo', 
+        'node', 'python', 'run', 'tree', 'git', 'clear',
+        ...gitSubcommands.map((s) => `git ${s}`),
+      ];
       const dirItems = getDirContents(cwd).map((n) => n.name);
       const allChoices = [...commands, ...dirItems];
 
@@ -713,6 +889,9 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
                       <span className={styles.promptUser}>{line.user || userName}</span>
                       <span className={styles.promptColon}>:</span>
                       <span className={styles.promptPath}>{line.cwd === '/' ? '~' : `~${line.cwd}`}</span>
+                      {(line.branch || gitBranch) && (
+                        <span className={styles.promptBranch}> ({line.branch || gitBranch})</span>
+                      )}
                       <span className={styles.promptSymbol}>$</span>
                       <span className={styles.commandText}>{line.command}</span>
                     </div>
@@ -737,6 +916,9 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
                 <span className={styles.promptUser}>{userName}</span>
                 <span className={styles.promptColon}>:</span>
                 <span className={styles.promptPath}>{cwd === '/' ? '~' : `~${cwd}`}</span>
+                {gitBranch && (
+                  <span className={styles.promptBranch}> ({gitBranch})</span>
+                )}
                 <span className={styles.promptSymbol}>$</span>
                 <input
                   ref={terminalInputRef}
