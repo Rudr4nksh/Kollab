@@ -1,4 +1,4 @@
-# SyncPad (Kollab)
+# Kollab
 
 > Live Collaborative Workspace & Code Pad for Students.
 
