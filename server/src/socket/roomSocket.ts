@@ -7,7 +7,9 @@ import type {
   ActivityEvent, 
   UserRole,
   CursorPosition,
-  SelectionRange
+  SelectionRange,
+  ChatMessage,
+  VoiceParticipant
 } from '../types/index.js';
 
 const PARTICIPANT_COLORS = [
@@ -36,6 +38,8 @@ function getParticipantColor(id: string): string {
 interface RoomSession {
   roomId: string;
   participants: Map<string, Participant>; // socketId -> Participant
+  voiceUsers: Map<string, VoiceParticipant>; // userId -> VoiceParticipant
+  messages: ChatMessage[];
   files: FileNode[];
   saveTimeout?: NodeJS.Timeout;
 }
@@ -113,6 +117,8 @@ export function setupSocketIO(io: SocketIOServer) {
         session = {
           roomId: roomIdKey,
           participants: new Map(),
+          voiceUsers: new Map(),
+          messages: [],
           files: initialFiles,
         };
         activeRooms.set(roomIdKey, session);
@@ -133,6 +139,8 @@ export function setupSocketIO(io: SocketIOServer) {
       // Send initial room snapshot to joining user
       socket.emit('room-joined', {
         participants: Array.from(session.participants.values()),
+        voiceUsers: Array.from(session.voiceUsers.values()),
+        messages: session.messages,
         files: session.files,
         yourParticipant: participant,
       });
@@ -306,6 +314,115 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
+    // In-room Group Text Chat
+    socket.on('chat-message', (data: {
+      roomId: string;
+      userId: string;
+      text: string;
+    }) => {
+      const { roomId, userId, text } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session && text.trim().length > 0) {
+        const participant = session.participants.get(socket.id);
+        const message: ChatMessage = {
+          id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          roomId: roomIdKey,
+          userId,
+          userName: participant?.name || 'Collaborator',
+          userColor: participant?.color || '#7357E8',
+          text: text.trim().slice(0, 1000), // Max 1000 chars per message
+          timestamp: Date.now(),
+        };
+
+        session.messages.push(message);
+        if (session.messages.length > 100) {
+          session.messages.shift();
+        }
+
+        io.to(roomIdKey).emit('chat-message', message);
+      }
+    });
+
+    // Voice Channel: Join
+    socket.on('voice-join', (data: { roomId: string; userId: string }) => {
+      const { roomId, userId } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session) {
+        const participant = session.participants.get(socket.id);
+        const voiceUser: VoiceParticipant = {
+          userId,
+          socketId: socket.id,
+          userName: participant?.name || 'Collaborator',
+          userColor: participant?.color || '#7357E8',
+          isMuted: false,
+          isDeafened: false,
+          isSpeaking: false,
+        };
+        session.voiceUsers.set(userId, voiceUser);
+
+        // Notify entire room of updated voice members
+        io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+      }
+    });
+
+    // Voice Channel: Leave
+    socket.on('voice-leave', (data: { roomId: string; userId: string }) => {
+      const { roomId, userId } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session) {
+        session.voiceUsers.delete(userId);
+        io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+      }
+    });
+
+    // Voice Channel: WebRTC P2P Signaling (SDP Offer/Answer & ICE Candidates)
+    socket.on('voice-signal', (data: {
+      roomId: string;
+      targetUserId: string;
+      fromUserId: string;
+      signal: any;
+    }) => {
+      const { roomId, targetUserId, fromUserId, signal } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session) {
+        const targetVoiceUser = session.voiceUsers.get(targetUserId);
+        if (targetVoiceUser) {
+          io.to(targetVoiceUser.socketId).emit('voice-signal', {
+            fromUserId,
+            fromSocketId: socket.id,
+            signal,
+          });
+        }
+      }
+    });
+
+    // Voice Channel: State update (Mute, Deafen, Speaking)
+    socket.on('voice-state', (data: {
+      roomId: string;
+      userId: string;
+      isMuted?: boolean;
+      isDeafened?: boolean;
+      isSpeaking?: boolean;
+    }) => {
+      const { roomId, userId } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session) {
+        const voiceUser = session.voiceUsers.get(userId);
+        if (voiceUser) {
+          if (data.isMuted !== undefined) voiceUser.isMuted = data.isMuted;
+          if (data.isDeafened !== undefined) voiceUser.isDeafened = data.isDeafened;
+          if (data.isSpeaking !== undefined) voiceUser.isSpeaking = data.isSpeaking;
+
+          io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+        }
+      }
+    });
+
     // Clean disconnect / leave room
     const handleLeave = async () => {
       if (!currentRoomId) return;
@@ -314,6 +431,12 @@ export function setupSocketIO(io: SocketIOServer) {
 
       const participant = session.participants.get(socket.id);
       session.participants.delete(socket.id);
+
+      // Clean voice channel if user was connected
+      if (currentUserId && session.voiceUsers.has(currentUserId)) {
+        session.voiceUsers.delete(currentUserId);
+        io.to(currentRoomId).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+      }
 
       // If room is empty, clear timeout and cleanup
       if (session.participants.size === 0) {

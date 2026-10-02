@@ -223,6 +223,50 @@
   border-color: rgba(244, 63, 94, 0.25);
 }
 
+.chatNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background-color: rgba(88, 101, 242, 0.15);
+  color: #8EA1E1;
+  border: 1px solid rgba(88, 101, 242, 0.35);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  position: relative;
+}
+
+.chatNavBtn:hover {
+  background-color: rgba(88, 101, 242, 0.28);
+  border-color: #5865F2;
+  color: #FFFFFF;
+}
+
+.chatNavBtnActive {
+  background-color: #5865F2 !important;
+  border-color: #5865F2 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 12px rgba(88, 101, 242, 0.4);
+}
+
+.unreadBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  background-color: #ED4245;
+  color: #FFFFFF;
+}
+
+
 /* Main IDE Body */
 .ideBody {
   display: flex;
