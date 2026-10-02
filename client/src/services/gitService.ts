@@ -25,6 +25,29 @@ export interface GitStatusResult {
   untracked: string[];
 }
 
+export interface GitHubUser {
+  login: string;
+  name?: string;
+  avatar_url?: string;
+  email?: string;
+  html_url?: string;
+}
+
+// UTF-8 safe base64 decoder
+function b64DecodeUnicode(str: string): string {
+  try {
+    const cleanStr = str.replace(/\s/g, '');
+    const binary = atob(cleanStr);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return atob(str.replace(/\s/g, ''));
+  }
+}
+
 // Simple line-by-line diff generator
 export function generateUnifiedDiff(filePath: string, oldContent: string, newContent: string): string[] {
   const oldLines = oldContent.split('\n');
@@ -67,9 +90,122 @@ export class GitService {
   private staged = new Map<string, StagedFile>(); // path -> StagedFile
   private remotes = new Map<string, string>(); // remoteName -> url
   private headCommitSha: string | null = null;
+  private config = new Map<string, string>();
+  private githubToken: string | null = null;
+  private githubUser: GitHubUser | null = null;
 
   constructor() {
     this.branches.set('main', null);
+
+    // Load persisted GitHub token & user
+    try {
+      const savedToken = localStorage.getItem('kollab_github_token');
+      if (savedToken) {
+        this.githubToken = savedToken;
+        this.config.set('github.token', savedToken);
+      }
+
+      const savedUser = localStorage.getItem('kollab_github_user');
+      if (savedUser) {
+        this.githubUser = JSON.parse(savedUser);
+        if (this.githubUser?.name) this.config.set('user.name', this.githubUser.name);
+        if (this.githubUser?.email) this.config.set('user.email', this.githubUser.email);
+      }
+
+      const savedRemote = localStorage.getItem('kollab_git_remote_origin');
+      if (savedRemote) {
+        this.remotes.set('origin', savedRemote);
+      }
+    } catch {
+      // Storage unavailable or parsing error
+    }
+  }
+
+  // --- Configuration Management ---
+  public setConfig(key: string, value: string): void {
+    const cleanKey = key.trim().toLowerCase();
+    this.config.set(cleanKey, value.trim());
+
+    if (cleanKey === 'github.token') {
+      this.githubToken = value.trim();
+      localStorage.setItem('kollab_github_token', this.githubToken);
+    } else if (cleanKey === 'user.name') {
+      localStorage.setItem('kollab_github_name', value.trim());
+    } else if (cleanKey === 'user.email') {
+      localStorage.setItem('kollab_github_email', value.trim());
+    }
+  }
+
+  public getConfig(key: string): string | null {
+    return this.config.get(key.trim().toLowerCase()) || null;
+  }
+
+  public getAllConfig(): [string, string][] {
+    return Array.from(this.config.entries());
+  }
+
+  // --- GitHub Authentication & Token ---
+  public async setGitHubToken(token: string): Promise<{ success: boolean; user?: GitHubUser; error?: string }> {
+    const cleanToken = token.trim().replace(/^["']|["']$/g, '');
+    if (!cleanToken) {
+      this.clearGitHubAuth();
+      return { success: false, error: 'Token is empty.' };
+    }
+
+    try {
+      const res = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${cleanToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+
+      if (!res.ok) {
+        return {
+          success: false,
+          error: `GitHub authentication failed (HTTP ${res.status}: ${res.statusText}). Verify token permissions.`,
+        };
+      }
+
+      const userData: GitHubUser = await res.json();
+      this.githubToken = cleanToken;
+      this.githubUser = userData;
+      this.config.set('github.token', cleanToken);
+      this.config.set('user.name', userData.name || userData.login);
+      if (userData.email) this.config.set('user.email', userData.email);
+
+      localStorage.setItem('kollab_github_token', cleanToken);
+      localStorage.setItem('kollab_github_user', JSON.stringify(userData));
+
+      return { success: true, user: userData };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error verifying GitHub token.' };
+    }
+  }
+
+  public getGitHubToken(): string | null {
+    return this.githubToken;
+  }
+
+  public getGitHubUser(): GitHubUser | null {
+    return this.githubUser;
+  }
+
+  public clearGitHubAuth(): void {
+    this.githubToken = null;
+    this.githubUser = null;
+    this.config.delete('github.token');
+    localStorage.removeItem('kollab_github_token');
+    localStorage.removeItem('kollab_github_user');
+  }
+
+  // --- GitHub URL Parsing ---
+  public parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+    if (!url) return null;
+    const clean = url.trim().replace(/\.git$/i, '');
+    const match = clean.match(/github\.com[:/]([^/]+)\/([^/]+)$/i);
+    if (!match) return null;
+    return { owner: match[1], repo: match[2] };
   }
 
   // Generate SHA-1 like hash
@@ -91,7 +227,7 @@ export class GitService {
   }
 
   // Flatten all files into map: path -> content
-  private flattenFiles(nodes: FileNode[]): Map<string, string> {
+  public flattenFiles(nodes: FileNode[]): Map<string, string> {
     const map = new Map<string, string>();
     const walk = (items: FileNode[]) => {
       items.forEach((n) => {
@@ -116,169 +252,123 @@ export class GitService {
     this.branches.clear();
     this.commits.clear();
     this.staged.clear();
-    this.remotes.clear();
 
     const sha = this.generateSha();
-    const shortSha = sha.substring(0, 7);
-    const initialCommit: GitCommit = {
+    const initCommit: GitCommit = {
       sha,
-      shortSha,
+      shortSha: sha.substring(0, 7),
       message: 'Initial commit',
-      author,
-      email: `${author.toLowerCase().replace(/\s+/g, '')}@kollab.dev`,
+      author: this.config.get('user.name') || author || 'Kollab Collaborator',
+      email: this.config.get('user.email') || 'collaborator@kollab.dev',
       timestamp: Date.now(),
       parentSha: null,
       snapshot: this.cloneTree(initialFiles),
       branch: 'main',
     };
 
-    this.commits.set(sha, initialCommit);
+    this.commits.set(sha, initCommit);
     this.branches.set('main', sha);
     this.headCommitSha = sha;
 
     return `Initialized empty Git repository in /workspace/.git/`;
   }
 
-  public getBranch(): string {
-    return this.currentBranch;
-  }
-
-  public getHeadCommit(): GitCommit | null {
-    if (!this.headCommitSha) return null;
-    return this.commits.get(this.headCommitSha) || null;
-  }
-
-  // Get status of working tree compared to HEAD
+  // Status check
   public getStatus(currentFiles: FileNode[]): GitStatusResult {
     const headCommit = this.getHeadCommit();
-    const headFiles = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
-    const workFiles = this.flattenFiles(currentFiles);
+    const headMap = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
+    const currentMap = this.flattenFiles(currentFiles);
 
-    const stagedList = Array.from(this.staged.values());
-    const unstagedList: { path: string; status: 'M' | 'D' }[] = [];
-    const untrackedList: string[] = [];
+    const staged: StagedFile[] = Array.from(this.staged.values());
+    const unstaged: { path: string; status: 'M' | 'D' }[] = [];
+    const untracked: string[] = [];
 
-    // Check working files against HEAD and staged
-    workFiles.forEach((content, path) => {
-      const isStaged = this.staged.has(path);
-      const inHead = headFiles.has(path);
+    // Check unstaged changes and untracked files
+    currentMap.forEach((content, path) => {
+      if (this.staged.has(path)) return; // Already staged
 
-      if (!inHead && !isStaged) {
-        untrackedList.push(path);
-      } else if (inHead) {
-        const headContent = headFiles.get(path);
-        if (content !== headContent && !isStaged) {
-          unstagedList.push({ path, status: 'M' });
+      if (headMap.has(path)) {
+        if (headMap.get(path) !== content) {
+          unstaged.push({ path, status: 'M' });
         }
+      } else {
+        untracked.push(path);
       }
     });
 
     // Check for deleted files
-    headFiles.forEach((_, path) => {
-      if (!workFiles.has(path) && !this.staged.has(path)) {
-        unstagedList.push({ path, status: 'D' });
+    headMap.forEach((_, path) => {
+      if (!currentMap.has(path) && !this.staged.has(path)) {
+        unstaged.push({ path, status: 'D' });
       }
     });
 
     return {
       branch: this.currentBranch,
-      staged: stagedList,
-      unstaged: unstagedList,
-      untracked: untrackedList,
+      staged,
+      unstaged,
+      untracked,
     };
   }
 
-  // Stage file(s)
+  // Add files to staging
   public add(target: string, currentFiles: FileNode[]): string {
     const headCommit = this.getHeadCommit();
-    const headFiles = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
-    const workFiles = this.flattenFiles(currentFiles);
+    const headMap = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
+    const currentMap = this.flattenFiles(currentFiles);
 
     if (target === '.' || target === '-A' || target === '--all') {
-      let count = 0;
-      // Stage added & modified
-      workFiles.forEach((content, path) => {
-        const inHead = headFiles.has(path);
-        if (!inHead) {
+      // Stage all changes
+      currentMap.forEach((content, path) => {
+        if (!headMap.has(path)) {
           this.staged.set(path, { path, status: 'A', content });
-          count++;
-        } else if (headFiles.get(path) !== content) {
+        } else if (headMap.get(path) !== content) {
           this.staged.set(path, { path, status: 'M', content });
-          count++;
         }
       });
-      // Stage deleted
-      headFiles.forEach((_, path) => {
-        if (!workFiles.has(path)) {
+
+      headMap.forEach((_, path) => {
+        if (!currentMap.has(path)) {
           this.staged.set(path, { path, status: 'D' });
-          count++;
         }
       });
-      return count > 0 ? `Staged ${count} change(s)` : 'Nothing to add';
+
+      return `Staged all modified and untracked files.`;
     }
 
-    const cleanPath = target.startsWith('/') ? target : `/${target}`;
-    if (workFiles.has(cleanPath)) {
-      const content = workFiles.get(cleanPath)!;
-      const inHead = headFiles.has(cleanPath);
-      this.staged.set(cleanPath, {
-        path: cleanPath,
-        status: inHead ? 'M' : 'A',
-        content,
-      });
-      return `Staged ${cleanPath}`;
-    } else if (headFiles.has(cleanPath)) {
-      this.staged.set(cleanPath, { path: cleanPath, status: 'D' });
-      return `Staged deletion of ${cleanPath}`;
+    const normPath = target.startsWith('/') ? target : `/${target}`;
+    if (currentMap.has(normPath)) {
+      const content = currentMap.get(normPath);
+      const status = headMap.has(normPath) ? 'M' : 'A';
+      this.staged.set(normPath, { path: normPath, status, content });
+      return `Staged '${normPath}'.`;
+    } else if (headMap.has(normPath)) {
+      this.staged.set(normPath, { path: normPath, status: 'D' });
+      return `Staged deletion of '${normPath}'.`;
+    } else {
+      return `fatal: pathspec '${target}' did not match any files`;
     }
-
-    return `fatal: pathspec '${target}' did not match any files`;
   }
 
-  // Unstage file(s)
-  public reset(target?: string): string {
-    if (!target || target === 'HEAD' || target === '.') {
-      const count = this.staged.size;
-      this.staged.clear();
-      return count > 0 ? `Unstaged ${count} file(s)` : 'No changes staged';
-    }
-    const cleanPath = target.startsWith('/') ? target : `/${target}`;
-    if (this.staged.has(cleanPath)) {
-      this.staged.delete(cleanPath);
-      return `Unstaged ${cleanPath}`;
-    }
-    return `No staged changes for ${target}`;
-  }
-
-  // Create a commit
+  // Commit staged changes
   public commit(message: string, currentFiles: FileNode[], author: string): { success: boolean; output: string } {
     if (this.staged.size === 0) {
-      // Check if working tree has changes
-      const status = this.getStatus(currentFiles);
-      if (status.unstaged.length === 0 && status.untracked.length === 0) {
-        return {
-          success: false,
-          output: `On branch ${this.currentBranch}\nnothing to commit, working tree clean`,
-        };
-      }
       return {
         success: false,
-        output: `no changes added to commit (use "git add")`,
+        output: 'nothing to commit, working tree clean',
       };
     }
 
     const sha = this.generateSha();
     const shortSha = sha.substring(0, 7);
-    const parentSha = this.headCommitSha;
-
     const newCommit: GitCommit = {
       sha,
       shortSha,
-      message: message.trim(),
-      author,
-      email: `${author.toLowerCase().replace(/\s+/g, '')}@kollab.dev`,
+      message,
+      author: this.config.get('user.name') || author || 'Kollab Collaborator',
+      email: this.config.get('user.email') || 'collaborator@kollab.dev',
       timestamp: Date.now(),
-      parentSha,
+      parentSha: this.headCommitSha,
       snapshot: this.cloneTree(currentFiles),
       branch: this.currentBranch,
     };
@@ -286,151 +376,165 @@ export class GitService {
     this.commits.set(sha, newCommit);
     this.branches.set(this.currentBranch, sha);
     this.headCommitSha = sha;
-    const changedCount = this.staged.size;
+    const fileCount = this.staged.size;
     this.staged.clear();
 
     return {
       success: true,
-      output: `[${this.currentBranch} ${shortSha}] ${message}\n ${changedCount} file(s) changed`,
+      output: `[${this.currentBranch} ${shortSha}] ${message}\n ${fileCount} file(s) changed, ${fileCount} insertion(s)(+)`,
     };
   }
 
-  // List branches
+  // Get commit logs
+  public getLog(oneline = false): string[] {
+    const list: string[] = [];
+    let curSha = this.headCommitSha;
+
+    while (curSha && this.commits.has(curSha)) {
+      const c = this.commits.get(curSha)!;
+      if (oneline) {
+        list.push(`${c.shortSha} ${c.message}`);
+      } else {
+        list.push(
+          `commit ${c.sha} (HEAD -> ${c.branch})\nAuthor: ${c.author} <${c.email}>\nDate:   ${new Date(c.timestamp).toUTCString()}\n\n    ${c.message}\n`
+        );
+      }
+      curSha = c.parentSha;
+    }
+
+    return list.length > 0 ? list : ['fatal: your current branch does not have any commits yet'];
+  }
+
+  // Get unified diff for a file
+  public getDiff(targetPath?: string, currentFiles: FileNode[] = []): string[] {
+    const headCommit = this.getHeadCommit();
+    const headMap = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
+    const currentMap = this.flattenFiles(currentFiles);
+
+    const allDiffs: string[] = [];
+    const checkFile = (path: string) => {
+      const oldC = headMap.get(path) || '';
+      const newC = currentMap.get(path) || '';
+      if (oldC !== newC) {
+        allDiffs.push(...generateUnifiedDiff(path, oldC, newC));
+      }
+    };
+
+    if (targetPath) {
+      const norm = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
+      checkFile(norm);
+    } else {
+      currentMap.forEach((_, p) => checkFile(p));
+      headMap.forEach((_, p) => {
+        if (!currentMap.has(p)) checkFile(p);
+      });
+    }
+
+    return allDiffs.length > 0 ? allDiffs : ['No changes detected.'];
+  }
+
+  // Reset / Unstage
+  public reset(path?: string): string {
+    if (!path) {
+      this.staged.clear();
+      return 'Unstaged all changes.';
+    }
+    const norm = path.startsWith('/') ? path : `/${path}`;
+    if (this.staged.has(norm)) {
+      this.staged.delete(norm);
+      return `Unstaged '${norm}'.`;
+    }
+    return `fatal: pathspec '${path}' did not match any files`;
+  }
+
+  // Branch management
+  public getBranch(): string {
+    return this.currentBranch;
+  }
+
   public listBranches(): string[] {
     const list: string[] = [];
-    this.branches.forEach((_, name) => {
-      if (name === this.currentBranch) {
-        list.push(`* \x1b[32m${name}\x1b[0m`);
+    this.branches.forEach((_, branch) => {
+      if (branch === this.currentBranch) {
+        list.push(`* \x1b[32m${branch}\x1b[0m`);
       } else {
-        list.push(`  ${name}`);
+        list.push(`  ${branch}`);
       }
     });
     return list;
   }
 
-  // Create branch
   public createBranch(branchName: string): string {
-    const clean = branchName.trim();
-    if (!clean || clean.includes(' ')) {
-      return `fatal: '${branchName}' is not a valid branch name.`;
-    }
-    if (this.branches.has(clean)) {
-      return `fatal: A branch named '${clean}' already exists.`;
-    }
-    this.branches.set(clean, this.headCommitSha);
-    return `Created branch ${clean}`;
+    if (!branchName) return `fatal: branch name required`;
+    if (this.branches.has(branchName)) return `fatal: A branch named '${branchName}' already exists.`;
+    this.branches.set(branchName, this.headCommitSha);
+    return `Created branch '${branchName}'.`;
   }
 
-  // Delete branch
-  public deleteBranch(branchName: string): string {
-    const clean = branchName.trim();
-    if (clean === this.currentBranch) {
-      return `error: Cannot delete branch '${clean}' checked out at current HEAD`;
-    }
-    if (!this.branches.has(clean)) {
-      return `error: branch '${clean}' not found.`;
-    }
-    this.branches.delete(clean);
-    return `Deleted branch ${clean}`;
-  }
-
-  // Switch/Checkout branch
-  public checkoutBranch(branchName: string): { success: boolean; output: string; files?: FileNode[] } {
-    const clean = branchName.trim();
-    if (clean === this.currentBranch) {
-      return { success: true, output: `Already on '${clean}'` };
-    }
-    if (!this.branches.has(clean)) {
-      return { success: false, output: `error: pathspec '${clean}' did not match any file(s) known to git` };
+  public checkoutBranch(branchName: string): { success: boolean; files?: FileNode[]; output: string } {
+    if (!this.branches.has(branchName)) {
+      return {
+        success: false,
+        output: `error: pathspec '${branchName}' did not match any file(s) known to git`,
+      };
     }
 
-    this.currentBranch = clean;
-    this.headCommitSha = this.branches.get(clean) || null;
-    this.staged.clear();
+    this.currentBranch = branchName;
+    const targetSha = this.branches.get(branchName);
+    this.headCommitSha = targetSha ?? null;
 
-    const commit = this.getHeadCommit();
-    const files = commit ? this.cloneTree(commit.snapshot) : undefined;
+    let targetFiles: FileNode[] | undefined;
+    if (targetSha && this.commits.has(targetSha)) {
+      targetFiles = this.cloneTree(this.commits.get(targetSha)!.snapshot);
+    }
 
     return {
       success: true,
-      output: `Switched to branch '${clean}'`,
-      files,
+      files: targetFiles,
+      output: `Switched to branch '${branchName}'`,
     };
   }
 
-  // Checkout new branch (-b)
   public checkoutNewBranch(branchName: string): string {
-    const clean = branchName.trim();
-    if (this.branches.has(clean)) {
-      return `fatal: A branch named '${clean}' already exists.`;
-    }
-    this.branches.set(clean, this.headCommitSha);
-    this.currentBranch = clean;
-    return `Switched to a new branch '${clean}'`;
+    if (!branchName) return `fatal: missing branch name for -b`;
+    if (this.branches.has(branchName)) return `fatal: A branch named '${branchName}' already exists.`;
+    this.branches.set(branchName, this.headCommitSha);
+    this.currentBranch = branchName;
+    return `Switched to a new branch '${branchName}'`;
   }
 
-  // Get commit logs
-  public getLog(oneline = false, limit = 20): string[] {
-    const lines: string[] = [];
-    let currentSha = this.headCommitSha;
-    let count = 0;
-
-    while (currentSha && count < limit) {
-      const c = this.commits.get(currentSha);
-      if (!c) break;
-
-      if (oneline) {
-        const isHead = currentSha === this.headCommitSha;
-        const headTag = isHead ? ` \x1b[36m(HEAD -> ${this.currentBranch})\x1b[0m` : '';
-        lines.push(`\x1b[33m${c.shortSha}\x1b[0m${headTag} ${c.message}`);
-      } else {
-        const isHead = currentSha === this.headCommitSha;
-        const headTag = isHead ? ` \x1b[36m(HEAD -> ${this.currentBranch})\x1b[0m` : '';
-        lines.push(`\x1b[33mcommit ${c.sha}\x1b[0m${headTag}`);
-        lines.push(`Author: ${c.author} <${c.email}>`);
-        lines.push(`Date:   ${new Date(c.timestamp).toUTCString()}`);
-        lines.push('');
-        lines.push(`    ${c.message}`);
-        lines.push('');
-      }
-
-      currentSha = c.parentSha;
-      count++;
-    }
-
-    if (lines.length === 0) {
-      lines.push('fatal: your current branch does not have any commits yet');
-    }
-
-    return lines;
+  public deleteBranch(branchName: string): string {
+    if (branchName === this.currentBranch) return `error: Cannot delete the branch '${branchName}' which you are currently on.`;
+    if (!this.branches.has(branchName)) return `error: branch '${branchName}' not found.`;
+    this.branches.delete(branchName);
+    return `Deleted branch ${branchName}.`;
   }
 
-  // Diff of modified files vs HEAD
-  public getDiff(targetFile: string | undefined, currentFiles: FileNode[]): string[] {
-    const headCommit = this.getHeadCommit();
-    const headFiles = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
-    const workFiles = this.flattenFiles(currentFiles);
-
-    const output: string[] = [];
-
-    workFiles.forEach((newContent, path) => {
-      if (targetFile && !path.endsWith(targetFile)) return;
-      if (headFiles.has(path)) {
-        const oldContent = headFiles.get(path)!;
-        if (oldContent !== newContent) {
-          const diff = generateUnifiedDiff(path, oldContent, newContent);
-          output.push(...diff);
-        }
-      }
-    });
-
-    return output.length > 0 ? output : ['No diff against HEAD.'];
+  public getHeadCommit(): GitCommit | null {
+    if (!this.headCommitSha) return null;
+    return this.commits.get(this.headCommitSha) || null;
   }
 
-  // Remotes
+  // Remote repository management
   public setRemote(name: string, url: string): string {
     this.remotes.set(name, url);
+    if (name === 'origin') {
+      localStorage.setItem('kollab_git_remote_origin', url);
+    }
     return `Remote '${name}' set to ${url}`;
+  }
+
+  public getRemote(name = 'origin'): string | null {
+    return this.remotes.get(name) || null;
+  }
+
+  public removeRemote(name: string): string {
+    if (this.remotes.has(name)) {
+      this.remotes.delete(name);
+      if (name === 'origin') localStorage.removeItem('kollab_git_remote_origin');
+      return `Removed remote '${name}'.`;
+    }
+    return `error: No such remote: '${name}'`;
   }
 
   public getRemotes(): string[] {
@@ -439,44 +543,525 @@ export class GitService {
       list.push(`${name}\t${url} (fetch)`);
       list.push(`${name}\t${url} (push)`);
     });
-    return list.length > 0 ? list : ['No remotes configured.'];
+    return list.length > 0 ? list : ['No remotes configured. Use: git remote add origin <github-url>'];
   }
 
-  // Push simulation
-  public push(remote = 'origin', branch?: string): string[] {
-    const targetBranch = branch || this.currentBranch;
-    const remoteUrl = this.remotes.get(remote) || `https://github.com/collaborator/${this.currentBranch}.git`;
-    const commit = this.getHeadCommit();
-    const shortSha = commit ? commit.shortSha : '0000000';
+  // --- REAL GITHUB OPERATIONS ---
 
-    return [
-      `Enumerating objects: ${this.commits.size * 3}, done.`,
-      `Counting objects: 100% (${this.commits.size * 3}/${this.commits.size * 3}), done.`,
-      `Compressing objects: 100% (done).`,
-      `Writing objects: 100% (${this.commits.size * 3}/${this.commits.size * 3}), done.`,
-      `Total ${this.commits.size * 3} (delta 0), reused 0 (delta 0)`,
-      `To ${remoteUrl}`,
-      ` * [new branch]      ${targetBranch} -> ${targetBranch} (${shortSha})`,
-      `Branch '${targetBranch}' set up to track remote branch '${targetBranch}' from '${remote}'.`,
-    ];
+  /**
+   * Pushes current workspace snapshot to GitHub repository via Git Data API.
+   * Creates blobs, a tree, a commit, and updates the branch ref on github.com.
+   */
+  public async pushGitHub(
+    files: FileNode[],
+    remote = 'origin',
+    branch?: string,
+    customMessage?: string
+  ): Promise<{ success: boolean; lines: string[]; commitUrl?: string }> {
+    const remoteUrl = this.getRemote(remote);
+    if (!remoteUrl) {
+      return {
+        success: false,
+        lines: [
+          `fatal: No configured push destination for remote '${remote}'.`,
+          `Set up your GitHub remote using:`,
+          `  git remote add origin https://github.com/<owner>/<repo>.git`,
+        ],
+      };
+    }
+
+    const parsed = this.parseGitHubUrl(remoteUrl);
+    if (!parsed) {
+      return {
+        success: false,
+        lines: [
+          `fatal: remote '${remote}' is not a valid GitHub repository URL: ${remoteUrl}`,
+          `Example format: https://github.com/owner/repository.git`,
+        ],
+      };
+    }
+
+    const { owner, repo } = parsed;
+
+    if (!this.githubToken) {
+      return {
+        success: false,
+        lines: [
+          `fatal: GitHub Personal Access Token is required to push to github.com.`,
+          ``,
+          `To authenticate in the terminal:`,
+          `  git config github.token <YOUR_PERSONAL_ACCESS_TOKEN>`,
+          `  or: gh auth login <YOUR_TOKEN>`,
+          ``,
+          `Or configure in Workspace Settings -> GitHub Integration (bottom left).`,
+          `Create a token at: https://github.com/settings/tokens (select 'repo' scope).`,
+        ],
+      };
+    }
+
+    const targetBranch = branch || this.currentBranch || 'main';
+    const authHeaders = {
+      Authorization: `Bearer ${this.githubToken}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      // 1. Verify repository access & write permissions
+      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: authHeaders,
+      });
+
+      if (repoRes.status === 401) {
+        return {
+          success: false,
+          lines: [
+            `fatal: Authentication failed (HTTP 401 Bad credentials).`,
+            `Please update your GitHub token using: git config github.token <token>`,
+          ],
+        };
+      }
+
+      if (repoRes.status === 404) {
+        return {
+          success: false,
+          lines: [
+            `fatal: Repository '${owner}/${repo}' does not exist on GitHub or your token lacks access.`,
+            `Tip: Run 'gh repo create ${repo}' to create this repository on your GitHub account!`,
+          ],
+        };
+      }
+
+      if (!repoRes.ok) {
+        return {
+          success: false,
+          lines: [`fatal: GitHub API error: ${repoRes.status} ${repoRes.statusText}`],
+        };
+      }
+
+      // 2. Get head ref of target branch
+      let parentCommitSha: string | null = null;
+      let branchExists = false;
+
+      const refRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${targetBranch}`,
+        { headers: authHeaders }
+      );
+
+      if (refRes.ok) {
+        const refData = await refRes.json();
+        parentCommitSha = refData.object.sha;
+        branchExists = true;
+      } else if (refRes.status === 404) {
+        // Branch doesn't exist yet on GitHub; check if repository has default branch
+        const repoData = await repoRes.json();
+        if (repoData.default_branch && repoData.default_branch !== targetBranch) {
+          const defaultRefRes = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${repoData.default_branch}`,
+            { headers: authHeaders }
+          );
+          if (defaultRefRes.ok) {
+            const defData = await defaultRefRes.json();
+            parentCommitSha = defData.object.sha;
+          }
+        }
+      }
+
+      // 3. Prepare workspace files list
+      const flatFiles: { path: string; content: string }[] = [];
+      const extractFiles = (nodes: FileNode[]) => {
+        for (const n of nodes) {
+          if (n.type === 'file') {
+            const cleanPath = n.path.replace(/^\/+/, '');
+            flatFiles.push({ path: cleanPath, content: n.content || '' });
+          }
+          if (n.children) extractFiles(n.children);
+        }
+      };
+      extractFiles(files);
+
+      if (flatFiles.length === 0) {
+        return {
+          success: false,
+          lines: ['fatal: Nothing to push. Workspace has no files.'],
+        };
+      }
+
+      // 4. Create Tree with all files
+      const treePayload = {
+        tree: flatFiles.map((f) => ({
+          path: f.path,
+          mode: '100644',
+          type: 'blob',
+          content: f.content,
+        })),
+      };
+
+      const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(treePayload),
+      });
+
+      if (!treeRes.ok) {
+        const errJson = await treeRes.json().catch(() => ({}));
+        return {
+          success: false,
+          lines: [
+            `fatal: Failed to create tree on GitHub (${treeRes.statusText})`,
+            errJson.message ? `Details: ${errJson.message}` : '',
+          ].filter(Boolean),
+        };
+      }
+
+      const treeData = await treeRes.json();
+      const treeSha = treeData.sha;
+
+      // 5. Create Commit
+      const headLocal = this.getHeadCommit();
+      const commitMessage =
+        customMessage ||
+        headLocal?.message ||
+        `Update workspace files via Kollab [${new Date().toLocaleTimeString()}]`;
+
+      const authorName =
+        this.config.get('user.name') ||
+        this.githubUser?.name ||
+        this.githubUser?.login ||
+        'Kollab Collaborator';
+
+      const authorEmail =
+        this.config.get('user.email') ||
+        this.githubUser?.email ||
+        'collaborator@kollab.dev';
+
+      const commitPayload = {
+        message: commitMessage,
+        tree: treeSha,
+        parents: parentCommitSha ? [parentCommitSha] : [],
+        author: {
+          name: authorName,
+          email: authorEmail,
+          date: new Date().toISOString(),
+        },
+      };
+
+      const commitRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/commits`,
+        {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify(commitPayload),
+        }
+      );
+
+      if (!commitRes.ok) {
+        const errJson = await commitRes.json().catch(() => ({}));
+        return {
+          success: false,
+          lines: [
+            `fatal: Failed to create commit on GitHub (${commitRes.statusText})`,
+            errJson.message ? `Details: ${errJson.message}` : '',
+          ].filter(Boolean),
+        };
+      }
+
+      const commitData = await commitRes.json();
+      const newCommitSha: string = commitData.sha;
+      const commitHtmlUrl: string = commitData.html_url;
+
+      // 6. Update or Create Branch Ref
+      if (branchExists) {
+        const updateRefRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${targetBranch}`,
+          {
+            method: 'PATCH',
+            headers: authHeaders,
+            body: JSON.stringify({ sha: newCommitSha, force: true }),
+          }
+        );
+
+        if (!updateRefRes.ok) {
+          const errJson = await updateRefRes.json().catch(() => ({}));
+          return {
+            success: false,
+            lines: [
+              `fatal: Failed to update branch reference on GitHub (${updateRefRes.statusText})`,
+              errJson.message ? `Details: ${errJson.message}` : '',
+            ].filter(Boolean),
+          };
+        }
+      } else {
+        const createRefRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+          {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({
+              ref: `refs/heads/${targetBranch}`,
+              sha: newCommitSha,
+            }),
+          }
+        );
+
+        if (!createRefRes.ok) {
+          const errJson = await createRefRes.json().catch(() => ({}));
+          return {
+            success: false,
+            lines: [
+              `fatal: Failed to create branch '${targetBranch}' on GitHub (${createRefRes.statusText})`,
+              errJson.message ? `Details: ${errJson.message}` : '',
+            ].filter(Boolean),
+          };
+        }
+      }
+
+      // Record commit locally
+      const localCommit: GitCommit = {
+        sha: newCommitSha,
+        shortSha: newCommitSha.substring(0, 7),
+        message: commitMessage,
+        author: authorName,
+        email: authorEmail,
+        timestamp: Date.now(),
+        parentSha: parentCommitSha,
+        snapshot: this.cloneTree(files),
+        branch: targetBranch,
+      };
+
+      this.commits.set(newCommitSha, localCommit);
+      this.branches.set(targetBranch, newCommitSha);
+      this.headCommitSha = newCommitSha;
+      this.staged.clear();
+
+      const shortOld = parentCommitSha ? parentCommitSha.substring(0, 7) : '0000000';
+      const shortNew = newCommitSha.substring(0, 7);
+
+      return {
+        success: true,
+        commitUrl: commitHtmlUrl,
+        lines: [
+          `Enumerating objects: ${flatFiles.length}, done.`,
+          `Counting objects: 100% (${flatFiles.length}/${flatFiles.length}), done.`,
+          `Compressing objects: 100% (done).`,
+          `Writing objects: 100% (${flatFiles.length}/${flatFiles.length}), done.`,
+          `Total ${flatFiles.length} (delta 0), reused 0 (delta 0)`,
+          `To https://github.com/${owner}/${repo}.git`,
+          `   ${shortOld}..${shortNew}  ${targetBranch} -> ${targetBranch}`,
+          `✓ Successfully pushed to GitHub!`,
+          `Commit on GitHub: ${commitHtmlUrl}`,
+        ],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        lines: [`fatal: network error pushing to GitHub: ${err.message}`],
+      };
+    }
   }
 
-  // Clone public GitHub repository into workspace FileNode[]
+  /**
+   * Pulls files from GitHub repository and replaces workspace files.
+   */
+  public async pullGitHub(
+    remote = 'origin',
+    branch?: string
+  ): Promise<{ success: boolean; files?: FileNode[]; lines: string[] }> {
+    const remoteUrl = this.getRemote(remote);
+    if (!remoteUrl) {
+      return {
+        success: false,
+        lines: [`fatal: No configured pull source for remote '${remote}'.`],
+      };
+    }
+
+    const parsed = this.parseGitHubUrl(remoteUrl);
+    if (!parsed) {
+      return {
+        success: false,
+        lines: [`fatal: Invalid GitHub repository URL: ${remoteUrl}`],
+      };
+    }
+
+    const { owner, repo } = parsed;
+    const targetBranch = branch || this.currentBranch || 'main';
+
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+    };
+    if (this.githubToken) {
+      headers['Authorization'] = `Bearer ${this.githubToken}`;
+    }
+
+    try {
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/${targetBranch}?recursive=1`,
+        { headers }
+      );
+
+      if (!treeRes.ok) {
+        return {
+          success: false,
+          lines: [`fatal: Failed to fetch repository files from branch '${targetBranch}' (${treeRes.statusText})`],
+        };
+      }
+
+      const treeData = await treeRes.json();
+      const treeItems: any[] = (treeData.tree || []).slice(0, 100);
+
+      const newFiles: FileNode[] = [];
+
+      for (const item of treeItems) {
+        if (item.type === 'blob') {
+          let content = '';
+          try {
+            // First attempt: GitHub Git Blobs API (supports private repos with token)
+            const blobRes = await fetch(
+              `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
+              { headers }
+            );
+
+            if (blobRes.ok) {
+              const blobData = await blobRes.json();
+              if (blobData.encoding === 'base64') {
+                content = b64DecodeUnicode(blobData.content);
+              } else {
+                content = blobData.content || '';
+              }
+            } else {
+              // Fallback to raw usercontent
+              const rawRes = await fetch(
+                `https://raw.githubusercontent.com/${owner}/${repo}/${targetBranch}/${item.path}`
+              );
+              if (rawRes.ok) content = await rawRes.text();
+            }
+          } catch {
+            content = '// Could not load file content';
+          }
+
+          const pathParts = item.path.split('/');
+          const fileName = pathParts.pop();
+
+          newFiles.push({
+            id: 'git_' + Math.random().toString(36).substring(2, 9),
+            name: fileName,
+            path: `/${item.path}`,
+            type: 'file',
+            content,
+          });
+        }
+      }
+
+      // Re-init git with pulled snapshot
+      this.init(newFiles, owner);
+
+      return {
+        success: true,
+        files: newFiles,
+        lines: [
+          `From https://github.com/${owner}/${repo}`,
+          ` * branch            ${targetBranch}     -> FETCH_HEAD`,
+          `✓ Successfully pulled ${newFiles.length} file(s) from GitHub into workspace.`,
+        ],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        lines: [`fatal: network error pulling from GitHub: ${err.message}`],
+      };
+    }
+  }
+
+  /**
+   * Creates a new repository on GitHub under the authenticated user's account.
+   */
+  public async createGitHubRepo(
+    repoName: string,
+    isPrivate = false
+  ): Promise<{ success: boolean; repoUrl?: string; lines: string[] }> {
+    if (!this.githubToken) {
+      return {
+        success: false,
+        lines: [
+          `fatal: GitHub Personal Access Token required to create repository.`,
+          `Run: git config github.token <YOUR_TOKEN> or gh auth login <YOUR_TOKEN>`,
+        ],
+      };
+    }
+
+    try {
+      const res = await fetch('https://api.github.com/user/repos', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.githubToken}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: repoName,
+          private: isPrivate,
+          description: 'Created with Kollab Collaborative IDE',
+          auto_init: false,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          lines: [
+            `fatal: Failed to create repository '${repoName}' on GitHub (${res.statusText})`,
+            errJson.message ? `Details: ${errJson.message}` : '',
+          ].filter(Boolean),
+        };
+      }
+
+      const repoData = await res.json();
+      const cloneUrl = repoData.clone_url || repoData.html_url + '.git';
+
+      this.setRemote('origin', cloneUrl);
+
+      return {
+        success: true,
+        repoUrl: repoData.html_url,
+        lines: [
+          `✓ Created repository '${repoData.full_name}' on GitHub (${isPrivate ? 'private' : 'public'})!`,
+          `URL: ${repoData.html_url}`,
+          `Configured remote 'origin' -> ${cloneUrl}`,
+          `Next step: Run 'git push -u origin main' to push your workspace files!`,
+        ],
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        lines: [`fatal: Network error creating repository: ${err.message}`],
+      };
+    }
+  }
+
+  /**
+   * Clone a public or private GitHub repository into workspace FileNode[].
+   */
   public async cloneGitHub(repoUrl: string): Promise<{ success: boolean; files?: FileNode[]; message: string }> {
     try {
-      // Parse https://github.com/{owner}/{repo}
-      const match = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/i);
-      if (!match) {
+      const parsed = this.parseGitHubUrl(repoUrl);
+      if (!parsed) {
         return {
           success: false,
           message: `fatal: repository '${repoUrl}' does not exist or invalid GitHub URL format. Use https://github.com/owner/repo`,
         };
       }
 
-      const [, owner, repo] = match;
+      const { owner, repo } = parsed;
+      const headers: Record<string, string> = {
+        Accept: 'application/vnd.github.v3+json',
+      };
+      if (this.githubToken) {
+        headers['Authorization'] = `Bearer ${this.githubToken}`;
+      }
 
       // 1. Fetch repo info (default branch)
-      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
       if (!repoRes.ok) {
         return {
           success: false,
@@ -488,7 +1073,8 @@ export class GitService {
 
       // 2. Fetch git tree recursively
       const treeRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
+        { headers }
       );
       if (!treeRes.ok) {
         return {
@@ -497,21 +1083,27 @@ export class GitService {
         };
       }
       const treeData = await treeRes.json();
-      const treeItems: any[] = (treeData.tree || []).slice(0, 50); // limit to first 50 files for speed
+      const treeItems: any[] = (treeData.tree || []).slice(0, 60);
 
       // Build file tree
       const newFiles: FileNode[] = [];
 
       for (const item of treeItems) {
         if (item.type === 'blob') {
-          // Fetch raw file content
           let content = '';
           try {
-            const rawRes = await fetch(
-              `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
+            const blobRes = await fetch(
+              `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
+              { headers }
             );
-            if (rawRes.ok) {
-              content = await rawRes.text();
+            if (blobRes.ok) {
+              const bData = await blobRes.json();
+              content = bData.encoding === 'base64' ? b64DecodeUnicode(bData.content) : bData.content;
+            } else {
+              const rawRes = await fetch(
+                `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
+              );
+              if (rawRes.ok) content = await rawRes.text();
             }
           } catch {
             content = '// Could not load raw file content';
@@ -520,7 +1112,6 @@ export class GitService {
           const pathParts = item.path.split('/');
           const fileName = pathParts.pop();
 
-          // Simple insertion into file tree
           newFiles.push({
             id: 'git_' + Math.random().toString(36).substring(2, 9),
             name: fileName,
@@ -538,7 +1129,7 @@ export class GitService {
       return {
         success: true,
         files: newFiles,
-        message: `Cloning into '${repo}'...\nremote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${treeItems.length}/${treeItems.length}), done.`,
+        message: `Cloning into '${repo}'...\nremote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${treeItems.length}/${treeItems.length}), done.\n✓ Cloned repository into workspace and configured remote origin.`,
       };
     } catch (err: any) {
       return {

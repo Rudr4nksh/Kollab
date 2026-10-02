@@ -218,18 +218,22 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
     tree              Display ASCII directory structure
 
   Git & GitHub:
-    git init          Initialize Git repository
-    git status        Show working tree status
-    git add <file>    Add file contents to the index (e.g. git add .)
-    git commit -m     Record changes to repository
-    git log           Show commit history (--oneline supported)
-    git branch        List, create, or delete branches
-    git checkout      Switch branches or restore files (-b supported)
-    git diff          Show changes between commits and working tree
-    git reset         Unstage changes or reset files
-    git clone <url>   Clone public GitHub repository into workspace
-    git remote        Manage tracked remote repositories
-    git push          Push commits to remote origin
+    git init               Initialize Git repository
+    git status             Show working tree status
+    git add <file>         Add file contents to the index (e.g. git add .)
+    git commit -m          Record changes to repository
+    git push               Commit & push directly to GitHub website
+    git pull               Pull latest files from GitHub repository
+    git config             Manage user identity & GitHub tokens
+    git remote             Manage remote repository URLs (e.g. origin)
+    git clone <url>        Clone GitHub repository into workspace
+    git log                Show commit history (--oneline supported)
+    git branch             List, create, or delete branches
+    git checkout           Switch branches or restore files (-b supported)
+    git diff               Show changes between commits and working tree
+    git reset              Unstage changes or reset files
+    gh auth login <token>  Authenticate with GitHub Personal Access Token
+    gh repo create <name>  Create a new repository on your GitHub account
 
   Execution & General:
     node <file>       Execute JavaScript with Node.js engine
@@ -530,15 +534,89 @@ These are common Git commands:
             } else {
               addOut(gitService.setRemote(rName, rUrl), 'success');
             }
+          } else if (args[1] === 'rm' || args[1] === 'remove') {
+            const rName = args[2];
+            if (!rName) addOut(`usage: git remote rm <name>`, 'stderr');
+            else addOut(gitService.removeRemote(rName), 'info');
+          } else if (args[1] === 'set-url') {
+            const rName = args[2];
+            const rUrl = args[3];
+            if (!rName || !rUrl) addOut(`usage: git remote set-url <name> <url>`, 'stderr');
+            else addOut(gitService.setRemote(rName, rUrl), 'success');
           } else {
             gitService.getRemotes().forEach((r) => addOut(r));
           }
+        } else if (sub === 'config') {
+          const cleanArgs = args.slice(1).filter((a) => a !== '--global');
+          if (cleanArgs.includes('--list') || cleanArgs.includes('-l')) {
+            const allConf = gitService.getAllConfig();
+            if (allConf.length === 0) {
+              addOut(`No git configuration set. Configure identity or GitHub token:\n  git config user.name "Your Name"\n  git config user.email "your@email.com"\n  git config github.token "YOUR_PAT"`, 'info');
+            } else {
+              allConf.forEach(([k, v]) => {
+                const displayVal = k.includes('token') ? `${v.substring(0, 6)}...` : v;
+                addOut(`${k}=${displayVal}`);
+              });
+            }
+          } else if (cleanArgs[0] === '--get') {
+            const key = cleanArgs[1];
+            const val = gitService.getConfig(key);
+            if (val) addOut(key.includes('token') ? `${val.substring(0, 6)}...` : val);
+            else addOut(`error: key '${key}' not found`, 'stderr');
+          } else if (cleanArgs.length === 1) {
+            const key = cleanArgs[0];
+            const val = gitService.getConfig(key);
+            if (val) addOut(key.includes('token') ? `${val.substring(0, 6)}...` : val);
+            else addOut(`error: key '${key}' not found`, 'stderr');
+          } else if (cleanArgs.length >= 2) {
+            const key = cleanArgs[0];
+            const val = cleanArgs.slice(1).join(' ').replace(/^["']|["']$/g, '');
+            if (key.toLowerCase() === 'github.token') {
+              addOut(`Verifying GitHub Personal Access Token...`, 'info');
+              const authRes = await gitService.setGitHubToken(val);
+              if (authRes.success && authRes.user) {
+                addOut(`✓ Authenticated successfully with GitHub as @${authRes.user.login} (${authRes.user.name || 'User'})!`, 'success');
+                addOut(`Token saved. You can now commit and push directly to GitHub website.`, 'info');
+              } else {
+                addOut(`warning: Token saved, but GitHub verification returned: ${authRes.error}`, 'stderr');
+              }
+            } else {
+              gitService.setConfig(key, val);
+              addOut(`Set ${key} = ${val}`, 'info');
+            }
+          } else {
+            addOut(`usage: git config [--global] <key> [value]\n       git config --list`, 'info');
+          }
         } else if (sub === 'push') {
-          const remote = args[1] || 'origin';
-          const bName = args[2];
-          gitService.push(remote, bName).forEach((p) => addOut(p));
+          const filteredArgs = args.slice(1).filter((a) => !a.startsWith('-'));
+          const remote = filteredArgs[0] || 'origin';
+          const targetBranch = filteredArgs[1] || gitBranch || 'main';
+
+          addOut(`Pushing workspace to GitHub remote '${remote}' (${targetBranch})...`, 'info');
+          const pushRes = await gitService.pushGitHub(files, remote, targetBranch);
+          pushRes.lines.forEach((l) => {
+            const isSuccess = l.startsWith('✓') || l.startsWith('Commit on GitHub:');
+            const isError = l.startsWith('fatal:') || l.startsWith('error:');
+            addOut(l, isSuccess ? 'success' : isError ? 'stderr' : 'info');
+          });
+          if (pushRes.success) {
+            setGitBranch(targetBranch);
+          }
         } else if (sub === 'pull') {
-          addOut(`Already up to date.`, 'info');
+          const filteredArgs = args.slice(1).filter((a) => !a.startsWith('-'));
+          const remote = filteredArgs[0] || 'origin';
+          const targetBranch = filteredArgs[1] || gitBranch || 'main';
+
+          addOut(`Pulling latest files from GitHub remote '${remote}' (${targetBranch})...`, 'info');
+          const pullRes = await gitService.pullGitHub(remote, targetBranch);
+          pullRes.lines.forEach((l) => {
+            const isSuccess = l.startsWith('✓');
+            const isError = l.startsWith('fatal:') || l.startsWith('error:');
+            addOut(l, isSuccess ? 'success' : isError ? 'stderr' : 'info');
+          });
+          if (pullRes.success && pullRes.files && onFilesChange) {
+            onFilesChange(pullRes.files);
+          }
         } else if (sub === 'clone') {
           const repoUrl = args[1];
           if (!repoUrl) {
@@ -556,6 +634,87 @@ These are common Git commands:
           }
         } else {
           addOut(`git: '${sub}' is not a git command. See 'git --help'.`, 'stderr');
+        }
+        break;
+      }
+
+      case 'gh': {
+        const sub = args[0]?.toLowerCase();
+        if (!sub || sub === 'help' || sub === '--help') {
+          addOut(`GitHub CLI (gh) - Kollab Edition:
+  gh auth login <token>        Authenticate with GitHub Personal Access Token
+  gh auth status               Display current logged-in GitHub account
+  gh auth logout               Clear authenticated GitHub token
+  gh repo create <name>        Create a new repository on your GitHub account
+  gh repo view                 View remote GitHub repository details`, 'info');
+          break;
+        }
+
+        if (sub === 'auth') {
+          const authSub = args[1]?.toLowerCase();
+          if (authSub === 'login') {
+            const token = args[2];
+            if (!token) {
+              addOut(`usage: gh auth login <YOUR_PERSONAL_ACCESS_TOKEN>\n\nCreate a Personal Access Token with 'repo' scope at: https://github.com/settings/tokens`, 'stderr');
+            } else {
+              addOut(`Verifying GitHub token...`, 'info');
+              const res = await gitService.setGitHubToken(token);
+              if (res.success && res.user) {
+                addOut(`✓ Logged in to github.com account @${res.user.login} (${res.user.name || 'User'})!`, 'success');
+                addOut(`Token is configured for all git push and git clone operations.`, 'info');
+              } else {
+                addOut(`fatal: ${res.error || 'Authentication failed'}`, 'stderr');
+              }
+            }
+          } else if (authSub === 'status') {
+            const user = gitService.getGitHubUser();
+            const token = gitService.getGitHubToken();
+            if (token && user) {
+              addOut(`github.com\n  ✓ Logged in to github.com account @${user.login} (${user.name || 'User'})\n  - Active account: true\n  - Token: ${token.substring(0, 6)}... (valid)\n  - Scopes: 'repo', 'read:user'`, 'success');
+            } else if (token) {
+              addOut(`github.com\n  ! Token configured (${token.substring(0, 6)}...), but user profile not verified.\n  Run 'gh auth login <token>' to verify.`, 'info');
+            } else {
+              addOut(`You are not logged into any GitHub hosts. Run 'gh auth login <token>' to authenticate.`, 'stderr');
+            }
+          } else if (authSub === 'logout') {
+            gitService.clearGitHubAuth();
+            addOut(`✓ Logged out of GitHub account.`, 'info');
+          } else {
+            addOut(`usage: gh auth <login|status|logout>`, 'stderr');
+          }
+        } else if (sub === 'repo') {
+          const repoSub = args[1]?.toLowerCase();
+          if (repoSub === 'create') {
+            const repoName = args[2];
+            if (!repoName) {
+              addOut(`usage: gh repo create <name> [--public|--private]`, 'stderr');
+            } else {
+              const isPrivate = args.includes('--private');
+              addOut(`Creating ${isPrivate ? 'private' : 'public'} repository '${repoName}' on GitHub...`, 'info');
+              const res = await gitService.createGitHubRepo(repoName, isPrivate);
+              res.lines.forEach((l) => {
+                const isSuccess = l.startsWith('✓');
+                const isError = l.startsWith('fatal:');
+                addOut(l, isSuccess ? 'success' : isError ? 'stderr' : 'info');
+              });
+            }
+          } else if (repoSub === 'view') {
+            const remoteUrl = gitService.getRemote('origin');
+            if (remoteUrl) {
+              addOut(`Remote Origin: ${remoteUrl}`, 'info');
+              const parsed = gitService.parseGitHubUrl(remoteUrl);
+              if (parsed) {
+                addOut(`Repository: ${parsed.owner}/${parsed.repo}`, 'success');
+                addOut(`Web URL: https://github.com/${parsed.owner}/${parsed.repo}`, 'info');
+              }
+            } else {
+              addOut(`No remote repository configured. Set one with: git remote add origin <url>`, 'stderr');
+            }
+          } else {
+            addOut(`usage: gh repo <create|view>`, 'stderr');
+          }
+        } else {
+          addOut(`gh: '${sub}' is not a recognized gh command. Type 'gh help'.`, 'stderr');
         }
         break;
       }
@@ -708,11 +867,13 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
     } else if (e.key === 'Tab') {
       e.preventDefault();
       // Autocomplete command, git subcommands, or files
-      const gitSubcommands = ['status', 'add', 'commit', 'branch', 'checkout', 'diff', 'log', 'push', 'pull', 'clone', 'remote', 'init', 'reset'];
+      const gitSubcommands = ['status', 'add', 'commit', 'branch', 'checkout', 'diff', 'log', 'push', 'pull', 'clone', 'remote', 'init', 'reset', 'config'];
+      const ghSubcommands = ['auth login', 'auth status', 'auth logout', 'repo create', 'repo view'];
       const commands = [
         'help', 'ls', 'cd', 'pwd', 'cat', 'touch', 'mkdir', 'rm', 'echo', 
-        'node', 'python', 'run', 'tree', 'git', 'clear',
+        'node', 'python', 'run', 'tree', 'git', 'gh', 'clear',
         ...gitSubcommands.map((s) => `git ${s}`),
+        ...ghSubcommands.map((s) => `gh ${s}`),
       ];
       const dirItems = getDirContents(cwd).map((n) => n.name);
       const allChoices = [...commands, ...dirItems];
