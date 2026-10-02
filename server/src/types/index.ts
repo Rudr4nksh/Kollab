@@ -107,6 +107,26 @@ export interface RoomMetadata {
   updatedAt: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  userId: string;
+  userName: string;
+  userColor: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface VoiceParticipant {
+  userId: string;
+  socketId: string;
+  userName: string;
+  userColor: string;
+  isMuted: boolean;
+  isDeafened: boolean;
+  isSpeaking: boolean;
+}
+
 export interface JoinRoomPayload {
   roomId: string;
   passcode?: string;

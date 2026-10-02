@@ -6,7 +6,9 @@ import type {
   UserRole,
   CursorPosition,
   SelectionRange,
-  ConnectionState
+  ConnectionState,
+  ChatMessage,
+  VoiceParticipant
 } from '../types/index.ts';
 
 class SocketService {
@@ -117,8 +119,65 @@ class SocketService {
     s.emit('selection-change', { roomId, userId, filePath, selection });
   }
 
+  public emitChatMessage(roomId: string, userId: string, text: string) {
+    const s = this.getSocket();
+    s.emit('chat-message', { roomId, userId, text });
+  }
+
+  public onChatMessage(callback: (message: ChatMessage) => void): () => void {
+    const s = this.getSocket();
+    s.on('chat-message', callback);
+    return () => {
+      s.off('chat-message', callback);
+    };
+  }
+
+  public emitVoiceJoin(roomId: string, userId: string) {
+    const s = this.getSocket();
+    s.emit('voice-join', { roomId, userId });
+  }
+
+  public emitVoiceLeave(roomId: string, userId: string) {
+    const s = this.getSocket();
+    s.emit('voice-leave', { roomId, userId });
+  }
+
+  public emitVoiceSignal(roomId: string, targetUserId: string, fromUserId: string, signal: any) {
+    const s = this.getSocket();
+    s.emit('voice-signal', { roomId, targetUserId, fromUserId, signal });
+  }
+
+  public onVoiceSignal(
+    callback: (data: { fromUserId: string; fromSocketId: string; signal: any }) => void
+  ): () => void {
+    const s = this.getSocket();
+    s.on('voice-signal', callback);
+    return () => {
+      s.off('voice-signal', callback);
+    };
+  }
+
+  public emitVoiceState(
+    roomId: string,
+    userId: string,
+    state: { isMuted?: boolean; isDeafened?: boolean; isSpeaking?: boolean }
+  ) {
+    const s = this.getSocket();
+    s.emit('voice-state', { roomId, userId, ...state });
+  }
+
+  public onVoiceUsersUpdated(callback: (users: VoiceParticipant[]) => void): () => void {
+    const s = this.getSocket();
+    s.on('voice-users-updated', callback);
+    return () => {
+      s.off('voice-users-updated', callback);
+    };
+  }
+
   public onRoomJoined(callback: (data: {
     participants: Participant[];
+    voiceUsers?: VoiceParticipant[];
+    messages?: ChatMessage[];
     files: FileNode[];
     yourParticipant: Participant;
   }) => void): () => void {

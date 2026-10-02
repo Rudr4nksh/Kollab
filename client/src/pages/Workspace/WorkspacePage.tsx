@@ -15,7 +15,8 @@ import {
   Folder,
   FilePlus,
   Upload,
-  FileCode
+  FileCode,
+  MessageSquare
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -24,6 +25,7 @@ import { ConsolePanel } from '../../components/Console/ConsolePanel.tsx';
 import { ParticipantList } from '../../components/Participants/ParticipantList.tsx';
 import { ActivityFeed } from '../../components/ActivityFeed/ActivityFeed.tsx';
 import { RoomSettingsModal } from '../../components/RoomJoin/RoomSettingsModal.tsx';
+import { DiscordPanel } from '../../components/DiscordChat/DiscordPanel.tsx';
 import { ToastContainer, ToastMessage } from '../../components/UI/Toast.tsx';
 import type { 
   FileNode, 
@@ -31,7 +33,9 @@ import type {
   ActivityEvent, 
   ConnectionState, 
   ConsoleLogItem,
-  SupportedLanguage 
+  SupportedLanguage,
+  ChatMessage,
+  VoiceParticipant
 } from '../../types/index.ts';
 import { 
   findFileByPath, 
@@ -58,6 +62,9 @@ interface WorkspacePageProps {
   toasts: ToastMessage[];
   onDismissToast: (id: string) => void;
   onRecordActivity?: (type: string, details?: string) => void;
+  messages?: ChatMessage[];
+  voiceUsers?: VoiceParticipant[];
+  onSendMessage?: (text: string) => void;
 }
 
 export const WorkspacePage: React.FC<WorkspacePageProps> = ({
@@ -76,12 +83,27 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   toasts,
   onDismissToast,
   onRecordActivity,
+  messages = [],
+  voiceUsers = [],
+  onSendMessage,
 }) => {
   // Activity bar active tool
   const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUpdatesOpen, setIsUpdatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const prevMessagesLength = React.useRef(messages?.length || 0);
+
+  // Track unread messages when chat panel is closed
+  useEffect(() => {
+    if (!isChatOpen && messages && messages.length > prevMessagesLength.current) {
+      setUnreadChatCount((prev) => prev + (messages.length - prevMessagesLength.current));
+    }
+    prevMessagesLength.current = messages?.length || 0;
+  }, [messages, isChatOpen]);
+
   const [copiedRoom, setCopiedRoom] = useState(false);
 
   const handleCopyRoom = () => {
@@ -609,6 +631,21 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           {isHost && <span className={styles.hostPill}>HOST</span>}
 
           <button
+            className={`${styles.chatNavBtn} ${isChatOpen ? styles.chatNavBtnActive : ''}`}
+            onClick={() => {
+              setIsChatOpen(!isChatOpen);
+              if (!isChatOpen) setUnreadChatCount(0);
+            }}
+            title={isChatOpen ? "Hide Chat & Voice" : "Open Chat & Voice"}
+          >
+            <MessageSquare size={13} />
+            <span>Chat & Voice</span>
+            {unreadChatCount > 0 && !isChatOpen && (
+              <span className={styles.unreadBadge}>{unreadChatCount}</span>
+            )}
+          </button>
+
+          <button
             className={styles.shareBtn}
             onClick={() => setIsSettingsOpen(true)}
             title="Room share & invite"
@@ -842,7 +879,21 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           />
         </main>
 
-        {/* 4. Right Sidebar: Live Updates & Connected Participants */}
+        {/* 4. Discord Chat & Voice Panel (Right Docked) */}
+        {isChatOpen && (
+          <DiscordPanel
+            roomId={roomId}
+            userId={userId}
+            displayName={displayName}
+            messages={messages}
+            onSendMessage={onSendMessage || ((text) => socketService.emitChatMessage(roomId, userId, text))}
+            voiceUsers={voiceUsers}
+            participants={participants}
+            onClose={() => setIsChatOpen(false)}
+          />
+        )}
+
+        {/* 5. Right Sidebar: Live Updates & Connected Participants */}
         {isUpdatesOpen && (
           <aside className={styles.rightSidebar}>
             <div className={styles.rightParticipantsSection}>

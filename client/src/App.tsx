@@ -14,7 +14,9 @@ import type {
   Participant, 
   ActivityEvent, 
   ConnectionState, 
-  FileNode 
+  FileNode,
+  ChatMessage,
+  VoiceParticipant
 } from './types/index.ts';
 import type { ToastMessage } from './components/UI/Toast.tsx';
 
@@ -29,6 +31,10 @@ export const App: React.FC = () => {
 
   // Multi-file workspace state - starts empty as requested
   const [files, setFiles] = useState<FileNode[]>([]);
+
+  // Discord Chat & Voice State
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [voiceUsers, setVoiceUsers] = useState<VoiceParticipant[]>([]);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('connected');
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -99,10 +105,24 @@ export const App: React.FC = () => {
         if (data.participants && data.participants.length > 0) {
           setParticipants(data.participants);
         }
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+        }
+        if (data.voiceUsers && data.voiceUsers.length > 0) {
+          setVoiceUsers(data.voiceUsers);
+        }
       }),
 
       socketService.onParticipantsUpdated((updatedList) => {
         setParticipants(updatedList);
+      }),
+
+      socketService.onChatMessage((msg) => {
+        setMessages((prev) => [...prev, msg]);
+      }),
+
+      socketService.onVoiceUsersUpdated((users) => {
+        setVoiceUsers(users);
       }),
 
       socketService.onFilesTreeUpdate((data) => {
@@ -284,7 +304,15 @@ export const App: React.FC = () => {
     setActiveRoomId(null);
     setFiles([]);
     setParticipants([]);
+    setMessages([]);
+    setVoiceUsers([]);
     window.history.pushState({}, '', window.location.pathname);
+  };
+
+  const handleSendMessage = (text: string) => {
+    if (activeRoomId) {
+      socketService.emitChatMessage(activeRoomId, userId, text);
+    }
   };
 
   const handleRecordActivity = (type: string, details?: string) => {
@@ -326,6 +354,9 @@ export const App: React.FC = () => {
           toasts={toasts}
           onDismissToast={handleDismissToast}
           onRecordActivity={handleRecordActivity}
+          messages={messages}
+          voiceUsers={voiceUsers}
+          onSendMessage={handleSendMessage}
         />
       )}
     </div>
