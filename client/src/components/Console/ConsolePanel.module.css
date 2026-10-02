@@ -6,6 +6,9 @@
   overflow: hidden;
   user-select: none;
   flex-shrink: 0;
+  transition: height 150ms ease;
+  position: relative;
+  z-index: 10;
 }
 
 .collapsedBar {
@@ -19,7 +22,7 @@
   cursor: pointer;
   color: #9CA3AF;
   font-size: 11px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
   user-select: none;
   transition: all 150ms ease;
 }
@@ -53,72 +56,108 @@
   cursor: pointer;
 }
 
+/* VS Code Style Header Bar */
 .header {
-  height: 32px;
+  height: 34px;
+  min-height: 34px;
   background-color: #050608;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 .tabsGroup {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tabBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 6px 10px;
   font-size: 11px;
-  font-family: var(--font-mono);
-  color: #6B7280;
-  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.03em;
+  color: #8E9297;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 150ms ease;
+  position: relative;
+  transition: all 120ms ease;
 }
 
 .tabBtn:hover {
   color: #FFFFFF;
-  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .activeTab {
-  color: #A78BFA !important;
+  color: #FFFFFF !important;
   font-weight: 600;
-  border-bottom: 2px solid #8A4BFF;
 }
 
+.activeTab::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background-color: #5865F2;
+  border-radius: 1px;
+}
+
+.tabBadge {
+  font-size: 9.5px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #9CA3AF;
+}
+
+/* Right side header actions: terminal selector + icons */
 .headerActions {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
+.terminalSelector {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #D1D5DB;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
 .actionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  font-size: 11px;
-  color: #6B7280;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #8E9297;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   cursor: pointer;
-  transition: color 150ms ease;
+  transition: all 120ms ease;
 }
 
 .actionBtn:hover {
   color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Content Area */
 .contentBody {
   flex: 1;
   min-height: 0;
@@ -128,6 +167,118 @@
   background-color: #07090D;
 }
 
+/* Terminal Shell Body (Real VS Code Style) */
+.terminalContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background-color: #050608;
+  padding: 6px 12px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  user-select: text;
+  cursor: text;
+}
+
+.terminalOutput {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: min-content;
+}
+
+.terminalBanner {
+  color: #717888;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.terminalLine {
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.commandEcho {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.promptUser {
+  color: #2ECC71;
+  font-weight: 600;
+}
+
+.promptColon {
+  color: #717888;
+}
+
+.promptPath {
+  color: #38BDF8;
+  font-weight: 600;
+}
+
+.promptSymbol {
+  color: #D1D5DB;
+  font-weight: 700;
+}
+
+.commandText {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Output styling */
+.outText {
+  color: #DBDEE1;
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.outSuccess {
+  color: #2ECC71;
+}
+
+.outError {
+  color: #F87171;
+}
+
+.outInfo {
+  color: #38BDF8;
+}
+
+.outWarning {
+  color: #FBBF24;
+}
+
+/* Interactive Input Line */
+.activeInputLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.terminalInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #FFFFFF;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  caret-color: #5865F2;
+  padding: 0;
+}
+
+/* Output Tab (Standard runner output) */
 .logList {
   flex: 1;
   overflow-y: auto;
@@ -135,7 +286,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono, monospace);
   font-size: 11.5px;
   user-select: text;
 }
@@ -143,7 +294,7 @@
 .emptyLogs {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted);
+  color: #6B7280;
   font-size: 11.5px;
 }
 
@@ -156,14 +307,14 @@
 }
 
 .logTime {
-  color: var(--text-muted);
+  color: #6B7280;
   font-size: 10px;
   flex-shrink: 0;
   margin-top: 1px;
 }
 
 .logPrefix {
-  color: var(--text-muted);
+  color: #6B7280;
   flex-shrink: 0;
 }
 
@@ -174,7 +325,6 @@
   flex: 1;
 }
 
-/* Log Types */
 .stdout .logText {
   color: #F0F3F6;
 }
@@ -198,53 +348,20 @@
   color: #4ADE80;
 }
 
-/* Interactive Console Prompt */
-.interactiveConsole {
+/* Problems Tab */
+.problemsContainer {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-}
-
-.promptForm {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background-color: #050608;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.promptSymbol {
-  color: #A78BFA;
-  font-family: var(--font-mono);
-  font-weight: 700;
-}
-
-.promptInput {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.promptSubmit {
-  display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
+  padding: 20px;
+  color: #8E9297;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
 }
 
-.promptSubmit:hover {
-  color: var(--accent-cyan);
-}
-
-/* Live Preview */
+/* Live Preview Tab */
 .previewContainer {
   flex: 1;
   width: 100%;

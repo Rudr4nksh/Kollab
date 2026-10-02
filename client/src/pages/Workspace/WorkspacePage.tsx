@@ -14,7 +14,8 @@ import {
   FilePlus,
   Upload,
   FileCode,
-  MessageSquare
+  MessageSquare,
+  Terminal
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -693,6 +694,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               {activeTool === 'activity' && <span className={styles.activePill} />}
               <Activity size={16} />
             </div>
+
+            <div
+              className={`${styles.activityIcon} ${consoleOpen ? styles.activeActivity : ''}`}
+              onClick={() => setConsoleOpen(!consoleOpen)}
+              title="Terminal (VS Code Shell)"
+            >
+              <Terminal size={16} />
+            </div>
           </div>
 
           {/* Bottom Left Controls: Settings & Leave */}
@@ -863,8 +872,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             onExecuteCommand={handleExecuteCommand}
             files={files}
             activeFileContent={activeFile?.content || ''}
+            activeFilePath={activeFilePath}
             isOpen={consoleOpen}
             onToggleOpen={() => setConsoleOpen(!consoleOpen)}
+            userName={displayName}
+            roomId={roomId}
+            onCreateFile={handleCreateFile}
+            onCreateFolder={handleCreateFolder}
+            onDeleteNode={handleDeleteNode}
+            onUpdateFileContent={handleContentChange}
           />
         </main>
 
