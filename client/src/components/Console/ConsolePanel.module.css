@@ -380,3 +380,50 @@
   height: 100%;
   border: none;
 }
+
+/* Terminal GitHub Login Banner */
+.terminalLoginBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #181922;
+  border: 1px solid rgba(109, 74, 255, 0.4);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+
+.loginBannerText {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #E2E8F0;
+}
+
+.loginIcon {
+  color: #A78BFA;
+  flex-shrink: 0;
+}
+
+.loginBannerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #6D4AFF;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.loginBannerBtn:hover {
+  background: #5B3AE0;
+}
+

@@ -8,7 +8,9 @@ import {
   Maximize2, 
   Minimize2, 
   AlertCircle,
-  FileText
+  FileText,
+  FolderGit2,
+  GitBranch
 } from 'lucide-react';
 import type { ConsoleLogItem, FileNode } from '../../types/index.ts';
 import { findFileByPath, getLanguageFromFilename } from '../../services/fileUtils.ts';
@@ -17,7 +19,7 @@ import styles from './ConsolePanel.module.css';
 
 interface TerminalLineItem {
   id: string;
-  type: 'command' | 'stdout' | 'stderr' | 'info' | 'system' | 'success';
+  type: 'command' | 'stdout' | 'stderr' | 'info' | 'system' | 'success' | 'login_prompt';
   text?: string;
   command?: string;
   cwd?: string;
@@ -102,6 +104,39 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
   // Focus input when clicking terminal container
   const handleContainerClick = () => {
     terminalInputRef.current?.focus();
+  };
+
+  // 1-Click GitHub Sign In popup
+  const handleTerminalGitHubLogin = async () => {
+    setTerminalLines((prev) => [
+      ...prev,
+      {
+        id: 'out_' + Date.now(),
+        type: 'info',
+        text: 'Opening GitHub authorization window...',
+      },
+    ]);
+    const res = await gitService.loginWithGitHub();
+    const user = res.user;
+    if (res.success && user) {
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'out_' + Date.now(),
+          type: 'success',
+          text: `✓ Logged in as @${user.login} (${user.name || 'GitHub User'})!\nYou can now use git push, git commit, git pull, and repository commands.`,
+        },
+      ]);
+    } else {
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'out_' + Date.now(),
+          type: 'stderr',
+          text: `fatal: ${res.error || 'GitHub sign-in was not completed.'}`,
+        },
+      ]);
+    }
   };
 
   // Helper: Normalize path
@@ -208,64 +243,6 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
     if (cmd === 'clear' || cmd === 'cls') {
       setTerminalLines([]);
       return;
-    }
-
-    // Connect to host machine's real Git and OS shell via server endpoint
-    // This uses the computer's existing Git credentials (Windows Credential Manager / SSH)
-    // with NO tokens or manual setup required!
-    try {
-      const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
-      const serverRes = await fetch(`${SERVER_URL}/api/terminal/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId,
-          command: trimmed,
-          cwd,
-          files,
-        }),
-      });
-
-      if (serverRes.ok) {
-        const data = await serverRes.json();
-
-        if (data.stdout && data.stdout.trim()) {
-          addOut(data.stdout.trimEnd(), 'stdout');
-        }
-        if (data.stderr && data.stderr.trim()) {
-          const isWarning = data.stderr.includes('warning:') || data.stderr.includes('Cloning into');
-          addOut(data.stderr.trimEnd(), isWarning ? 'info' : 'stderr');
-        }
-
-        if (data.branch) {
-          setGitBranch(data.branch);
-        }
-
-        if (data.updatedFiles && data.updatedFiles.length > 0 && onFilesChange) {
-          onFilesChange(data.updatedFiles);
-        }
-
-        if (trimmed.startsWith('git push') && data.exitCode === 0 && onGitPush) {
-          onGitPush('https://github.com', `Pushed commits via Git on host machine`);
-        }
-
-        if (cmd === 'cd') {
-          const target = args[0];
-          if (!target || target === '~' || target === '/') setCwd('/');
-          else if (target === '..') {
-            const p = cwd.split('/').filter(Boolean);
-            p.pop();
-            setCwd(p.length > 0 ? '/' + p.join('/') : '/');
-          } else {
-            setCwd(normalizePath(cwd, target));
-          }
-        }
-
-        setTerminalLines((prev) => [...prev, cmdEcho, ...outputLines]);
-        return;
-      }
-    } catch {
-      // Server not reachable, fall through to in-memory fallback below
     }
 
     switch (cmd) {
@@ -653,6 +630,16 @@ These are common Git commands:
             addOut(`usage: git config [--global] <key> [value]\n       git config --list`, 'info');
           }
         } else if (sub === 'push') {
+          if (!gitService.getGitHubToken()) {
+            outputLines.push({
+              id: 'login_' + Date.now(),
+              type: 'login_prompt',
+              text: 'Sign in with GitHub to push your commits to github.com.',
+            });
+            setTerminalLines((prev) => [...prev, cmdEcho, ...outputLines]);
+            return;
+          }
+
           const filteredArgs = args.slice(1).filter((a) => !a.startsWith('-'));
           const remote = filteredArgs[0] || 'origin';
           const targetBranch = filteredArgs[1] || gitBranch || 'main';
@@ -671,6 +658,16 @@ These are common Git commands:
             }
           }
         } else if (sub === 'pull') {
+          if (!gitService.getGitHubToken()) {
+            outputLines.push({
+              id: 'login_' + Date.now(),
+              type: 'login_prompt',
+              text: 'Sign in with GitHub to pull files from repository.',
+            });
+            setTerminalLines((prev) => [...prev, cmdEcho, ...outputLines]);
+            return;
+          }
+
           const filteredArgs = args.slice(1).filter((a) => !a.startsWith('-'));
           const remote = filteredArgs[0] || 'origin';
           const targetBranch = filteredArgs[1] || gitBranch || 'main';
@@ -722,9 +719,7 @@ These are common Git commands:
           const authSub = args[1]?.toLowerCase();
           if (authSub === 'login') {
             const token = args[2];
-            if (!token) {
-              addOut(`usage: gh auth login <YOUR_PERSONAL_ACCESS_TOKEN>\n\nCreate a Personal Access Token with 'repo' scope at: https://github.com/settings/tokens`, 'stderr');
-            } else {
+            if (token) {
               addOut(`Verifying GitHub token...`, 'info');
               const res = await gitService.setGitHubToken(token);
               if (res.success && res.user) {
@@ -733,6 +728,8 @@ These are common Git commands:
               } else {
                 addOut(`fatal: ${res.error || 'Authentication failed'}`, 'stderr');
               }
+            } else {
+              await handleTerminalGitHubLogin();
             }
           } else if (authSub === 'status') {
             const user = gitService.getGitHubUser();
@@ -1123,6 +1120,25 @@ Type "help", "copyright", "credits" or "license" for more information.`, 'info')
                       )}
                       <span className={styles.promptSymbol}>$</span>
                       <span className={styles.commandText}>{line.command}</span>
+                    </div>
+                  );
+                }
+
+                if (line.type === 'login_prompt') {
+                  return (
+                    <div key={line.id} className={styles.terminalLoginBanner}>
+                      <div className={styles.loginBannerText}>
+                        <GitBranch size={15} className={styles.loginIcon} />
+                        <span>{line.text || 'GitHub login is required to use Git commands.'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.loginBannerBtn}
+                        onClick={handleTerminalGitHubLogin}
+                      >
+                        <FolderGit2 size={13} />
+                        <span>Sign in with GitHub</span>
+                      </button>
                     </div>
                   );
                 }

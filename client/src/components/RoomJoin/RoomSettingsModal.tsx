@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../UI/Modal.tsx';
 import { Button } from '../UI/Button.tsx';
 import { Input } from '../UI/Input.tsx';
-import { Copy, Check, Shield, Share2, FolderGit2, Key, Trash2, ExternalLink } from 'lucide-react';
+import { Copy, Check, Shield, Share2, FolderGit2, Trash2 } from 'lucide-react';
 import { gitService, GitHubUser } from '../../services/gitService.ts';
 import styles from './RoomSettingsModal.module.css';
 
@@ -77,6 +77,20 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
       setAuthSuccess(`Connected as @${res.user.login}! Ready to commit and push.`);
     } else {
       setAuthError(res.error || 'Failed to authenticate token with GitHub.');
+    }
+  };
+
+  const handleLoginWithGitHub = async () => {
+    setIsVerifying(true);
+    setAuthError(null);
+    setAuthSuccess(null);
+    const res = await gitService.loginWithGitHub();
+    setIsVerifying(false);
+    if (res.success && res.user) {
+      setGhUser(res.user);
+      setAuthSuccess(`Signed in as @${res.user.login}! Ready to push and commit.`);
+    } else {
+      setAuthError(res.error || 'Failed to sign in with GitHub.');
     }
   };
 
@@ -184,36 +198,42 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
             </div>
           ) : (
             <div className={styles.section}>
-              <label className={styles.label}>Personal Access Token (PAT)</label>
-              <div className={styles.row}>
-                <Input
-                  type="password"
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  value={ghTokenInput}
-                  onChange={(e) => setGhTokenInput(e.target.value)}
-                  className={styles.urlInput}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <Button
                   variant="primary"
                   size="md"
-                  icon={<Key size={14} />}
-                  onClick={handleVerifyGitHub}
+                  icon={<FolderGit2 size={15} />}
+                  onClick={handleLoginWithGitHub}
                   disabled={isVerifying}
+                  style={{ width: '100%', justifyContent: 'center', padding: '10px 14px' }}
                 >
-                  {isVerifying ? 'Verifying...' : 'Connect'}
+                  {isVerifying ? 'Signing in with GitHub...' : 'Sign in with GitHub'}
                 </Button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+                  <span style={{ fontSize: '11px', color: '#717888' }}>or use personal token</span>
+                  <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+                </div>
+
+                <div className={styles.row}>
+                  <Input
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                    value={ghTokenInput}
+                    onChange={(e) => setGhTokenInput(e.target.value)}
+                    className={styles.urlInput}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={handleVerifyGitHub}
+                    disabled={isVerifying}
+                  >
+                    Connect
+                  </Button>
+                </div>
               </div>
-              <p className={styles.githubHelp}>
-                Requires a classic token with <strong style={{ color: '#E2E8F0' }}>'repo'</strong> scope to push to GitHub.{' '}
-                <a
-                  href="https://github.com/settings/tokens"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                >
-                  Generate token <ExternalLink size={10} />
-                </a>
-              </p>
             </div>
           )}
 
