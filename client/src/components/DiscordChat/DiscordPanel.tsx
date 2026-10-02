@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Hash, 
   Volume2, 
   Mic, 
   MicOff, 
@@ -9,7 +8,8 @@ import {
   PhoneOff, 
   Send, 
   X,
-  Code
+  Code,
+  MessageSquare
 } from 'lucide-react';
 import type { ChatMessage, VoiceParticipant, Participant } from '../../types/index.ts';
 import { voiceService } from '../../services/voiceService.ts';
@@ -166,8 +166,8 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
       {/* Header */}
       <div className={styles.panelHeader}>
         <div className={styles.channelTitleRow}>
-          <Hash size={17} className={styles.hashIcon} />
-          <span className={styles.channelName}>general</span>
+          <MessageSquare size={16} className={styles.hashIcon} />
+          <span className={styles.channelName}>Chat</span>
         </div>
         <div className={styles.headerActions}>
           {onClose && (
@@ -283,11 +283,11 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
       <div className={styles.chatMessagesArea}>
         <div className={styles.welcomeChatBanner}>
           <div className={styles.welcomeIconCircle}>
-            <Hash size={24} />
+            <MessageSquare size={22} />
           </div>
-          <div className={styles.welcomeTitle}>Welcome to #general!</div>
+          <div className={styles.welcomeTitle}>Welcome to Chat!</div>
           <div className={styles.welcomeSubtext}>
-            This is the start of the #general channel for room {roomId}. You can chat, share code snippets with ```code```, and speak with collaborators.
+            This is the start of the chat for room {roomId}. You can chat, share code snippets with ```code```, and speak with collaborators.
           </div>
         </div>
 
@@ -338,7 +338,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
             ref={inputRef}
             type="text"
             className={styles.textInput}
-            placeholder="Message #general... (wrap code with ```)"
+            placeholder="Type a message... (wrap code with ```)"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
