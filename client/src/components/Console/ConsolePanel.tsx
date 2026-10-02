@@ -41,6 +41,7 @@ interface ConsolePanelProps {
   onDeleteNode?: (path: string) => void;
   onUpdateFileContent?: (path: string, content: string) => void;
   onFilesChange?: (files: FileNode[]) => void;
+  onGitPush?: (commitUrl: string, message: string) => void;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
@@ -58,6 +59,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onDeleteNode,
   onUpdateFileContent,
   onFilesChange,
+  onGitPush,
 }) => {
   const [tab, setTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('terminal');
   const [inputVal, setInputVal] = useState('');
@@ -601,6 +603,9 @@ These are common Git commands:
           });
           if (pushRes.success) {
             setGitBranch(targetBranch);
+            if (onGitPush && pushRes.commitUrl) {
+              onGitPush(pushRes.commitUrl, `Pushed workspace to ${targetBranch}`);
+            }
           }
         } else if (sub === 'pull') {
           const filteredArgs = args.slice(1).filter((a) => !a.startsWith('-'));
