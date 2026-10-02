@@ -183,6 +183,64 @@ export class GitService {
     }
   }
 
+  // --- 1-Click "Sign in with GitHub" OAuth Flow ---
+  public async loginWithGitHub(): Promise<{ success: boolean; user?: GitHubUser; error?: string }> {
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+    return new Promise((resolve) => {
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      const popup = window.open(
+        `${SERVER_URL}/api/auth/github/login`,
+        'github_oauth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      if (!popup) {
+        resolve({ success: false, error: 'Popup blocked by browser. Please allow popups for this site.' });
+        return;
+      }
+
+      let resolved = false;
+
+      const messageListener = (event: MessageEvent) => {
+        if (event.data?.type === 'GITHUB_OAUTH_SUCCESS') {
+          resolved = true;
+          window.removeEventListener('message', messageListener);
+          const { token, user } = event.data;
+          this.githubToken = token;
+          this.githubUser = user;
+          this.config.set('github.token', token);
+          this.config.set('user.name', user.name || user.login);
+          if (user.email) this.config.set('user.email', user.email);
+
+          localStorage.setItem('kollab_github_token', token);
+          localStorage.setItem('kollab_github_user', JSON.stringify(user));
+
+          resolve({ success: true, user });
+        }
+      };
+
+      window.addEventListener('message', messageListener);
+
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageListener);
+          if (!resolved) {
+            if (this.githubToken && this.githubUser) {
+              resolve({ success: true, user: this.githubUser });
+            } else {
+              resolve({ success: false, error: 'Sign in cancelled.' });
+            }
+          }
+        }
+      }, 600);
+    });
+  }
+
   public getGitHubToken(): string | null {
     return this.githubToken;
   }
