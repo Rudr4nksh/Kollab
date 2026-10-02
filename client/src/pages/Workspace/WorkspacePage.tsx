@@ -7,8 +7,6 @@ import {
   LogOut, 
   Share2, 
   Shield,
-  PanelRightClose,
-  PanelRight,
   Copy,
   Check,
   FolderPlus,
@@ -90,7 +88,6 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   // Activity bar active tool
   const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isUpdatesOpen, setIsUpdatesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -653,72 +650,68 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             <Share2 size={12} />
             <span>Share Room ↗</span>
           </button>
-
-          <button
-            className={styles.iconNavBtn}
-            onClick={() => setIsUpdatesOpen(!isUpdatesOpen)}
-            title={isUpdatesOpen ? "Hide peer updates panel" : "Show peer updates panel"}
-          >
-            {isUpdatesOpen ? <PanelRightClose size={13} /> : <PanelRight size={13} />}
-          </button>
-
-          <button
-            className={styles.iconNavBtn}
-            onClick={() => setIsSettingsOpen(true)}
-            title="Workspace settings"
-          >
-            <Settings size={13} />
-          </button>
-
-          <button
-            className={styles.leaveBtn}
-            onClick={onLeaveRoom}
-            title="Leave workspace"
-          >
-            <LogOut size={13} />
-            <span>Leave</span>
-          </button>
         </div>
       </header>
 
       {/* Main 4-Column IDE Body */}
       <div className={styles.ideBody}>
-        {/* 1. Left Activity Bar */}
+        {/* 1. Left Activity Bar (with bottom settings and leave controls) */}
         <nav className={styles.activityBar}>
-          <div
-            className={`${styles.activityIcon} ${activeTool === 'files' ? styles.activeActivity : ''}`}
-            onClick={() => {
-              setActiveTool('files');
-              setIsSidebarOpen(true);
-            }}
-            title="File Explorer"
-          >
-            {activeTool === 'files' && <span className={styles.activePill} />}
-            <FolderTree size={16} />
+          <div className={styles.activityBarTop}>
+            <div
+              className={`${styles.activityIcon} ${activeTool === 'files' ? styles.activeActivity : ''}`}
+              onClick={() => {
+                setActiveTool('files');
+                setIsSidebarOpen(true);
+              }}
+              title="File Explorer"
+            >
+              {activeTool === 'files' && <span className={styles.activePill} />}
+              <FolderTree size={16} />
+            </div>
+
+            <div
+              className={`${styles.activityIcon} ${activeTool === 'users' ? styles.activeActivity : ''}`}
+              onClick={() => {
+                setActiveTool('users');
+                setIsSidebarOpen(true);
+              }}
+              title="Participants"
+            >
+              {activeTool === 'users' && <span className={styles.activePill} />}
+              <Users size={16} />
+            </div>
+
+            <div
+              className={`${styles.activityIcon} ${activeTool === 'activity' ? styles.activeActivity : ''}`}
+              onClick={() => {
+                setActiveTool('activity');
+                setIsSidebarOpen(true);
+              }}
+              title="Activity Feed"
+            >
+              {activeTool === 'activity' && <span className={styles.activePill} />}
+              <Activity size={16} />
+            </div>
           </div>
 
-          <div
-            className={`${styles.activityIcon} ${activeTool === 'users' ? styles.activeActivity : ''}`}
-            onClick={() => {
-              setActiveTool('users');
-              setIsSidebarOpen(true);
-            }}
-            title="Participants"
-          >
-            {activeTool === 'users' && <span className={styles.activePill} />}
-            <Users size={16} />
-          </div>
+          {/* Bottom Left Controls: Settings & Leave */}
+          <div className={styles.activityBarBottom}>
+            <div
+              className={styles.activityIcon}
+              onClick={() => setIsSettingsOpen(true)}
+              title="Workspace Settings"
+            >
+              <Settings size={16} />
+            </div>
 
-          <div
-            className={`${styles.activityIcon} ${activeTool === 'activity' ? styles.activeActivity : ''}`}
-            onClick={() => {
-              setActiveTool('activity');
-              setIsSidebarOpen(true);
-            }}
-            title="Activity Feed"
-          >
-            {activeTool === 'activity' && <span className={styles.activePill} />}
-            <Activity size={16} />
+            <div
+              className={`${styles.activityIcon} ${styles.activityIconLeave}`}
+              onClick={onLeaveRoom}
+              title="Leave Workspace"
+            >
+              <LogOut size={16} />
+            </div>
           </div>
         </nav>
 
@@ -887,18 +880,6 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             participants={participants}
             onClose={() => setIsChatOpen(false)}
           />
-        )}
-
-        {/* 5. Right Sidebar: Live Updates & Connected Participants */}
-        {isUpdatesOpen && (
-          <aside className={styles.rightSidebar}>
-            <div className={styles.rightParticipantsSection}>
-              <ParticipantList participants={participants} currentUserId={userId} />
-            </div>
-            <div className={styles.rightActivitySection}>
-              <ActivityFeed activities={activities} />
-            </div>
-          </aside>
         )}
       </div>
 
