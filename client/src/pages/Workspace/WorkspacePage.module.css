@@ -282,11 +282,36 @@
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  gap: 4px;
   user-select: none;
   flex-shrink: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.activityBarTop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.activityBarBottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: auto;
+  padding-bottom: 4px;
+}
+
+.activityIconLeave:hover {
+  color: #F87171 !important;
+  background-color: rgba(244, 63, 94, 0.12) !important;
 }
 
 .activityIcon {
