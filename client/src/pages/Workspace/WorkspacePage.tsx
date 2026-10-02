@@ -792,19 +792,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   </p>
 
                   <form onSubmit={handleCenterCreateFolderSubmit} className={styles.emptyForm}>
-                    <div className={styles.unifiedInputRow}>
-                      <div className={styles.inputWrapper}>
-                        <Folder size={14} className={styles.inputFolderIcon} />
-                        <input
-                          type="text"
-                          className={styles.emptyFolderInput}
-                          placeholder="project-name or filename.ext"
-                          value={newProjectName}
-                          onChange={(e) => setNewProjectName(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <button type="submit" className={styles.createFolderPrimaryBtn}>
+                    <div className={styles.unifiedInputPill}>
+                      <Folder size={14} className={styles.inputFolderIcon} />
+                      <input
+                        type="text"
+                        className={styles.emptyFolderInput}
+                        placeholder="project-name or filename.ext"
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="submit" className={styles.createFolderInsideBtn}>
                         <span>Create</span>
                       </button>
                     </div>
@@ -845,19 +843,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                     Select a file from the explorer on the left or create a new file.
                   </p>
                   <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
-                    <div className={styles.unifiedInputRow}>
-                      <div className={styles.inputWrapper}>
-                        <FileCode size={14} className={styles.inputFolderIcon} />
-                        <input
-                          type="text"
-                          className={styles.emptyFolderInput}
-                          placeholder="filename.ext (e.g. main.cpp, script.js)"
-                          value={newDirectFileName}
-                          onChange={(e) => setNewDirectFileName(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <button type="submit" className={styles.createFolderPrimaryBtn}>
+                    <div className={styles.unifiedInputPill}>
+                      <FileCode size={14} className={styles.inputFolderIcon} />
+                      <input
+                        type="text"
+                        className={styles.emptyFolderInput}
+                        placeholder="filename.ext (e.g. main.cpp, script.js)"
+                        value={newDirectFileName}
+                        onChange={(e) => setNewDirectFileName(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="submit" className={styles.createFolderInsideBtn}>
                         <span>Create</span>
                       </button>
                     </div>
