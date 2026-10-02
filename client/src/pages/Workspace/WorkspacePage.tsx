@@ -892,6 +892,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 }
               }
             }}
+            onGitPush={(commitUrl, msg) => {
+              if (onRecordActivity) {
+                onRecordActivity('git_push', `${msg}: ${commitUrl}`);
+              }
+              socketService.emitChatMessage(roomId, userId, `🚀 Committed & pushed to GitHub: ${commitUrl}`);
+            }}
           />
         </main>
 
