@@ -39,3 +39,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Workspaces
+server/workspaces/
+workspaces/

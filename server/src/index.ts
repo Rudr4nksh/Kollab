@@ -19,9 +19,11 @@ app.use(cors({
 }));
 
 import { roomRouter } from './rooms/roomRoutes.js';
+import { terminalRouter } from './terminal/terminalRoutes.js';
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use('/api/rooms', roomRouter);
+app.use('/api/terminal', terminalRouter);
 
 import { setupSocketIO } from './socket/roomSocket.js';
 

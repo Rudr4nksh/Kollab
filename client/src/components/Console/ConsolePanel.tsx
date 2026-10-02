@@ -205,6 +205,69 @@ Type 'help' for a list of available commands or 'clear' to clear screen.`,
       });
     };
 
+    if (cmd === 'clear' || cmd === 'cls') {
+      setTerminalLines([]);
+      return;
+    }
+
+    // Connect to host machine's real Git and OS shell via server endpoint
+    // This uses the computer's existing Git credentials (Windows Credential Manager / SSH)
+    // with NO tokens or manual setup required!
+    try {
+      const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+      const serverRes = await fetch(`${SERVER_URL}/api/terminal/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          command: trimmed,
+          cwd,
+          files,
+        }),
+      });
+
+      if (serverRes.ok) {
+        const data = await serverRes.json();
+
+        if (data.stdout && data.stdout.trim()) {
+          addOut(data.stdout.trimEnd(), 'stdout');
+        }
+        if (data.stderr && data.stderr.trim()) {
+          const isWarning = data.stderr.includes('warning:') || data.stderr.includes('Cloning into');
+          addOut(data.stderr.trimEnd(), isWarning ? 'info' : 'stderr');
+        }
+
+        if (data.branch) {
+          setGitBranch(data.branch);
+        }
+
+        if (data.updatedFiles && data.updatedFiles.length > 0 && onFilesChange) {
+          onFilesChange(data.updatedFiles);
+        }
+
+        if (trimmed.startsWith('git push') && data.exitCode === 0 && onGitPush) {
+          onGitPush('https://github.com', `Pushed commits via Git on host machine`);
+        }
+
+        if (cmd === 'cd') {
+          const target = args[0];
+          if (!target || target === '~' || target === '/') setCwd('/');
+          else if (target === '..') {
+            const p = cwd.split('/').filter(Boolean);
+            p.pop();
+            setCwd(p.length > 0 ? '/' + p.join('/') : '/');
+          } else {
+            setCwd(normalizePath(cwd, target));
+          }
+        }
+
+        setTerminalLines((prev) => [...prev, cmdEcho, ...outputLines]);
+        return;
+      }
+    } catch {
+      // Server not reachable, fall through to in-memory fallback below
+    }
+
     switch (cmd) {
       case 'help':
         addOut(`Kollab VS Code Shell - Supported Commands:
