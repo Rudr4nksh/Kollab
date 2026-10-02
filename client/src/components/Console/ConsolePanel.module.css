@@ -223,6 +223,12 @@
   font-weight: 600;
 }
 
+.promptBranch {
+  color: #C084FC;
+  font-weight: 600;
+  font-size: 11px;
+}
+
 .promptSymbol {
   color: #D1D5DB;
   font-weight: 700;
