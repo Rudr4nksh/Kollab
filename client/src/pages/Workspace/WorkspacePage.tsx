@@ -627,7 +627,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
         {/* 2. Left Sidebar (File Explorer or Selected Tool) */}
         {isSidebarOpen && (
-          <aside className={styles.leftSidebar}>
+          <aside className={`${styles.leftSidebar} ${activeTool === 'ai' ? styles.leftSidebarAi : ''}`}>
             {activeTool === 'files' && (
               <FileExplorer
                 files={files}

@@ -16,7 +16,7 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  ShieldCheck
+  ChevronLeft
 } from 'lucide-react';
 import { sendAIChat } from '../../services/api.ts';
 import { 
@@ -25,7 +25,6 @@ import {
   clearAIConfig, 
   isAIConfigured, 
   maskApiKey,
-  getProviderDisplayName,
   AIProvider,
   UserAIConfig
 } from '../../services/aiKeyStore.ts';
@@ -59,7 +58,10 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   // Key configuration state
   const [config, setConfig] = useState<UserAIConfig | null>(() => getStoredAIConfig());
   const [isConfiguringKey, setIsConfiguringKey] = useState<boolean>(() => !isAIConfigured());
-  const [selectedProvider, setSelectedProvider] = useState<AIProvider>('claude');
+  const [selectedProvider, setSelectedProvider] = useState<AIProvider>(() => {
+    const saved = getStoredAIConfig();
+    return saved?.provider || 'claude';
+  });
   const [inputApiKey, setInputApiKey] = useState('');
   const [showKeyPassword, setShowKeyPassword] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Hello ${userName}! I am **Kollab AI**, your collaborative pair programmer.\n\nAsk me anything about your project, or select a quick action below to analyze your active code.`,
+      content: `Hello ${userName}! I am your collaborative AI assistant.\nAsk me questions about your codebase, debug issues, or refactor active files.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -84,7 +86,6 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Handle saving API key
   const handleSaveKey = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputApiKey.trim();
@@ -94,11 +95,11 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     }
 
     if (selectedProvider === 'claude' && !trimmed.startsWith('sk-ant-')) {
-      setKeyError('Anthropic Claude API keys typically begin with "sk-ant-".');
+      setKeyError('Claude keys usually start with "sk-ant-".');
       return;
     }
     if (selectedProvider === 'openai' && !trimmed.startsWith('sk-')) {
-      setKeyError('OpenAI API keys typically begin with "sk-".');
+      setKeyError('OpenAI keys usually start with "sk-".');
       return;
     }
 
@@ -110,7 +111,6 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     setKeyError(null);
   };
 
-  // Handle clearing/removing key
   const handleRemoveKey = () => {
     clearAIConfig();
     setConfig(null);
@@ -183,7 +183,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         {
           id: 'msg_err_' + Date.now(),
           role: 'assistant',
-          content: `⚠️ Failed to get AI response: ${err.message || 'Please check your API key in settings.'}`,
+          content: `⚠️ ${err.message || 'Error communicating with AI. Please verify your API key.'}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -206,7 +206,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
       filePath: activeFile.path,
       originalCode: activeFile.content || '',
       proposedCode: codeToApply,
-      explanation: 'AI refactored code proposal.',
+      explanation: 'AI suggested code modification.',
       requestedBy: userName,
       timestamp: Date.now(),
     };
@@ -220,7 +220,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         {
           id: 'no_file_' + Date.now(),
           role: 'assistant',
-          content: 'Please open a file from the explorer first to run quick actions.',
+          content: 'Open a file in the editor to run contextual actions.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -228,215 +228,198 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     }
 
     if (action === 'explain') {
-      handleSendPrompt(`Explain what ${activeFile.name} does and break down its architecture.`);
+      handleSendPrompt(`Explain what ${activeFile.name} does and summarize its key functions.`);
     } else if (action === 'bugs') {
-      handleSendPrompt(`Analyze ${activeFile.name} for potential bugs, edge cases, and performance pitfalls.`);
+      handleSendPrompt(`Review ${activeFile.name} for subtle bugs, unhandled errors, and edge cases.`);
     } else if (action === 'optimize') {
-      handleSendPrompt(`Optimize and refactor ${activeFile.name} for cleaner syntax, efficiency, and modern best practices.`);
+      handleSendPrompt(`Optimize and refactor ${activeFile.name} for clean modern syntax and performance.`);
     }
   };
 
+  const providerLabel = config?.provider === 'claude' 
+    ? 'Claude' 
+    : config?.provider === 'gemini' 
+    ? 'Gemini' 
+    : 'OpenAI';
+
   return (
     <div className={styles.container}>
-      {/* Header */}
+      {/* 1. Header Matching FileExplorer Header Design */}
       <div className={styles.header}>
-        <div className={styles.headerTitle}>
-          <Sparkles size={14} className={styles.sparkleIcon} />
-          <span>AI ASSISTANT</span>
+        <div className={styles.headerLeft}>
+          <Sparkles size={13} className={styles.headerIcon} />
+          <span className={styles.headerTitle}>AI ASSISTANT</span>
         </div>
 
-        <div className={styles.headerRight}>
-          {config && (
-            <div className={styles.providerBadge} title={`Connected to ${getProviderDisplayName(config.provider)}`}>
-              <span className={styles.statusDot} />
-              <span>{getProviderDisplayName(config.provider)}</span>
-            </div>
+        <div className={styles.headerActions}>
+          {config && !isConfiguringKey && (
+            <span className={styles.activePill} title={`Connected via ${providerLabel}`}>
+              <span className={styles.activeDot} />
+              <span>{providerLabel}</span>
+            </span>
           )}
 
           <button
             type="button"
-            className={`${styles.settingsBtn} ${isConfiguringKey ? styles.settingsBtnActive : ''}`}
+            className={`${styles.iconBtn} ${isConfiguringKey ? styles.iconBtnActive : ''}`}
             onClick={() => setIsConfiguringKey(!isConfiguringKey)}
-            title="Configure AI API Key"
+            title={isConfiguringKey ? "Back to Chat" : "API Key Settings"}
           >
             <Key size={13} />
           </button>
         </div>
       </div>
 
-      {/* 1. KEY CONFIGURATION VIEW (Shown if not configured or when user clicks Key icon) */}
+      {/* 2. Sleek BYOK Configuration Card */}
       {isConfiguringKey ? (
-        <div className={styles.keyConfigCard}>
-          <div className={styles.keyConfigHeader}>
-            <div className={styles.keyIconCircle}>
-              <Lock size={16} className={styles.lockIcon} />
-            </div>
-            <div>
-              <h4 className={styles.keyConfigTitle}>Connect Your API Key</h4>
-              <p className={styles.keyConfigSubtitle}>
-                Bring Your Own Key (BYOK) for private, full-power AI assistance.
-              </p>
-            </div>
-          </div>
-
-          {/* Security Guarantee Banner */}
-          <div className={styles.securityBanner}>
-            <ShieldCheck size={14} className={styles.shieldIcon} />
-            <span>
-              <strong>100% Private & Safe:</strong> Stored locally in your browser. Never shared with other room participants or saved to server disk.
-            </span>
-          </div>
-
-          {/* Provider Selection Tabs */}
-          <div className={styles.providerSelector}>
-            <button
-              type="button"
-              className={`${styles.providerTab} ${selectedProvider === 'claude' ? styles.activeProviderTab : ''}`}
-              onClick={() => { setSelectedProvider('claude'); setKeyError(null); }}
-            >
-              <span>Anthropic (Claude)</span>
-            </button>
-            <button
-              type="button"
-              className={`${styles.providerTab} ${selectedProvider === 'gemini' ? styles.activeProviderTab : ''}`}
-              onClick={() => { setSelectedProvider('gemini'); setKeyError(null); }}
-            >
-              <span>Google Gemini</span>
-            </button>
-            <button
-              type="button"
-              className={`${styles.providerTab} ${selectedProvider === 'openai' ? styles.activeProviderTab : ''}`}
-              onClick={() => { setSelectedProvider('openai'); setKeyError(null); }}
-            >
-              <span>OpenAI</span>
-            </button>
-          </div>
-
-          {/* Active Key Status if already connected */}
-          {config && (
-            <div className={styles.activeKeyInfo}>
-              <div className={styles.activeKeyRow}>
-                <span>Current Key:</span>
-                <code>{maskApiKey(config.apiKey)}</code>
-              </div>
-              <button
-                type="button"
-                className={styles.removeKeyBtn}
-                onClick={handleRemoveKey}
-                title="Remove API Key from this browser"
-              >
-                <Trash2 size={12} />
-                <span>Disconnect Key</span>
-              </button>
-            </div>
-          )}
-
-          {/* Key Input Form */}
-          <form onSubmit={handleSaveKey} className={styles.keyForm}>
-            <label className={styles.keyLabel}>
-              {selectedProvider === 'claude' && 'Claude API Key (sk-ant-...)'}
-              {selectedProvider === 'gemini' && 'Google Gemini API Key (AIzaSy...)'}
-              {selectedProvider === 'openai' && 'OpenAI API Key (sk-...)'}
-            </label>
-
-            <div className={styles.keyInputWrapper}>
-              <input
-                type={showKeyPassword ? 'text' : 'password'}
-                className={styles.keyInput}
-                placeholder={
-                  selectedProvider === 'claude'
-                    ? 'sk-ant-api03-...'
-                    : selectedProvider === 'gemini'
-                    ? 'AIzaSy...'
-                    : 'sk-...'
-                }
-                value={inputApiKey}
-                onChange={(e) => {
-                  setInputApiKey(e.target.value);
-                  setKeyError(null);
-                }}
-                autoFocus
-              />
-              <button
-                type="button"
-                className={styles.eyeBtn}
-                onClick={() => setShowKeyPassword(!showKeyPassword)}
-                title={showKeyPassword ? 'Hide key' : 'Show key'}
-              >
-                {showKeyPassword ? <EyeOff size={13} /> : <Eye size={13} />}
-              </button>
-            </div>
-
-            {keyError && <p className={styles.keyErrorMessage}>{keyError}</p>}
-
-            <div className={styles.keyLinks}>
-              {selectedProvider === 'claude' && (
-                <a
-                  href="https://console.anthropic.com/settings/keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.keyLink}
-                >
-                  <span>Get Anthropic key ↗</span>
-                </a>
-              )}
-              {selectedProvider === 'gemini' && (
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.keyLink}
-                >
-                  <span>Get Google AI Studio key ↗</span>
-                </a>
-              )}
-              {selectedProvider === 'openai' && (
-                <a
-                  href="https://platform.openai.com/api-keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.keyLink}
-                >
-                  <span>Get OpenAI key ↗</span>
-                </a>
-              )}
-            </div>
-
-            <div className={styles.keyFormActions}>
+        <div className={styles.setupCard}>
+          <div className={styles.setupBanner}>
+            <div className={styles.setupTitleRow}>
               {config && (
                 <button
                   type="button"
-                  className={styles.cancelBtn}
+                  className={styles.backBtn}
                   onClick={() => setIsConfiguringKey(false)}
+                  title="Back"
                 >
-                  Cancel
+                  <ChevronLeft size={14} />
                 </button>
               )}
-              <button type="submit" className={styles.saveKeyBtn}>
-                <Check size={13} />
-                <span>Save & Connect Key</span>
-              </button>
+              <span className={styles.setupHeading}>API Key Setup</span>
             </div>
+            <p className={styles.setupDesc}>
+              Provide your API key to power AI assistance. Your key is stored locally in your browser and is never shared with room peers.
+            </p>
+          </div>
+
+          {/* Clean Segmented Provider Control */}
+          <div className={styles.segmentedControl}>
+            <button
+              type="button"
+              className={`${styles.segmentBtn} ${selectedProvider === 'claude' ? styles.segmentActive : ''}`}
+              onClick={() => { setSelectedProvider('claude'); setKeyError(null); }}
+            >
+              Claude
+            </button>
+            <button
+              type="button"
+              className={`${styles.segmentBtn} ${selectedProvider === 'gemini' ? styles.segmentActive : ''}`}
+              onClick={() => { setSelectedProvider('gemini'); setKeyError(null); }}
+            >
+              Gemini
+            </button>
+            <button
+              type="button"
+              className={`${styles.segmentBtn} ${selectedProvider === 'openai' ? styles.segmentActive : ''}`}
+              onClick={() => { setSelectedProvider('openai'); setKeyError(null); }}
+            >
+              OpenAI
+            </button>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSaveKey} className={styles.form}>
+            <div className={styles.formGroup}>
+              <div className={styles.labelRow}>
+                <label className={styles.fieldLabel}>
+                  {selectedProvider === 'claude' && 'Anthropic API Key'}
+                  {selectedProvider === 'gemini' && 'Google Gemini API Key'}
+                  {selectedProvider === 'openai' && 'OpenAI API Key'}
+                </label>
+                {selectedProvider === 'claude' && (
+                  <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className={styles.fieldLink}>
+                    Get Key ↗
+                  </a>
+                )}
+                {selectedProvider === 'gemini' && (
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className={styles.fieldLink}>
+                    Get Key ↗
+                  </a>
+                )}
+                {selectedProvider === 'openai' && (
+                  <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className={styles.fieldLink}>
+                    Get Key ↗
+                  </a>
+                )}
+              </div>
+
+              <div className={styles.inputBox}>
+                <input
+                  type={showKeyPassword ? 'text' : 'password'}
+                  className={styles.inputField}
+                  placeholder={
+                    selectedProvider === 'claude'
+                      ? 'sk-ant-...'
+                      : selectedProvider === 'gemini'
+                      ? 'AIzaSy...'
+                      : 'sk-...'
+                  }
+                  value={inputApiKey}
+                  onChange={(e) => {
+                    setInputApiKey(e.target.value);
+                    setKeyError(null);
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className={styles.eyeBtn}
+                  onClick={() => setShowKeyPassword(!showKeyPassword)}
+                  title={showKeyPassword ? "Hide" : "Show"}
+                >
+                  {showKeyPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              </div>
+
+              {keyError && <span className={styles.errorText}>{keyError}</span>}
+            </div>
+
+            <button type="submit" className={styles.submitBtn}>
+              <Check size={13} />
+              <span>Save & Connect</span>
+            </button>
           </form>
-        </div>
-      ) : (
-        /* 2. CHAT & ASSISTANT VIEW (When Key is Configured) */
-        <>
-          {/* Active File Context Pill */}
-          {activeFile ? (
-            <div className={styles.contextPill} title={`Active Context: ${activeFile.path}`}>
-              <FileCode size={12} className={styles.contextFileIcon} />
-              <span className={styles.contextFilePath}>{activeFile.name}</span>
-              <span className={styles.contextLang}>({activeFile.language || 'plaintext'})</span>
-            </div>
-          ) : (
-            <div className={styles.noContextPill}>
-              <span>No active file selected (global context)</span>
+
+          {/* Existing Connected Key (if any) */}
+          {config && (
+            <div className={styles.connectedSection}>
+              <div className={styles.connectedRow}>
+                <div className={styles.connectedInfo}>
+                  <span className={styles.connectedLabel}>Active Key</span>
+                  <code className={styles.connectedKey}>{maskApiKey(config.apiKey)}</code>
+                </div>
+                <button
+                  type="button"
+                  className={styles.disconnectBtn}
+                  onClick={handleRemoveKey}
+                  title="Remove Key"
+                >
+                  <Trash2 size={12} />
+                  <span>Disconnect</span>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Quick Action Chips */}
-          <div className={styles.quickChips}>
+          <div className={styles.securityNote}>
+            <Lock size={11} className={styles.lockIcon} />
+            <span>Encrypted client-side storage</span>
+          </div>
+        </div>
+      ) : (
+        /* 3. Sleek Chat & Pair Programming View */
+        <div className={styles.chatView}>
+          {/* Active File Context */}
+          {activeFile && (
+            <div className={styles.contextBar} title={`Context: ${activeFile.path}`}>
+              <FileCode size={12} className={styles.contextIcon} />
+              <span className={styles.contextName}>{activeFile.name}</span>
+              <span className={styles.contextLang}>({activeFile.language || 'code'})</span>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className={styles.actionChips}>
             <button
               type="button"
               className={styles.chip}
@@ -466,53 +449,53 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             </button>
           </div>
 
-          {/* Message Feed */}
-          <div className={styles.messagesContainer}>
+          {/* Message Stream */}
+          <div className={styles.messagesList}>
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={`${styles.messageItem} ${m.role === 'user' ? styles.userMessage : styles.aiMessage}`}
+                className={`${styles.message} ${m.role === 'user' ? styles.userMsg : styles.aiMsg}`}
               >
-                <div className={styles.messageHeader}>
-                  <div className={styles.avatar}>
-                    {m.role === 'user' ? <User size={12} /> : <Bot size={12} />}
+                <div className={styles.msgHeader}>
+                  <div className={styles.msgAvatar}>
+                    {m.role === 'user' ? <User size={11} /> : <Bot size={11} />}
                   </div>
-                  <span className={styles.author}>{m.role === 'user' ? userName : 'Kollab AI'}</span>
-                  <span className={styles.timestamp}>{m.timestamp}</span>
+                  <span className={styles.msgAuthor}>{m.role === 'user' ? userName : 'AI'}</span>
+                  <span className={styles.msgTime}>{m.timestamp}</span>
                 </div>
 
-                <div className={styles.messageBody}>
-                  <p className={styles.textContent}>{m.content}</p>
+                <div className={styles.msgBody}>
+                  <p className={styles.msgText}>{m.content}</p>
 
                   {m.codeBlock && (
-                    <div className={styles.codeSnippetCard}>
-                      <div className={styles.codeSnippetHeader}>
-                        <span className={styles.codeLang}>{m.codeBlock.language}</span>
-                        <div className={styles.codeActions}>
+                    <div className={styles.codeSnippet}>
+                      <div className={styles.snippetHeader}>
+                        <span className={styles.snippetLang}>{m.codeBlock.language}</span>
+                        <div className={styles.snippetActions}>
                           <button
                             type="button"
-                            className={styles.codeActionBtn}
+                            className={styles.snippetBtn}
                             onClick={() => handleCopyCode(m.codeBlock!.code, m.id)}
                             title="Copy code"
                           >
-                            {copiedId === m.id ? <Check size={12} /> : <Copy size={12} />}
+                            {copiedId === m.id ? <Check size={11} /> : <Copy size={11} />}
                             <span>{copiedId === m.id ? 'Copied' : 'Copy'}</span>
                           </button>
 
                           {activeFile && (
                             <button
                               type="button"
-                              className={`${styles.codeActionBtn} ${styles.applyActionBtn}`}
+                              className={`${styles.snippetBtn} ${styles.applyBtn}`}
                               onClick={() => handleReviewAndApply(m.codeBlock!.code)}
-                              title="Review changes before applying to file"
+                              title="Review changes before applying"
                             >
-                              <GitPullRequest size={12} />
-                              <span>Review & Apply</span>
+                              <GitPullRequest size={11} />
+                              <span>Apply</span>
                             </button>
                           )}
                         </div>
                       </div>
-                      <pre className={styles.preCode}>
+                      <pre className={styles.snippetPre}>
                         <code>{m.codeBlock.code}</code>
                       </pre>
                     </div>
@@ -522,16 +505,16 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             ))}
 
             {isLoading && (
-              <div className={`${styles.messageItem} ${styles.aiMessage}`}>
-                <div className={styles.messageHeader}>
-                  <div className={styles.avatar}>
-                    <Bot size={12} />
+              <div className={`${styles.message} ${styles.aiMsg}`}>
+                <div className={styles.msgHeader}>
+                  <div className={styles.msgAvatar}>
+                    <Bot size={11} />
                   </div>
-                  <span className={styles.author}>Kollab AI</span>
+                  <span className={styles.msgAuthor}>AI</span>
                 </div>
-                <div className={styles.thinkingPill}>
-                  <Sparkles size={12} className={styles.pulsingSparkle} />
-                  <span>Thinking & generating solution...</span>
+                <div className={styles.thinking}>
+                  <Sparkles size={12} className={styles.thinkingIcon} />
+                  <span>Thinking...</span>
                 </div>
               </div>
             )}
@@ -539,30 +522,30 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Form */}
-          <form onSubmit={(e) => { e.preventDefault(); handleSendPrompt(); }} className={styles.inputArea}>
-            <div className={styles.inputWrapper}>
+          {/* Clean Input Prompt */}
+          <form onSubmit={(e) => { e.preventDefault(); handleSendPrompt(); }} className={styles.inputContainer}>
+            <div className={styles.inputPill}>
               <textarea
                 ref={inputRef}
                 rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={activeFile ? `Ask AI about ${activeFile.name}...` : 'Ask Kollab AI anything...'}
-                className={styles.textarea}
+                placeholder={activeFile ? `Ask about ${activeFile.name}...` : 'Ask anything...'}
+                className={styles.chatInput}
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className={styles.sendButton}
-                title="Send (Enter)"
+                className={styles.sendBtn}
+                title="Send"
               >
-                <Send size={13} />
+                <Send size={12} />
               </button>
             </div>
           </form>
-        </>
+        </div>
       )}
     </div>
   );
