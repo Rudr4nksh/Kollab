@@ -25,8 +25,8 @@ try {
     const rawInit = localStorage.getItem(STORAGE_KEY);
     if (rawInit) {
       const parsedInit = JSON.parse(rawInit);
-      if (parsedInit?.provider === 'gemini' && (parsedInit?.model?.includes('2.5') || !parsedInit?.model)) {
-        parsedInit.model = 'gemini-1.5-flash';
+      if (parsedInit?.provider === 'gemini' && (parsedInit?.model?.includes('2.5') || parsedInit?.model?.includes('1.5') || !parsedInit?.model)) {
+        parsedInit.model = 'gemini-3.8-flash';
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedInit));
       }
     }
@@ -41,8 +41,8 @@ export function getStoredAIConfig(): UserAIConfig | null {
     if (!parsed || !parsed.apiKey || !parsed.provider) return null;
 
     // Auto-heal legacy or retired model names
-    if (parsed.provider === 'gemini' && (parsed.model?.includes('2.5') || !parsed.model)) {
-      parsed.model = 'gemini-1.5-flash';
+    if (parsed.provider === 'gemini' && (parsed.model?.includes('2.5') || parsed.model?.includes('1.5') || !parsed.model)) {
+      parsed.model = 'gemini-3.8-flash';
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
     }
 
@@ -77,7 +77,7 @@ export function getDefaultModelForProvider(provider: AIProvider): string {
     case 'claude':
       return 'claude-3-5-sonnet-20241022';
     case 'gemini':
-      return 'gemini-1.5-flash';
+      return 'gemini-3.8-flash';
     case 'openai':
       return 'gpt-4o-mini';
     default:

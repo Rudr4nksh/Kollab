@@ -297,14 +297,14 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
     // Build candidates pool, strictly filtering out discontinued 2.5
     const candidates: string[] = [
       model,
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
       'gemini-3.8-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
       'gemini-1.5-pro',
     ].filter((m, i, arr) => m && arr.indexOf(m) === i && !m.includes('2.5'));
 
     if (candidates.length === 0) {
-      candidates.push('gemini-1.5-flash');
+      candidates.push('gemini-3.8-flash');
     }
 
     let lastError: Error | null = null;
