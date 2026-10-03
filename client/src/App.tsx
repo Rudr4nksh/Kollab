@@ -41,12 +41,16 @@ export const App: React.FC = () => {
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
+  const addToast = (
+    type: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    action?: { label: string; onClick: () => void }
+  ) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message, action }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 4500);
   };
 
   const handleDismissToast = (id: string) => {
@@ -353,6 +357,7 @@ export const App: React.FC = () => {
           onLeaveRoom={handleLeaveRoom}
           toasts={toasts}
           onDismissToast={handleDismissToast}
+          onAddToast={addToast}
           onRecordActivity={handleRecordActivity}
           messages={messages}
           voiceUsers={voiceUsers}

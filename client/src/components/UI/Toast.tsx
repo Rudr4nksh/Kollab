@@ -6,6 +6,10 @@ export interface ToastMessage {
   id: string;
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 interface ToastContainerProps {
@@ -27,6 +31,19 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
             {toast.type === 'info' && <Info size={14} />}
           </div>
           <span className={styles.message}>{toast.message}</span>
+          {toast.action && (
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.action?.onClick();
+                onDismiss(toast.id);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
           <button className={styles.closeBtn} onClick={() => onDismiss(toast.id)}>
             <X size={12} />
           </button>

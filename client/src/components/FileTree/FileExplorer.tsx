@@ -8,7 +8,9 @@ import {
   FilePlus, 
   FolderPlus, 
   Trash2,
-  FileCode
+  FileCode,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
 import { getFileBadgeInfo, getLanguageFromFilename } from '../../services/fileUtils.ts';
@@ -23,6 +25,10 @@ interface FileExplorerProps {
   onDeleteNode: (path: string) => void;
   onImportFolder: (importedFiles: FileNode[]) => void;
   isHost: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const FileExplorer: React.FC<FileExplorerProps> = ({
@@ -34,6 +40,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onDeleteNode,
   onImportFolder,
   isHost: _isHost,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
     '/app': true,
@@ -333,6 +343,28 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           >
             <Upload size={14} />
           </button>
+
+          {onUndo && (
+            <button
+              className={`${styles.headerActionBtn} ${!canUndo ? styles.headerActionBtnDisabled : ''}`}
+              onClick={onUndo}
+              disabled={!canUndo}
+              title={canUndo ? 'Undo file action (Ctrl+Z)' : 'Undo file action (Ctrl+Z) - nothing to undo'}
+            >
+              <Undo2 size={13} />
+            </button>
+          )}
+
+          {onRedo && (
+            <button
+              className={`${styles.headerActionBtn} ${!canRedo ? styles.headerActionBtnDisabled : ''}`}
+              onClick={onRedo}
+              disabled={!canRedo}
+              title={canRedo ? 'Redo file action (Ctrl+Y)' : 'Redo file action (Ctrl+Y) - nothing to redo'}
+            >
+              <Redo2 size={13} />
+            </button>
+          )}
         </div>
 
         <input

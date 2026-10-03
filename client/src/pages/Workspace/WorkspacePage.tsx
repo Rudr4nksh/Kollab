@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   FolderTree, 
   Users, 
@@ -64,6 +64,11 @@ interface WorkspacePageProps {
   onLeaveRoom: () => void;
   toasts: ToastMessage[];
   onDismissToast: (id: string) => void;
+  onAddToast?: (
+    type: 'info' | 'success' | 'warning' | 'error',
+    message: string,
+    action?: { label: string; onClick: () => void }
+  ) => void;
   onRecordActivity?: (type: string, details?: string) => void;
   messages?: ChatMessage[];
   voiceUsers?: VoiceParticipant[];
@@ -85,6 +90,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   onLeaveRoom,
   toasts,
   onDismissToast,
+  onAddToast,
   onRecordActivity,
   messages = [],
   voiceUsers = [],
@@ -396,6 +402,243 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     );
   };
 
+  // --- File Undo / Redo History Support (Ctrl+Z / Ctrl+Y for File Operations) ---
+  interface FileHistoryAction {
+    type: 'create' | 'delete';
+    node: FileNode;
+    parentPath?: string;
+    description: string;
+  }
+
+  const [fileUndoStack, setFileUndoStack] = useState<FileHistoryAction[]>([]);
+  const [fileRedoStack, setFileRedoStack] = useState<FileHistoryAction[]>([]);
+
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const openFilesRef = useRef(openFiles);
+  openFilesRef.current = openFiles;
+  const activeFilePathRef = useRef(activeFilePath);
+  activeFilePathRef.current = activeFilePath;
+
+  // Find a node and its parentPath in tree
+  const findNodeAndParentInTree = (
+    nodes: FileNode[],
+    targetPath: string,
+    parentPath?: string
+  ): { node: FileNode; parentPath?: string } | null => {
+    for (const n of nodes) {
+      if (n.path === targetPath) {
+        return { node: n, parentPath };
+      }
+      if (n.children) {
+        const found = findNodeAndParentInTree(n.children, targetPath, n.path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Re-insert node into tree at parentPath
+  const insertNodeIntoTree = (
+    nodes: FileNode[],
+    nodeToInsert: FileNode,
+    parentPath?: string
+  ): FileNode[] => {
+    if (!parentPath) {
+      if (nodes.some((n) => n.path === nodeToInsert.path)) return nodes;
+      return [...nodes, nodeToInsert];
+    }
+    return nodes.map((n) => {
+      if (n.path === parentPath) {
+        const existing = n.children || [];
+        if (existing.some((c) => c.path === nodeToInsert.path)) return n;
+        return { ...n, children: [...existing, nodeToInsert] };
+      }
+      if (n.children) {
+        return { ...n, children: insertNodeIntoTree(n.children, nodeToInsert, parentPath) };
+      }
+      return n;
+    });
+  };
+
+  // Remove node by path from tree
+  const removeNodeFromTree = (nodes: FileNode[], targetPath: string): FileNode[] => {
+    return nodes
+      .filter((n) => n.path !== targetPath)
+      .map((n) => (n.children ? { ...n, children: removeNodeFromTree(n.children, targetPath) } : n));
+  };
+
+  const handleUndoFileAction = useCallback(() => {
+    setFileUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const nextUndo = [...prev];
+      const action = nextUndo.pop()!;
+
+      setFileRedoStack((rPrev) => [...rPrev, action]);
+      const currentFiles = filesRef.current;
+
+      if (action.type === 'create') {
+        const updated = removeNodeFromTree(currentFiles, action.node.path);
+        onFilesChange(updated);
+        socketService.emitFilesTreeUpdate(
+          roomId,
+          updated,
+          userId,
+          `undid create ${action.node.name}`,
+          'file_deleted'
+        );
+
+        setOpenFiles((openPrev) => {
+          const remaining = openPrev.filter(
+            (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
+          );
+          if (
+            activeFilePathRef.current === action.node.path ||
+            activeFilePathRef.current.startsWith(action.node.path + '/')
+          ) {
+            if (remaining.length > 0) {
+              setActiveFilePath(remaining[remaining.length - 1].path);
+            } else {
+              const first = findFirstFileNode(updated);
+              setActiveFilePath(first ? first.path : '');
+              if (first) return [first];
+            }
+          }
+          return remaining;
+        });
+
+        onAddToast?.('info', `↩ Undid creation of "${action.node.name}"`, {
+          label: 'Redo (Ctrl+Y)',
+          onClick: () => handleRedoFileAction(),
+        });
+      } else if (action.type === 'delete') {
+        const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
+        onFilesChange(updated);
+        socketService.emitFilesTreeUpdate(
+          roomId,
+          updated,
+          userId,
+          `restored ${action.node.name}`,
+          'file_created'
+        );
+
+        if (action.node.type === 'file') {
+          handleSelectFile(action.node);
+        } else {
+          const first = findFirstFileNode([action.node]);
+          if (first) {
+            handleSelectFile(first);
+          }
+        }
+
+        onAddToast?.('success', `↩ Restored ${action.node.type} "${action.node.name}"`, {
+          label: 'Undo (Ctrl+Z)',
+          onClick: () => handleUndoFileAction(),
+        });
+      }
+
+      return nextUndo;
+    });
+  }, [roomId, userId, onFilesChange, handleSelectFile, onAddToast]);
+
+  const handleRedoFileAction = useCallback(() => {
+    setFileRedoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const nextRedo = [...prev];
+      const action = nextRedo.pop()!;
+
+      setFileUndoStack((uPrev) => [...uPrev, action]);
+      const currentFiles = filesRef.current;
+
+      if (action.type === 'create') {
+        const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
+        onFilesChange(updated);
+        socketService.emitFilesTreeUpdate(
+          roomId,
+          updated,
+          userId,
+          `re-created ${action.node.name}`,
+          'file_created'
+        );
+        if (action.node.type === 'file') {
+          handleSelectFile(action.node);
+        }
+        onAddToast?.('info', `↪ Re-created ${action.node.name}`, {
+          label: 'Undo (Ctrl+Z)',
+          onClick: () => handleUndoFileAction(),
+        });
+      } else if (action.type === 'delete') {
+        const updated = removeNodeFromTree(currentFiles, action.node.path);
+        onFilesChange(updated);
+        socketService.emitFilesTreeUpdate(
+          roomId,
+          updated,
+          userId,
+          `re-deleted ${action.node.name}`,
+          'file_deleted'
+        );
+        setOpenFiles((openPrev) => {
+          const remaining = openPrev.filter(
+            (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
+          );
+          if (
+            activeFilePathRef.current === action.node.path ||
+            activeFilePathRef.current.startsWith(action.node.path + '/')
+          ) {
+            setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1].path : '');
+          }
+          return remaining;
+        });
+        onAddToast?.('info', `↪ Re-deleted ${action.node.name}`, {
+          label: 'Undo (Ctrl+Z)',
+          onClick: () => handleUndoFileAction(),
+        });
+      }
+
+      return nextRedo;
+    });
+  }, [roomId, userId, onFilesChange, handleSelectFile, onAddToast]);
+
+  // Global keydown listener for Ctrl+Z (Undo) and Ctrl+Y / Ctrl+Shift+Z (Redo)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrMeta) return;
+
+      const target = e.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTextInput =
+        tagName === 'input' || tagName === 'textarea' || target?.isContentEditable;
+
+      // If user is typing in a standard input/textarea (outside Monaco), let native text undo handle it
+      if (isTextInput && !target?.closest('.monaco-editor')) {
+        return;
+      }
+
+      // If not inside Monaco editor:
+      if (!target?.closest('.monaco-editor')) {
+        if ((e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleUndoFileAction();
+        } else if (
+          ((e.key === 'z' || e.key === 'Z') && e.shiftKey) ||
+          e.key === 'y' ||
+          e.key === 'Y'
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleRedoFileAction();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
+  }, [handleUndoFileAction, handleRedoFileAction]);
+
   // Create new file
   const handleCreateFile = (name: string, parentPath?: string) => {
     const filePath = parentPath ? `${parentPath}/${name}` : `/${name}`;
@@ -432,6 +675,23 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     if (onRecordActivity) {
       onRecordActivity('file_created', `created file ${name}`);
     }
+
+    // Add to Undo History
+    const snapshot: FileNode = JSON.parse(JSON.stringify(newFile));
+    setFileUndoStack((prev) => [
+      ...prev,
+      {
+        type: 'create',
+        node: snapshot,
+        parentPath,
+        description: `created file ${name}`,
+      },
+    ]);
+    setFileRedoStack([]);
+    onAddToast?.('success', `Created file "${name}"`, {
+      label: 'Undo (Ctrl+Z)',
+      onClick: () => handleUndoFileAction(),
+    });
   };
 
   // Create new folder
@@ -466,6 +726,23 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
     onFilesChange(nextFiles);
     socketService.emitFilesTreeUpdate(roomId, nextFiles, userId, `created folder ${name}`, 'folder_created');
+
+    // Add to Undo History
+    const snapshot: FileNode = JSON.parse(JSON.stringify(newFolder));
+    setFileUndoStack((prev) => [
+      ...prev,
+      {
+        type: 'create',
+        node: snapshot,
+        parentPath,
+        description: `created folder ${name}`,
+      },
+    ]);
+    setFileRedoStack([]);
+    onAddToast?.('success', `Created folder "${name}"`, {
+      label: 'Undo (Ctrl+Z)',
+      onClick: () => handleUndoFileAction(),
+    });
   };
 
   // Delete node (file or directory)
@@ -475,6 +752,26 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       const clean = nodePath.trim().replace(/\/+$/, '') || '/';
       return clean === targetPath || clean.startsWith(targetPath + '/');
     };
+
+    // Save snapshot of node for undo before deleting
+    const found = findNodeAndParentInTree(files, targetPath);
+    if (found) {
+      const snapshot: FileNode = JSON.parse(JSON.stringify(found.node));
+      setFileUndoStack((prev) => [
+        ...prev,
+        {
+          type: 'delete',
+          node: snapshot,
+          parentPath: found.parentPath,
+          description: `deleted ${snapshot.type} ${snapshot.name}`,
+        },
+      ]);
+      setFileRedoStack([]);
+      onAddToast?.('warning', `Deleted ${snapshot.type} "${snapshot.name}"`, {
+        label: 'Undo (Ctrl+Z)',
+        onClick: () => handleUndoFileAction(),
+      });
+    }
 
     const deleteRecursive = (nodes: FileNode[]): FileNode[] => {
       return nodes
@@ -525,6 +822,23 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     if (onRecordActivity) {
       onRecordActivity('folder_created', `created folder ${clean}`);
     }
+
+    // Add to Undo History
+    const snapshot: FileNode = JSON.parse(JSON.stringify(newFolder));
+    setFileUndoStack((prev) => [
+      ...prev,
+      {
+        type: 'create',
+        node: snapshot,
+        parentPath: undefined,
+        description: `created project folder ${clean}`,
+      },
+    ]);
+    setFileRedoStack([]);
+    onAddToast?.('success', `Created folder "${clean}"`, {
+      label: 'Undo (Ctrl+Z)',
+      onClick: () => handleUndoFileAction(),
+    });
   };
 
   const handleCenterCreateFolderSubmit = (e: React.FormEvent) => {
@@ -824,6 +1138,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onCreateFile={handleCreateFile}
                 onCreateFolder={handleCreateFolder}
                 onDeleteNode={handleDeleteNode}
+                canUndo={fileUndoStack.length > 0}
+                canRedo={fileRedoStack.length > 0}
+                onUndo={handleUndoFileAction}
+                onRedo={handleRedoFileAction}
                 onImportFolder={(imported) => {
                   onFilesChange(imported);
                   socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
@@ -875,6 +1193,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onContentChange={handleContentChange}
                 onCursorChange={handleLocalCursorChange}
                 onSelectionChange={handleLocalSelectionChange}
+                onUndoFile={handleUndoFileAction}
+                onRedoFile={handleRedoFileAction}
                 participants={participants}
                 currentUserId={userId}
               />

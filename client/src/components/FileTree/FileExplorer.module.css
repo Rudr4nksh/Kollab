@@ -59,6 +59,16 @@
   background-color: rgba(255, 255, 255, 0.08);
 }
 
+.headerActionBtnDisabled {
+  opacity: 0.28 !important;
+  cursor: default !important;
+}
+
+.headerActionBtnDisabled:hover {
+  color: #6B7280 !important;
+  background-color: transparent !important;
+}
+
 /* Inline Create Row - Rendered right inside the tree */
 .inlineCreateRow {
   display: flex;

@@ -23,6 +23,8 @@ interface CodeEditorProps {
   participants?: Participant[];
   currentUserId?: string;
   readOnly?: boolean;
+  onUndoFile?: () => void;
+  onRedoFile?: () => void;
 }
 
 interface RemoteWidgetEntry {
@@ -44,6 +46,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   participants = [],
   currentUserId,
   readOnly = false,
+  onUndoFile,
+  onRedoFile,
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -51,6 +55,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const widgetsMapRef = useRef<Map<string, RemoteWidgetEntry>>(new Map());
   const isApplyingRemoteRef = useRef<boolean>(false);
   const prevFilePathRef = useRef<string | undefined>(filePath);
+  const onUndoFileRef = useRef(onUndoFile);
+  const onRedoFileRef = useRef(onRedoFile);
+
+  useEffect(() => {
+    onUndoFileRef.current = onUndoFile;
+    onRedoFileRef.current = onRedoFile;
+  }, [onUndoFile, onRedoFile]);
 
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
   const [lineCount, setLineCount] = useState(1);
@@ -103,6 +114,40 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }
       if (onContentChange) {
         onContentChange(ed.getValue());
+      }
+    });
+
+    // Cascade Ctrl+Z / Ctrl+Y to file operations if Monaco buffer has no further text edits to undo/redo
+    ed.onKeyDown((e) => {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrMeta) return;
+
+      if (e.code === 'KeyZ' && !e.shiftKey) {
+        const model = ed.getModel() as any;
+        const canUndo = model?._commandManager?.canUndo
+          ? model._commandManager.canUndo()
+          : typeof model?.canUndo === 'function'
+          ? model.canUndo()
+          : false;
+
+        if (model && !canUndo && onUndoFileRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          onUndoFileRef.current();
+        }
+      } else if ((e.code === 'KeyZ' && e.shiftKey) || e.code === 'KeyY') {
+        const model = ed.getModel() as any;
+        const canRedo = model?._commandManager?.canRedo
+          ? model._commandManager.canRedo()
+          : typeof model?.canRedo === 'function'
+          ? model.canRedo()
+          : false;
+
+        if (model && !canRedo && onRedoFileRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          onRedoFileRef.current();
+        }
       }
     });
 
