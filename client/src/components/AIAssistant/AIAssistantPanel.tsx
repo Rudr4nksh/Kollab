@@ -16,7 +16,8 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  ChevronLeft
+  ChevronLeft,
+  ShieldCheck
 } from 'lucide-react';
 import { sendAIChat } from '../../services/api.ts';
 import { 
@@ -71,7 +72,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Hello ${userName}! I am your collaborative AI assistant.\nAsk me questions about your codebase, debug issues, or refactor active files.`,
+      content: `Hello ${userName}! I am your collaborative AI assistant.\nAsk questions about your code, generate algorithms, or review active files.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -270,51 +271,59 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Sleek BYOK Configuration Card */}
+      {/* 2. Sleek, Spacious BYOK Setup View */}
       {isConfiguringKey ? (
         <div className={styles.setupCard}>
-          <div className={styles.setupBanner}>
-            <div className={styles.setupTitleRow}>
-              {config && (
-                <button
-                  type="button"
-                  className={styles.backBtn}
-                  onClick={() => setIsConfiguringKey(false)}
-                  title="Back"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-              )}
-              <span className={styles.setupHeading}>API Key Setup</span>
+          <div className={styles.setupHero}>
+            <div className={styles.heroBadge}>
+              <Key size={16} className={styles.heroIcon} />
             </div>
-            <p className={styles.setupDesc}>
-              Provide your API key to power AI assistance. Your key is stored locally in your browser and is never shared with room peers.
-            </p>
+            <div className={styles.heroContent}>
+              <div className={styles.setupTitleRow}>
+                {config && (
+                  <button
+                    type="button"
+                    className={styles.backBtn}
+                    onClick={() => setIsConfiguringKey(false)}
+                    title="Back to chat"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                )}
+                <h3 className={styles.setupHeading}>Connect API Key</h3>
+              </div>
+              <p className={styles.setupDesc}>
+                Bring your own key for private, full-power AI assistance. Stored locally in your browser.
+              </p>
+            </div>
           </div>
 
           {/* Clean Segmented Provider Control */}
-          <div className={styles.segmentedControl}>
-            <button
-              type="button"
-              className={`${styles.segmentBtn} ${selectedProvider === 'claude' ? styles.segmentActive : ''}`}
-              onClick={() => { setSelectedProvider('claude'); setKeyError(null); }}
-            >
-              Claude
-            </button>
-            <button
-              type="button"
-              className={`${styles.segmentBtn} ${selectedProvider === 'gemini' ? styles.segmentActive : ''}`}
-              onClick={() => { setSelectedProvider('gemini'); setKeyError(null); }}
-            >
-              Gemini
-            </button>
-            <button
-              type="button"
-              className={`${styles.segmentBtn} ${selectedProvider === 'openai' ? styles.segmentActive : ''}`}
-              onClick={() => { setSelectedProvider('openai'); setKeyError(null); }}
-            >
-              OpenAI
-            </button>
+          <div className={styles.controlGroup}>
+            <label className={styles.groupLabel}>Select Provider</label>
+            <div className={styles.segmentedControl}>
+              <button
+                type="button"
+                className={`${styles.segmentBtn} ${selectedProvider === 'claude' ? styles.segmentActive : ''}`}
+                onClick={() => { setSelectedProvider('claude'); setKeyError(null); }}
+              >
+                Claude
+              </button>
+              <button
+                type="button"
+                className={`${styles.segmentBtn} ${selectedProvider === 'gemini' ? styles.segmentActive : ''}`}
+                onClick={() => { setSelectedProvider('gemini'); setKeyError(null); }}
+              >
+                Gemini
+              </button>
+              <button
+                type="button"
+                className={`${styles.segmentBtn} ${selectedProvider === 'openai' ? styles.segmentActive : ''}`}
+                onClick={() => { setSelectedProvider('openai'); setKeyError(null); }}
+              >
+                OpenAI
+              </button>
+            </div>
           </div>
 
           {/* Form */}
@@ -328,17 +337,17 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                 </label>
                 {selectedProvider === 'claude' && (
                   <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className={styles.fieldLink}>
-                    Get Key ↗
+                    Get key ↗
                   </a>
                 )}
                 {selectedProvider === 'gemini' && (
                   <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className={styles.fieldLink}>
-                    Get Key ↗
+                    Get key ↗
                   </a>
                 )}
                 {selectedProvider === 'openai' && (
                   <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className={styles.fieldLink}>
-                    Get Key ↗
+                    Get key ↗
                   </a>
                 )}
               </div>
@@ -349,7 +358,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                   className={styles.inputField}
                   placeholder={
                     selectedProvider === 'claude'
-                      ? 'sk-ant-...'
+                      ? 'sk-ant-api03-...'
                       : selectedProvider === 'gemini'
                       ? 'AIzaSy...'
                       : 'sk-...'
@@ -367,7 +376,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                   onClick={() => setShowKeyPassword(!showKeyPassword)}
                   title={showKeyPassword ? "Hide" : "Show"}
                 >
-                  {showKeyPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                  {showKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
 
@@ -375,8 +384,8 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             </div>
 
             <button type="submit" className={styles.submitBtn}>
-              <Check size={13} />
-              <span>Save & Connect</span>
+              <Check size={14} />
+              <span>Save & Connect Key</span>
             </button>
           </form>
 
@@ -385,7 +394,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             <div className={styles.connectedSection}>
               <div className={styles.connectedRow}>
                 <div className={styles.connectedInfo}>
-                  <span className={styles.connectedLabel}>Active Key</span>
+                  <span className={styles.connectedLabel}>Current Key</span>
                   <code className={styles.connectedKey}>{maskApiKey(config.apiKey)}</code>
                 </div>
                 <button
@@ -401,9 +410,16 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
             </div>
           )}
 
-          <div className={styles.securityNote}>
-            <Lock size={11} className={styles.lockIcon} />
-            <span>Encrypted client-side storage</span>
+          {/* Privacy & Isolation Benefits */}
+          <div className={styles.benefitsCard}>
+            <div className={styles.benefitItem}>
+              <Lock size={13} className={styles.benefitIcon} />
+              <span><strong>Client-Side Vault:</strong> Key never leaves your browser.</span>
+            </div>
+            <div className={styles.benefitItem}>
+              <ShieldCheck size={13} className={styles.benefitIcon} />
+              <span><strong>Room Isolation:</strong> Peers cannot see or use your quota.</span>
+            </div>
           </div>
         </div>
       ) : (
