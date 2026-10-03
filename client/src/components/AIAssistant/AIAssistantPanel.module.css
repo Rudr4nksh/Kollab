@@ -1,5 +1,5 @@
 /* ========================================================= */
-/* KOLLAB AI ASSISTANT PANEL - REFINED MINIMALIST IDE DESIGN */
+/* KOLLAB AI ASSISTANT PANEL - SPACIOUS & REFINED IDE DESIGN */
 /* ========================================================= */
 
 .container {
@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px 0 14px;
+  padding: 0 12px 0 14px;
   flex-shrink: 0;
 }
 
@@ -95,22 +95,45 @@
 }
 
 /* ========================================================= */
-/* 2. REFINED BYOK SETUP CARD                                */
+/* 2. SPACIOUS BYOK SETUP VIEW                               */
 /* ========================================================= */
 .setupCard {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 14px;
+  padding: 22px 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   background: #0a0b10;
 }
 
-.setupBanner {
+.setupHero {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.heroBadge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.heroIcon {
+  color: #818cf8;
+}
+
+.heroContent {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .setupTitleRow {
@@ -136,27 +159,45 @@
 }
 
 .setupHeading {
-  font-size: 13px;
+  margin: 0;
+  font-size: 14.5px;
   font-weight: 600;
-  color: #f3f4f6;
+  color: #f8fafc;
   letter-spacing: -0.01em;
 }
 
 .setupDesc {
   margin: 0;
-  font-size: 11.5px;
-  color: #858b98;
-  line-height: 1.45;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
-/* Minimalist Segmented Provider Control */
+/* Control Group */
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+/* Segmented Provider Selector */
 .segmentedControl {
   display: flex;
-  background: #11121a;
+  background: #0e0f16;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 2px;
-  gap: 2px;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 .segmentBtn {
@@ -164,13 +205,15 @@
   background: transparent;
   border: none;
   color: #9ca3af;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 6px 0;
-  border-radius: 4px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 120ms ease;
-  text-align: center;
 }
 
 .segmentBtn:hover {
@@ -178,17 +221,17 @@
 }
 
 .segmentActive {
-  background: #1f202e;
-  color: #fff;
+  background: #1f2130;
+  color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Key Input Form */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .formGroup {
@@ -204,13 +247,13 @@
 }
 
 .fieldLabel {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #d1d5db;
 }
 
 .fieldLink {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #818cf8;
   text-decoration: none;
   transition: color 120ms ease;
@@ -225,15 +268,16 @@
   display: flex;
   align-items: center;
   background: #050608;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 10px;
   transition: all 140ms ease;
 }
 
 .inputBox:focus-within {
   border-color: #6366f1;
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35);
 }
 
 .inputField {
@@ -242,8 +286,8 @@
   border: none;
   color: #f3f4f6;
   font-family: var(--font-mono, monospace);
-  font-size: 11.5px;
-  padding: 8px 0;
+  font-size: 12px;
+  padding: 0;
   outline: none;
 }
 
@@ -266,7 +310,7 @@
 }
 
 .errorText {
-  font-size: 11px;
+  font-size: 11.5px;
   color: #f87171;
   line-height: 1.3;
 }
@@ -275,16 +319,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   background: #4f46e5;
   border: 1px solid #6366f1;
   color: #ffffff;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
-  height: 32px;
-  border-radius: 6px;
+  height: 38px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 120ms ease;
+  margin-top: 2px;
 }
 
 .submitBtn:hover {
@@ -294,9 +339,9 @@
 /* Connected Section */
 .connectedSection {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .connectedRow {
@@ -312,14 +357,14 @@
 }
 
 .connectedLabel {
-  font-size: 10px;
+  font-size: 10.5px;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .connectedKey {
-  font-size: 11px;
+  font-size: 11.5px;
   font-family: var(--font-mono, monospace);
   color: #e5e7eb;
 }
@@ -331,9 +376,9 @@
   background: transparent;
   border: 1px solid rgba(239, 68, 68, 0.25);
   color: #f87171;
-  font-size: 10.5px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 120ms ease;
 }
@@ -343,18 +388,34 @@
   border-color: rgba(239, 68, 68, 0.4);
 }
 
-.securityNote {
+/* Privacy & Isolation Benefits */
+.benefitsCard {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: auto;
-  padding-top: 10px;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
 }
 
-.lockIcon {
-  color: #4b5563;
+.benefitItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.benefitItem strong {
+  color: #e2e8f0;
+}
+
+.benefitIcon {
+  color: #6366f1;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* ========================================================= */
@@ -371,11 +432,11 @@
 .contextBar {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 8px 14px;
   background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11.5px;
 }
 
 .contextIcon {
@@ -394,14 +455,14 @@
 
 .contextLang {
   color: #6b7280;
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .actionChips {
   display: flex;
-  gap: 5px;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   overflow-x: auto;
 }
 
@@ -412,8 +473,8 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #9ca3af;
-  font-size: 10.5px;
-  padding: 3px 8px;
+  font-size: 11px;
+  padding: 4px 10px;
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
@@ -434,33 +495,33 @@
 .messagesList {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
 
 .message {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  line-height: 1.45;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .userMsg {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   align-self: flex-end;
   max-width: 90%;
 }
 
 .aiMsg {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   align-self: flex-start;
   width: 100%;
 }
@@ -468,12 +529,12 @@
 .msgHeader {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .msgAvatar {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -487,13 +548,13 @@
 }
 
 .msgAuthor {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   color: #d1d5db;
 }
 
 .msgTime {
-  font-size: 9.5px;
+  font-size: 10px;
   color: #6b7280;
   margin-left: auto;
 }
@@ -501,7 +562,7 @@
 .msgBody {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .msgText {
@@ -513,8 +574,8 @@
 
 .codeSnippet {
   background: #050608;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
   overflow: hidden;
   margin-top: 4px;
 }
@@ -523,41 +584,42 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 8px;
+  padding: 4px 10px;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .snippetLang {
-  font-size: 9.5px;
+  font-size: 10px;
   text-transform: uppercase;
   color: #6b7280;
   font-family: var(--font-mono, monospace);
+  font-weight: 600;
 }
 
 .snippetActions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .snippetBtn {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #9ca3af;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 3px;
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 120ms ease;
 }
 
 .snippetBtn:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .applyBtn {
@@ -573,11 +635,11 @@
 
 .snippetPre {
   margin: 0;
-  padding: 8px 10px;
+  padding: 10px 12px;
   overflow-x: auto;
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: #e5e7eb;
 }
 
@@ -585,7 +647,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 11.5px;
   color: #818cf8;
   padding: 4px 0;
 }
@@ -600,7 +662,7 @@
 }
 
 .inputContainer {
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: #050608;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
@@ -609,9 +671,9 @@
   display: flex;
   align-items: center;
   background: #0f1016;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 6px;
-  padding: 4px 6px 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 5px 8px 5px 10px;
   gap: 6px;
 }
 
@@ -624,12 +686,12 @@
   background: transparent;
   border: none;
   color: #f3f4f6;
-  font-size: 11.5px;
+  font-size: 12px;
   resize: none;
   outline: none;
   font-family: inherit;
   line-height: 1.4;
-  max-height: 70px;
+  max-height: 80px;
 }
 
 .chatInput::placeholder {
@@ -640,9 +702,9 @@
   background: #4f46e5;
   border: none;
   color: #fff;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
