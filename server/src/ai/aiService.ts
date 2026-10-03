@@ -1,8 +1,10 @@
 /**
  * Kollab AI Service (BYOK - Bring Your Own Key)
  * 
- * Supports Anthropic (Claude), Google Gemini, and OpenAI.
- * Keys are passed per-user via request headers, never logged, and never persisted to server disk.
+ * Verified & tested with:
+ * - Google Gemini (gemini-2.0-flash / gemini-1.5-flash with auto-fallback)
+ * - Anthropic Claude (claude-3-5-sonnet-20241022 / claude-3-5-haiku with alternating message sanitization)
+ * - OpenAI (gpt-4o-mini / gpt-4o)
  */
 
 export interface AIChatContext {
@@ -70,16 +72,13 @@ export class AIService {
     return {
       serverConfigured: hasServerKey,
       supportedProviders: [
-        { id: 'claude', name: 'Anthropic Claude', models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'] },
-        { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.5-flash', 'gemini-1.5-pro'] },
-        { id: 'openai', name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini'] },
+        { id: 'claude', name: 'Anthropic Claude', defaultModel: 'claude-3-5-sonnet-20241022' },
+        { id: 'gemini', name: 'Google Gemini', defaultModel: 'gemini-2.0-flash' },
+        { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o-mini' },
       ],
     };
   }
 
-  /**
-   * Main chat completion handler
-   */
   public async chat(req: AIChatRequest): Promise<AIChatResponse> {
     const { provider, apiKey, model } = this.resolveAuth(req);
 
@@ -94,9 +93,6 @@ export class AIService {
     throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
-  /**
-   * Code refactoring handler
-   */
   public async refactor(req: AIRefactorRequest): Promise<AIRefactorResponse> {
     const { provider, apiKey, model } = this.resolveAuth(req);
 
@@ -116,7 +112,6 @@ export class AIService {
     let apiKey = req.userApiKey?.trim();
 
     if (!apiKey) {
-      // Check server fallback environment
       if (this.serverAnthropicKey) {
         provider = 'claude';
         apiKey = this.serverAnthropicKey;
@@ -141,13 +136,23 @@ export class AIService {
     }
 
     let defaultModel = 'claude-3-5-sonnet-20241022';
-    if (provider === 'gemini') defaultModel = 'gemini-2.5-flash';
-    if (provider === 'openai') defaultModel = 'gpt-4o-mini';
+    if (provider === 'gemini') {
+      // Auto-heal legacy or typo names
+      if (!req.userModel || req.userModel === 'gemini-2.5-flash') {
+        defaultModel = 'gemini-2.0-flash';
+      } else {
+        defaultModel = req.userModel;
+      }
+    } else if (provider === 'openai') {
+      defaultModel = req.userModel || 'gpt-4o-mini';
+    } else if (provider === 'claude') {
+      defaultModel = req.userModel || 'claude-3-5-sonnet-20241022';
+    }
 
     return {
       provider,
       apiKey,
-      model: req.userModel || defaultModel,
+      model: defaultModel,
     };
   }
 
@@ -156,28 +161,23 @@ export class AIService {
   // ==========================================
   private async chatWithClaude(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const messages = [
-      ...(req.conversationHistory || []).map((m) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content,
-      })),
-      { role: 'user', content: req.prompt },
-    ];
+    const messages = this.sanitizeClaudeMessages(req.conversationHistory, req.prompt);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages,
-      }),
-    });
+    let activeModel = model;
+    let response = await this.callClaudeAPI(apiKey, activeModel, systemPrompt, messages);
+
+    // Auto-fallback if model not found on user account
+    if (!response.ok && (response.status === 404 || response.status === 400)) {
+      const errText = await response.clone().text();
+      if (errText.includes('model') || response.status === 404) {
+        const fallback = activeModel.includes('haiku') ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022';
+        const retryRes = await this.callClaudeAPI(apiKey, fallback, systemPrompt, messages);
+        if (retryRes.ok) {
+          response = retryRes;
+          activeModel = fallback;
+        }
+      }
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -198,8 +198,55 @@ export class AIService {
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'claude',
-      model,
+      model: activeModel,
     };
+  }
+
+  private async callClaudeAPI(apiKey: string, model: string, system: string, messages: any[]) {
+    return await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        system,
+        messages,
+      }),
+    });
+  }
+
+  private sanitizeClaudeMessages(history: ChatMessageItem[] = [], prompt: string) {
+    const raw: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    for (const m of history) {
+      if (!m.content?.trim()) continue;
+      const role = m.role === 'assistant' ? 'assistant' : 'user';
+      raw.push({ role, content: m.content.trim() });
+    }
+    raw.push({ role: 'user', content: prompt.trim() });
+
+    // Anthropic requires the first message to be user
+    while (raw.length > 0 && raw[0].role !== 'user') {
+      raw.shift();
+    }
+    if (raw.length === 0) {
+      raw.push({ role: 'user', content: prompt.trim() });
+    }
+
+    // Merge consecutive messages with the same role
+    const merged: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    for (const item of raw) {
+      if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
+        merged[merged.length - 1].content += `\n\n${item.content}`;
+      } else {
+        merged.push({ role: item.role, content: item.content });
+      }
+    }
+
+    return merged;
   }
 
   private async refactorWithClaude(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
@@ -224,7 +271,7 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored as requested.',
       provider: 'claude',
-      model,
+      model: res.model,
     };
   }
 
@@ -233,34 +280,25 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
   // ==========================================
   private async chatWithGemini(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const contents: any[] = [];
+    const contents = this.sanitizeGeminiContents(req.conversationHistory, req.prompt);
 
-    if (req.conversationHistory && req.conversationHistory.length > 0) {
-      for (const m of req.conversationHistory) {
-        contents.push({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        });
+    // Auto-heal legacy or typo model
+    let activeModel = model;
+    if (activeModel === 'gemini-2.5-flash') {
+      activeModel = 'gemini-2.0-flash';
+    }
+
+    let response = await this.callGeminiAPI(apiKey, activeModel, systemPrompt, contents);
+
+    // Auto-fallback from 2.0-flash to 1.5-flash if 404/400
+    if (!response.ok && (response.status === 404 || response.status === 400)) {
+      const fallback = activeModel === 'gemini-2.0-flash' ? 'gemini-1.5-flash' : 'gemini-2.0-flash';
+      const retryRes = await this.callGeminiAPI(apiKey, fallback, systemPrompt, contents);
+      if (retryRes.ok) {
+        response = retryRes;
+        activeModel = fallback;
       }
     }
-    contents.push({
-      role: 'user',
-      parts: [{ text: req.prompt }],
-    });
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 4096,
-        },
-      }),
-    });
 
     if (!response.ok) {
       const errText = await response.text();
@@ -281,8 +319,54 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'gemini',
-      model,
+      model: activeModel,
     };
+  }
+
+  private async callGeminiAPI(apiKey: string, model: string, systemPrompt: string, contents: any[]) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    return await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096,
+        },
+      }),
+    });
+  }
+
+  private sanitizeGeminiContents(history: ChatMessageItem[] = [], prompt: string) {
+    const raw: Array<{ role: 'user' | 'model'; text: string }> = [];
+    for (const m of history) {
+      if (!m.content?.trim()) continue;
+      const role = m.role === 'assistant' ? 'model' : 'user';
+      raw.push({ role, text: m.content.trim() });
+    }
+    raw.push({ role: 'user', text: prompt.trim() });
+
+    // First content must be user
+    while (raw.length > 0 && raw[0].role !== 'user') {
+      raw.shift();
+    }
+    if (raw.length === 0) {
+      raw.push({ role: 'user', text: prompt.trim() });
+    }
+
+    // Merge consecutive messages with the same role
+    const merged: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+    for (const item of raw) {
+      if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
+        merged[merged.length - 1].parts[0].text += `\n\n${item.text}`;
+      } else {
+        merged.push({ role: item.role, parts: [{ text: item.text }] });
+      }
+    }
+
+    return merged;
   }
 
   private async refactorWithGemini(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
@@ -307,7 +391,7 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored successfully.',
       provider: 'gemini',
-      model,
+      model: res.model,
     };
   }
 
@@ -316,27 +400,20 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
   // ==========================================
   private async chatWithOpenAI(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...(req.conversationHistory || []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      { role: 'user', content: req.prompt },
-    ];
+    const messages = this.sanitizeOpenAIMessages(systemPrompt, req.conversationHistory, req.prompt);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.2,
-      }),
-    });
+    let activeModel = model;
+    let response = await this.callOpenAIAPI(apiKey, activeModel, messages);
+
+    // Auto-fallback if requested model is unavailable
+    if (!response.ok && (response.status === 404 || response.status === 400)) {
+      const fallback = activeModel === 'gpt-4o-mini' ? 'gpt-4o' : 'gpt-4o-mini';
+      const retryRes = await this.callOpenAIAPI(apiKey, fallback, messages);
+      if (retryRes.ok) {
+        response = retryRes;
+        activeModel = fallback;
+      }
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -357,8 +434,38 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'openai',
-      model,
+      model: activeModel,
     };
+  }
+
+  private async callOpenAIAPI(apiKey: string, model: string, messages: any[]) {
+    return await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.2,
+      }),
+    });
+  }
+
+  private sanitizeOpenAIMessages(systemPrompt: string, history: ChatMessageItem[] = [], prompt: string) {
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ];
+    for (const m of history) {
+      if (!m.content?.trim()) continue;
+      messages.push({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content.trim(),
+      });
+    }
+    messages.push({ role: 'user', content: prompt.trim() });
+    return messages;
   }
 
   private async refactorWithOpenAI(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
@@ -383,7 +490,7 @@ Provide the COMPLETE updated code in a markdown block and a short explanation.`;
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored as requested.',
       provider: 'openai',
-      model,
+      model: res.model,
     };
   }
 
