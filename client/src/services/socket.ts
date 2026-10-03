@@ -251,6 +251,52 @@ class SocketService {
       s.off('activity-event', callback);
     };
   }
+
+  // --- Interactive Terminal Runner ---
+  public emitTerminalRun(payload: {
+    language: string;
+    code: string;
+    filename?: string;
+    initialInput?: string;
+  }) {
+    this.getSocket().emit('terminal:run_code', payload);
+  }
+
+  public emitTerminalStdin(text: string) {
+    this.getSocket().emit('terminal:stdin', { text });
+  }
+
+  public emitTerminalStdinEOF() {
+    this.getSocket().emit('terminal:stdin_eof');
+  }
+
+  public emitTerminalKill() {
+    this.getSocket().emit('terminal:kill');
+  }
+
+  public onTerminalStarted(callback: (data: { filename: string; language: string }) => void): () => void {
+    const s = this.getSocket();
+    s.on('terminal:started', callback);
+    return () => {
+      s.off('terminal:started', callback);
+    };
+  }
+
+  public onTerminalOutput(callback: (data: { type: 'stdout' | 'stderr' | 'info' | 'system'; text: string }) => void): () => void {
+    const s = this.getSocket();
+    s.on('terminal:output', callback);
+    return () => {
+      s.off('terminal:output', callback);
+    };
+  }
+
+  public onTerminalExit(callback: (data: { exitCode: number; executionTimeMs: number }) => void): () => void {
+    const s = this.getSocket();
+    s.on('terminal:exit', callback);
+    return () => {
+      s.off('terminal:exit', callback);
+    };
+  }
 }
 
 export const socketService = new SocketService();

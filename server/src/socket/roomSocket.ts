@@ -1,6 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { prisma } from '../database/prisma.js';
 import { RoomService } from '../rooms/RoomService.js';
+import { interactiveRunner } from '../runner/interactiveRunner.js';
 import type { 
   Participant, 
   FileNode, 
@@ -75,6 +76,7 @@ function findFileInTree(nodes: FileNode[], path: string): FileNode | null {
 
 export function setupSocketIO(io: SocketIOServer) {
   io.on('connection', (socket: Socket) => {
+    interactiveRunner.registerSocket(socket);
     let currentRoomId: string | null = null;
     let currentUserId: string | null = null;
 
