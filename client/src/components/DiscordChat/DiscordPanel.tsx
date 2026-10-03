@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import type { ChatMessage, VoiceParticipant, Participant } from '../../types/index.ts';
 import { voiceService } from '../../services/voiceService.ts';
+import { isAIConfigured, getStoredAIConfig } from '../../services/aiKeyStore.ts';
+import { sendAIChat } from '../../services/api.ts';
 import styles from './DiscordPanel.module.css';
 
 interface DiscordPanelProps {
@@ -99,6 +101,29 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
     onSendMessage(trimmed);
     setInputText('');
     inputRef.current?.focus();
+
+    // Collaborative @ai trigger (Client-side BYOK)
+    if (trimmed.toLowerCase().startsWith('@ai')) {
+      const prompt = trimmed.replace(/^@ai\s*/i, '').trim();
+      if (!prompt) return;
+
+      if (!isAIConfigured()) {
+        setTimeout(() => {
+          onSendMessage('⚠️ To use @ai, please connect your Claude, Gemini, or OpenAI API key in the AI Assistant (✦) panel on the left.');
+        }, 300);
+        return;
+      }
+
+      sendAIChat({ prompt, userName: displayName })
+        .then((res) => {
+          const cfg = getStoredAIConfig();
+          const providerName = cfg?.provider === 'claude' ? 'Claude' : cfg?.provider === 'gemini' ? 'Gemini' : 'OpenAI';
+          onSendMessage(`✦ [Kollab AI (${providerName})]:\n${res.reply}`);
+        })
+        .catch((err) => {
+          onSendMessage(`⚠️ AI Error: ${err.message || 'Failed to generate response'}`);
+        });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
