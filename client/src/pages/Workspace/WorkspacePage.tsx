@@ -123,6 +123,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleTab, setConsoleTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('output');
+  const [stdinInput, setStdinInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<ConsoleLogItem[]>([
     {
@@ -431,6 +432,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           language: lang,
           code: activeFile.content || '',
           filename: activeFile.name,
+          input: stdinInput,
         }),
       });
 
@@ -501,7 +503,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [activeFile]);
+  }, [activeFile, stdinInput]);
 
   // Execute console command prompt
   const handleExecuteCommand = (cmd: string) => {
@@ -839,6 +841,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             roomId={roomId}
             activeTab={consoleTab}
             onTabChange={setConsoleTab}
+            stdinInput={stdinInput}
+            onStdinChange={setStdinInput}
             onCreateFile={handleCreateFile}
             onCreateFolder={handleCreateFolder}
             onDeleteNode={handleDeleteNode}

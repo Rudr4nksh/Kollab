@@ -285,6 +285,171 @@
 }
 
 /* Output Tab (Standard runner output) */
+.outputTabContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background-color: #07090D;
+}
+
+.outputToolbar {
+  height: 28px;
+  min-height: 28px;
+  background-color: #090B10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+
+.outputToolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8E9297;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.outputCountBadge {
+  background: rgba(255, 255, 255, 0.08);
+  color: #D1D5DB;
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+.outputToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stdinToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #9CA3AF;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.stdinToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.stdinToggleBtnActive {
+  background: rgba(88, 101, 242, 0.2);
+  border-color: rgba(88, 101, 242, 0.5);
+  color: #A5B4FC;
+}
+
+.stdinDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #10B981;
+}
+
+.outputBody {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stdinDrawer {
+  width: 280px;
+  min-width: 200px;
+  max-width: 400px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0B0E14;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.stdinDrawerHeader {
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stdinDrawerTitle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8E9297;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.stdinClearBtn {
+  background: transparent;
+  border: none;
+  color: #6B7280;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.stdinClearBtn:hover {
+  color: #EF4444;
+}
+
+.stdinTextarea {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 8px;
+  color: #F3F4F6;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.stdinTextarea::placeholder {
+  color: #4B5563;
+  font-size: 10.5px;
+}
+
+.stdinFooter {
+  padding: 3px 8px;
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  color: #6B7280;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.01);
+}
+
 .logList {
   flex: 1;
   overflow-y: auto;
