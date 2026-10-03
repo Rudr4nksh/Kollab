@@ -59,6 +59,7 @@ interface ConsolePanelProps {
   onFilesChange?: (files: FileNode[]) => void;
   onGitPush?: (commitUrl: string, message: string) => void;
   onRunningChange?: (running: boolean) => void;
+  height?: number;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
@@ -73,6 +74,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onTabChange,
   runTrigger,
   stdinInput = '',
+  height,
   onStdinChange,
   onCreateFile,
   onCreateFolder,
@@ -1298,10 +1300,10 @@ These are common Git commands:
     );
   }
 
-  const height = isMaximized ? 380 : 210;
+  const panelHeight = isMaximized ? Math.max(380, (height || 220) + 140) : (height || 210);
 
   return (
-    <div className={styles.consolePanel} style={{ height: `${height}px` }}>
+    <div className={styles.consolePanel} style={{ height: `${panelHeight}px` }}>
       {/* VS Code Style Header */}
       <div className={styles.header}>
         <div className={styles.tabsGroup}>

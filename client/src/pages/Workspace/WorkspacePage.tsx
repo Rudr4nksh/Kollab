@@ -91,13 +91,143 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   onSendMessage,
 }) => {
   // Activity bar active tool
-  const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity' | 'ai'>('files');
+  const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
   const [activeProposal, setActiveProposal] = useState<AIProposal | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const prevMessagesLength = React.useRef(messages?.length || 0);
+
+  // Scalable panel dimensions with localStorage persistence
+  const [aiWidth, setAiWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('kollab_ai_width');
+    return saved ? Math.max(260, Math.min(600, parseInt(saved, 10))) : 320;
+  });
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('kollab_sidebar_width');
+    return saved ? Math.max(180, Math.min(550, parseInt(saved, 10))) : 240;
+  });
+  const [chatWidth, setChatWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('kollab_chat_width');
+    return saved ? Math.max(260, Math.min(600, parseInt(saved, 10))) : 320;
+  });
+  const [consoleHeight, setConsoleHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('kollab_console_height');
+    return saved ? Math.max(120, Math.min(600, parseInt(saved, 10))) : 240;
+  });
+
+  const [isAiOpen, setIsAiOpen] = useState<boolean>(() => {
+    const saved = localStorage.getItem('kollab_ai_open');
+    return saved === 'true';
+  });
+
+  const [activeResizer, setActiveResizer] = useState<'ai' | 'sidebar' | 'chat' | 'console' | null>(null);
+
+  // Drag resizer handlers (VS Code sash style)
+  const handleMouseDownAiResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setActiveResizer('ai');
+    const startX = e.clientX;
+    const startW = aiWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const nextW = Math.max(260, Math.min(600, startW + (ev.clientX - startX)));
+      setAiWidth(nextW);
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      const nextW = Math.max(260, Math.min(600, startW + (ev.clientX - startX)));
+      setAiWidth(nextW);
+      localStorage.setItem('kollab_ai_width', String(nextW));
+      setActiveResizer(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleMouseDownSidebarResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setActiveResizer('sidebar');
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const nextW = Math.max(180, Math.min(550, startW + (ev.clientX - startX)));
+      setSidebarWidth(nextW);
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      const nextW = Math.max(180, Math.min(550, startW + (ev.clientX - startX)));
+      setSidebarWidth(nextW);
+      localStorage.setItem('kollab_sidebar_width', String(nextW));
+      setActiveResizer(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleMouseDownChatResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setActiveResizer('chat');
+    const startX = e.clientX;
+    const startW = chatWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const nextW = Math.max(260, Math.min(600, startW + (startX - ev.clientX)));
+      setChatWidth(nextW);
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      const nextW = Math.max(260, Math.min(600, startW + (startX - ev.clientX)));
+      setChatWidth(nextW);
+      localStorage.setItem('kollab_chat_width', String(nextW));
+      setActiveResizer(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleMouseDownConsoleResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setActiveResizer('console');
+    const startY = e.clientY;
+    const startH = consoleHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const nextH = Math.max(120, Math.min(600, startH + (startY - ev.clientY)));
+      setConsoleHeight(nextH);
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      const nextH = Math.max(120, Math.min(600, startH + (startY - ev.clientY)));
+      setConsoleHeight(nextH);
+      localStorage.setItem('kollab_console_height', String(nextH));
+      setActiveResizer(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const toggleAiPanel = () => {
+    setIsAiOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem('kollab_ai_open', String(next));
+      return next;
+    });
+  };
 
   // Track unread messages when chat panel is closed
   useEffect(() => {
@@ -549,50 +679,59 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         <nav className={styles.activityBar}>
           <div className={styles.activityBarTop}>
             <div
-              className={`${styles.activityIcon} ${activeTool === 'files' ? styles.activeActivity : ''}`}
+              className={`${styles.activityIcon} ${activeTool === 'files' && isSidebarOpen ? styles.activeActivity : ''}`}
               onClick={() => {
-                setActiveTool('files');
-                setIsSidebarOpen(true);
+                if (activeTool === 'files' && isSidebarOpen) {
+                  setIsSidebarOpen(false);
+                } else {
+                  setActiveTool('files');
+                  setIsSidebarOpen(true);
+                }
               }}
               title="File Explorer"
             >
-              {activeTool === 'files' && <span className={styles.activePill} />}
+              {activeTool === 'files' && isSidebarOpen && <span className={styles.activePill} />}
               <FolderTree size={16} />
             </div>
 
             <div
-              className={`${styles.activityIcon} ${activeTool === 'users' ? styles.activeActivity : ''}`}
+              className={`${styles.activityIcon} ${activeTool === 'users' && isSidebarOpen ? styles.activeActivity : ''}`}
               onClick={() => {
-                setActiveTool('users');
-                setIsSidebarOpen(true);
+                if (activeTool === 'users' && isSidebarOpen) {
+                  setIsSidebarOpen(false);
+                } else {
+                  setActiveTool('users');
+                  setIsSidebarOpen(true);
+                }
               }}
               title="Participants"
             >
-              {activeTool === 'users' && <span className={styles.activePill} />}
+              {activeTool === 'users' && isSidebarOpen && <span className={styles.activePill} />}
               <Users size={16} />
             </div>
 
             <div
-              className={`${styles.activityIcon} ${activeTool === 'activity' ? styles.activeActivity : ''}`}
+              className={`${styles.activityIcon} ${activeTool === 'activity' && isSidebarOpen ? styles.activeActivity : ''}`}
               onClick={() => {
-                setActiveTool('activity');
-                setIsSidebarOpen(true);
+                if (activeTool === 'activity' && isSidebarOpen) {
+                  setIsSidebarOpen(false);
+                } else {
+                  setActiveTool('activity');
+                  setIsSidebarOpen(true);
+                }
               }}
               title="Activity Feed"
             >
-              {activeTool === 'activity' && <span className={styles.activePill} />}
+              {activeTool === 'activity' && isSidebarOpen && <span className={styles.activePill} />}
               <Activity size={16} />
             </div>
 
             <div
-              className={`${styles.activityIcon} ${activeTool === 'ai' ? styles.activeActivity : ''}`}
-              onClick={() => {
-                setActiveTool('ai');
-                setIsSidebarOpen(true);
-              }}
+              className={`${styles.activityIcon} ${isAiOpen ? styles.activeActivity : ''}`}
+              onClick={toggleAiPanel}
               title="AI Assistant (Claude / Gemini / Antigravity)"
             >
-              {activeTool === 'ai' && <span className={styles.activePill} />}
+              {isAiOpen && <span className={styles.activePill} />}
               <Sparkles size={16} />
             </div>
 
@@ -601,6 +740,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               onClick={() => setConsoleOpen(!consoleOpen)}
               title="Terminal (VS Code Shell)"
             >
+              {consoleOpen && <span className={styles.activePill} />}
               <Terminal size={16} />
             </div>
           </div>
@@ -625,39 +765,61 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
         </nav>
 
-        {/* 2. Left Sidebar (File Explorer or Selected Tool) */}
-        {isSidebarOpen && (
-          <aside className={`${styles.leftSidebar} ${activeTool === 'ai' ? styles.leftSidebarAi : ''}`}>
-            {activeTool === 'files' && (
-              <FileExplorer
-                files={files}
-                activeFilePath={activeFilePath}
-                onSelectFile={handleSelectFile}
-                onCreateFile={handleCreateFile}
-                onCreateFolder={handleCreateFolder}
-                onDeleteNode={handleDeleteNode}
-                onImportFolder={(imported) => {
-                  onFilesChange(imported);
-                  socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
-                }}
-                isHost={isHost}
-              />
-            )}
-            {activeTool === 'users' && (
-              <ParticipantList participants={participants} currentUserId={userId} />
-            )}
-            {activeTool === 'activity' && (
-              <ActivityFeed activities={activities} />
-            )}
-            {activeTool === 'ai' && (
+        {/* 2. AI Assistant Panel (Pushes Explorer to the right when open) */}
+        {isAiOpen && (
+          <>
+            <aside className={styles.aiSidebar} style={{ width: `${aiWidth}px` }}>
               <AIAssistantPanel
                 activeFile={activeFile}
                 files={files}
                 userName={displayName}
                 onProposeCode={(prop) => setActiveProposal(prop)}
+                onClose={() => {
+                  setIsAiOpen(false);
+                  localStorage.setItem('kollab_ai_open', 'false');
+                }}
               />
-            )}
-          </aside>
+            </aside>
+            <div
+              className={`${styles.colResizer} ${activeResizer === 'ai' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownAiResizer}
+              title="Drag to resize AI Assistant"
+            />
+          </>
+        )}
+
+        {/* 3. Left Primary Sidebar (File Explorer or Selected Tool) */}
+        {isSidebarOpen && (
+          <>
+            <aside className={styles.leftSidebar} style={{ width: `${sidebarWidth}px` }}>
+              {activeTool === 'files' && (
+                <FileExplorer
+                  files={files}
+                  activeFilePath={activeFilePath}
+                  onSelectFile={handleSelectFile}
+                  onCreateFile={handleCreateFile}
+                  onCreateFolder={handleCreateFolder}
+                  onDeleteNode={handleDeleteNode}
+                  onImportFolder={(imported) => {
+                    onFilesChange(imported);
+                    socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
+                  }}
+                  isHost={isHost}
+                />
+              )}
+              {activeTool === 'users' && (
+                <ParticipantList participants={participants} currentUserId={userId} />
+              )}
+              {activeTool === 'activity' && (
+                <ActivityFeed activities={activities} />
+              )}
+            </aside>
+            <div
+              className={`${styles.colResizer} ${activeResizer === 'sidebar' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownSidebarResizer}
+              title="Drag to resize Explorer"
+            />
+          </>
         )}
 
         {/* 3. Center Canvas (Tabs + Monaco + Bottom Console) */}
@@ -775,6 +937,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
 
           {/* Bottom Console / Output */}
+          {consoleOpen && (
+            <div
+              className={`${styles.rowResizer} ${activeResizer === 'console' ? styles.rowResizerActive : ''}`}
+              onMouseDown={handleMouseDownConsoleResizer}
+              title="Drag to resize Terminal"
+            />
+          )}
+
           <ConsolePanel
             logs={logs}
             onClearLogs={() => setLogs([])}
@@ -784,6 +954,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             activeFilePath={activeFilePath}
             isOpen={consoleOpen}
             onToggleOpen={() => setConsoleOpen(!consoleOpen)}
+            height={consoleHeight}
             userName={displayName}
             roomId={roomId}
             activeTab={consoleTab}
@@ -816,20 +987,36 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           />
         </main>
 
-        {/* 4. Discord Chat & Voice Panel (Right Docked) */}
+        {/* 4. Discord Chat & Voice Panel (Right Docked with Resizer) */}
         {isChatOpen && (
-          <DiscordPanel
-            roomId={roomId}
-            userId={userId}
-            displayName={displayName}
-            messages={messages}
-            onSendMessage={onSendMessage || ((text) => socketService.emitChatMessage(roomId, userId, text))}
-            voiceUsers={voiceUsers}
-            participants={participants}
-            onClose={() => setIsChatOpen(false)}
-          />
+          <>
+            <div
+              className={`${styles.colResizer} ${activeResizer === 'chat' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownChatResizer}
+              title="Drag to resize Chat"
+            />
+            <DiscordPanel
+              roomId={roomId}
+              userId={userId}
+              displayName={displayName}
+              messages={messages}
+              onSendMessage={onSendMessage || ((text) => socketService.emitChatMessage(roomId, userId, text))}
+              voiceUsers={voiceUsers}
+              participants={participants}
+              onClose={() => setIsChatOpen(false)}
+              width={chatWidth}
+            />
+          </>
         )}
       </div>
+
+      {/* Invisible overlay while dragging to prevent Monaco or iframe event capture */}
+      {activeResizer && (
+        <div 
+          className={styles.resizeOverlay} 
+          style={{ cursor: activeResizer === 'console' ? 'row-resize' : 'col-resize' }} 
+        />
+      )}
 
       {/* Room Settings Dialog */}
       <RoomSettingsModal

@@ -26,6 +26,7 @@ interface DiscordPanelProps {
   voiceUsers: VoiceParticipant[];
   participants: Participant[];
   onClose?: () => void;
+  width?: number;
 }
 
 export const DiscordPanel: React.FC<DiscordPanelProps> = ({
@@ -37,6 +38,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
   voiceUsers,
   participants,
   onClose,
+  width,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isVoiceConnected, setIsVoiceConnected] = useState(voiceService.isConnected);
@@ -248,7 +250,10 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
   const myColor = currentParticipant?.color || '#5865F2';
 
   return (
-    <aside className={styles.discordPanel}>
+    <aside 
+      className={styles.discordPanel}
+      style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
+    >
       {/* Header */}
       <div className={styles.panelHeader}>
         <div className={styles.channelTitleRow}>

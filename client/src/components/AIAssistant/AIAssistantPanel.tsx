@@ -18,7 +18,8 @@ import {
   Trash2,
   ChevronLeft,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 import { sendAIChat } from '../../services/api.ts';
 import { 
@@ -49,6 +50,7 @@ interface AIAssistantPanelProps {
   files?: FileNode[];
   userName: string;
   onProposeCode: (proposal: AIProposal) => void;
+  onClose?: () => void;
 }
 
 export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
@@ -56,6 +58,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   files: _files,
   userName,
   onProposeCode,
+  onClose,
 }) => {
   // Key configuration state
   const [config, setConfig] = useState<UserAIConfig | null>(() => getStoredAIConfig());
@@ -307,6 +310,17 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           >
             <Key size={13} />
           </button>
+
+          {onClose && (
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={onClose}
+              title="Close AI Assistant"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
