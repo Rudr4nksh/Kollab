@@ -386,10 +386,17 @@ Type 'help' for shell commands or click '▶ Run' to compile & execute code dire
     gh auth login <token>  Authenticate with GitHub Personal Access Token
     gh repo create <name>  Create a new repository on your GitHub account
 
-  Execution & General:
-    node <file>       Execute JavaScript with Node.js engine
-    python <file>     Execute Python code
-    run               Execute current active editor file
+  Execution & Languages:
+    run [file]        Execute active file or specified file with interactive stdin
+    node <file>       Execute JavaScript / TypeScript (.js, .ts)
+    python <file>     Execute Python script (.py)
+    g++, gcc <file>   Compile & execute C++ / C programs (.cpp, .c)
+    java, javac       Compile & run Java classes (.java)
+    go run <file>     Execute Go programs (.go)
+    rustc <file>      Compile & execute Rust programs (.rs)
+    php <file>        Execute PHP script (.php)
+    ruby <file>       Execute Ruby script (.rb)
+    bash, sh <file>   Execute Shell scripts (.sh)
     clear, cls        Clear terminal output
     whoami            Print current collaborator username
     date              Print current date and time`, 'info');
@@ -978,6 +985,106 @@ These are common Git commands:
         break;
       }
 
+      case 'java':
+      case 'javac': {
+        const javaFile = args[0] || (activeFilePath?.endsWith('.java') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!javaFile) {
+          addOut(`java: fatal error: no java file specified\nType 'java <Main.java>' or 'run' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, javaFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`java: error: ${javaFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
+      case 'go': {
+        const sub = args[0];
+        const goFile = (sub === 'run' ? args[1] : sub) || (activeFilePath?.endsWith('.go') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!goFile) {
+          addOut(`go: no Go file specified\nType 'go run <file.go>' or 'run' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, goFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`go: ${goFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
+      case 'rust':
+      case 'rustc': {
+        const rustFile = args[0] || (activeFilePath?.endsWith('.rs') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!rustFile) {
+          addOut(`rustc: no input files\nType 'rustc <file.rs>' or 'run' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, rustFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`rustc: error: ${rustFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
+      case 'php': {
+        const phpFile = args[0] || (activeFilePath?.endsWith('.php') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!phpFile) {
+          addOut(`php: no file specified\nType 'php <file.php>' or 'run' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, phpFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`php: error: ${phpFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
+      case 'ruby': {
+        const rubyFile = args[0] || (activeFilePath?.endsWith('.rb') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!rubyFile) {
+          addOut(`ruby: no file specified\nType 'ruby <file.rb>' or 'run' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, rubyFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`ruby: error: ${rubyFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
+      case 'bash':
+      case 'sh': {
+        const shFile = args[0] || (activeFilePath?.endsWith('.sh') ? findFileByPath(files, activeFilePath)?.name : '');
+        if (!shFile) {
+          addOut(`bash: no script specified\nType 'bash <script.sh>' to execute.`, 'stderr');
+        } else {
+          const target = normalizePath(cwd, shFile);
+          const node = getNodeAtPath(files, target);
+          if (!node || node.type !== 'file') {
+            addOut(`bash: ${shFile}: No such file or directory`, 'stderr');
+          } else {
+            runCodeInTerminal(node);
+          }
+        }
+        break;
+      }
+
       default: {
         // Check if it's a simple JS expression e.g. 5 + 5 or Math.PI
         try {
@@ -1057,7 +1164,7 @@ These are common Git commands:
       const ghSubcommands = ['auth login', 'auth status', 'auth logout', 'repo create', 'repo view'];
       const commands = [
         'help', 'ls', 'cd', 'pwd', 'cat', 'touch', 'mkdir', 'rm', 'echo', 
-        'node', 'python', 'run', 'tree', 'git', 'gh', 'clear',
+        'node', 'python', 'run', 'g++', 'gcc', 'java', 'javac', 'go', 'rustc', 'php', 'ruby', 'bash', 'tree', 'git', 'gh', 'clear',
         ...gitSubcommands.map((s) => `git ${s}`),
         ...ghSubcommands.map((s) => `gh ${s}`),
       ];
