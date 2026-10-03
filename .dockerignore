@@ -1,0 +1,16 @@
+node_modules
+server/node_modules
+client/node_modules
+client/dist
+server/dist
+.git
+.github
+.gemini
+*.log
+*.tmp
+dev.db
+dev.db-journal
+.env
+.env.local
+.DS_Store
+Thumbs.db

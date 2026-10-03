@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  kollab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kollab-app
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=file:./prod.db
+      # Optional: set when you register your GitHub OAuth app
+      # - GITHUB_CLIENT_ID=your_client_id
+      # - GITHUB_CLIENT_SECRET=your_client_secret
+      # - CLIENT_URL=http://localhost:4000
+    volumes:
+      # Persist SQLite database file across container updates
+      - kollab_data:/app/prisma
+
+volumes:
+  kollab_data:

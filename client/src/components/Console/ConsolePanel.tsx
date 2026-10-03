@@ -17,7 +17,8 @@ import {
   Tablet,
   Smartphone,
   ShieldCheck,
-  Lock
+  Lock,
+  Keyboard
 } from 'lucide-react';
 import type { ConsoleLogItem, FileNode } from '../../types/index.ts';
 import { findFileByPath, getLanguageFromFilename } from '../../services/fileUtils.ts';
@@ -47,6 +48,8 @@ interface ConsolePanelProps {
   roomId?: string;
   activeTab?: 'terminal' | 'output' | 'problems' | 'preview';
   onTabChange?: (tab: 'terminal' | 'output' | 'problems' | 'preview') => void;
+  stdinInput?: string;
+  onStdinChange?: (val: string) => void;
   onCreateFile?: (name: string, parentPath?: string) => void;
   onCreateFolder?: (name: string, parentPath?: string) => void;
   onDeleteNode?: (path: string) => void;
@@ -67,6 +70,8 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   roomId = 'workspace',
   activeTab,
   onTabChange,
+  stdinInput = '',
+  onStdinChange,
   onCreateFile,
   onCreateFolder,
   onDeleteNode,
@@ -77,6 +82,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   const [tab, setInternalTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>(activeTab || 'terminal');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [previewKey, setPreviewKey] = useState(0);
+  const [showStdin, setShowStdin] = useState(false);
 
   useEffect(() => {
     if (activeTab) {
@@ -832,6 +838,7 @@ These are common Git commands:
                   language: cmd === 'gcc' || cmd === 'c' ? 'c' : 'cpp',
                   code: node.content || '',
                   filename: node.name,
+                  input: stdinInput,
                 }),
               });
               const data = await res.json();
@@ -883,6 +890,7 @@ These are common Git commands:
                   language: 'javascript',
                   code: node.content || '',
                   filename: node.name,
+                  input: stdinInput,
                 }),
               });
               const data = await res.json();
@@ -916,6 +924,7 @@ These are common Git commands:
                   language: 'python',
                   code: node.content || '',
                   filename: node.name,
+                  input: stdinInput,
                 }),
               });
               const data = await res.json();
@@ -953,6 +962,7 @@ These are common Git commands:
                 language: lang,
                 code: targetNode.content || '',
                 filename: targetNode.name,
+                input: stdinInput,
               }),
             });
             const data = await res.json();
@@ -1339,27 +1349,84 @@ These are common Git commands:
 
         {/* Output Tab */}
         {tab === 'output' && (
-          <div className={styles.logList}>
-            {logs.length === 0 ? (
-              <div className={styles.emptyLogs}>
-                <span>No output yet. Click ▶ Run in the top bar to execute code.</span>
+          <div className={styles.outputTabContainer}>
+            <div className={styles.outputToolbar}>
+              <div className={styles.outputToolbarLeft}>
+                <span>EXECUTION LOGS</span>
+                {logs.length > 0 && (
+                  <span className={styles.outputCountBadge}>{logs.length}</span>
+                )}
               </div>
-            ) : (
-              logs.map((log) => (
-                <div key={log.id} className={`${styles.logLine} ${styles[log.type]}`}>
-                  <span className={styles.logTime}>{log.timestamp}</span>
-                  <span className={styles.logPrefix}>
-                    {log.type === 'stdout' && '>'}
-                    {log.type === 'stderr' && '✕'}
-                    {log.type === 'info' && 'ℹ'}
-                    {log.type === 'system' && '⚙'}
-                    {log.type === 'result' && '←'}
-                  </span>
-                  <pre className={styles.logText}>{log.text}</pre>
+              <div className={styles.outputToolbarRight}>
+                <button
+                  type="button"
+                  className={`${styles.stdinToggleBtn} ${showStdin ? styles.stdinToggleBtnActive : ''}`}
+                  onClick={() => setShowStdin(!showStdin)}
+                  title="Toggle standard input (stdin) for programs that read cin, input(), Scanner"
+                >
+                  <Keyboard size={12} />
+                  <span>Custom Input (stdin)</span>
+                  {stdinInput.trim().length > 0 && <span className={styles.stdinDot} />}
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.outputBody}>
+              <div className={styles.logList}>
+                {logs.length === 0 ? (
+                  <div className={styles.emptyLogs}>
+                    <span>No output yet. Click ▶ Run in the top bar to execute code.</span>
+                  </div>
+                ) : (
+                  logs.map((log) => (
+                    <div key={log.id} className={`${styles.logLine} ${styles[log.type]}`}>
+                      <span className={styles.logTime}>{log.timestamp}</span>
+                      <span className={styles.logPrefix}>
+                        {log.type === 'stdout' && '>'}
+                        {log.type === 'stderr' && '✕'}
+                        {log.type === 'info' && 'ℹ'}
+                        {log.type === 'system' && '⚙'}
+                        {log.type === 'result' && '←'}
+                      </span>
+                      <pre className={styles.logText}>{log.text}</pre>
+                    </div>
+                  ))
+                )}
+                <div ref={logsEndRef} />
+              </div>
+
+              {showStdin && (
+                <div className={styles.stdinDrawer}>
+                  <div className={styles.stdinDrawerHeader}>
+                    <div className={styles.stdinDrawerTitle}>
+                      <Terminal size={11} />
+                      <span>STANDARD INPUT (STDIN)</span>
+                    </div>
+                    {stdinInput.length > 0 && (
+                      <button
+                        type="button"
+                        className={styles.stdinClearBtn}
+                        onClick={() => onStdinChange?.('')}
+                        title="Clear standard input"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    className={styles.stdinTextarea}
+                    placeholder="Type or paste input for cin >> x, scanf, input(), Scanner..."
+                    value={stdinInput}
+                    onChange={(e) => onStdinChange?.(e.target.value)}
+                    spellCheck={false}
+                  />
+                  <div className={styles.stdinFooter}>
+                    <span>{stdinInput ? `${stdinInput.split('\n').length} line(s)` : 'Piped to stdin'}</span>
+                    <span>{stdinInput.length} chars</span>
+                  </div>
                 </div>
-              ))
-            )}
-            <div ref={logsEndRef} />
+              )}
+            </div>
           </div>
         )}
 

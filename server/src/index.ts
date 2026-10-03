@@ -3,6 +3,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from './database/prisma.js';
 
 dotenv.config();
@@ -63,6 +65,21 @@ app.get('/api/health', async (_req, res) => {
     res.status(500).json({ status: 'error', message: (error as Error).message });
   }
 });
+
+// In production, serve the built Vite client frontend directly from Express
+const clientDist = fs.existsSync(path.resolve(process.cwd(), 'client/dist'))
+  ? path.resolve(process.cwd(), 'client/dist')
+  : path.resolve(__dirname, '../../client/dist');
+
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 server.listen(PORT, () => {
   console.log(`[Kollab Server] running on http://localhost:${PORT}`);
