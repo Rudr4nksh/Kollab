@@ -25,6 +25,13 @@ export function getStoredAIConfig(): UserAIConfig | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.apiKey || !parsed.provider) return null;
+
+    // Auto-heal legacy or retired model names
+    if (parsed.model === 'gemini-2.5-flash') {
+      parsed.model = 'gemini-2.0-flash';
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    }
+
     return parsed as UserAIConfig;
   } catch {
     return null;
@@ -56,7 +63,7 @@ export function getDefaultModelForProvider(provider: AIProvider): string {
     case 'claude':
       return 'claude-3-5-sonnet-20241022';
     case 'gemini':
-      return 'gemini-2.5-flash';
+      return 'gemini-2.0-flash';
     case 'openai':
       return 'gpt-4o-mini';
     default:
