@@ -1,10 +1,10 @@
 /**
  * Kollab AI Service (BYOK - Bring Your Own Key)
  * 
- * Verified & tested with:
- * - Google Gemini (gemini-2.0-flash / gemini-1.5-flash with auto-fallback)
- * - Anthropic Claude (claude-3-5-sonnet-20241022 / claude-3-5-haiku with alternating message sanitization)
- * - OpenAI (gpt-4o-mini / gpt-4o)
+ * Auto-fallback and resilient multi-model routing for:
+ * - Google Gemini (gemini-1.5-flash, gemini-1.5-pro, gemini-2.0-flash)
+ * - Anthropic Claude (claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-haiku-20240307)
+ * - OpenAI (gpt-4o-mini, gpt-4o, gpt-3.5-turbo)
  */
 
 export interface AIChatContext {
@@ -73,7 +73,7 @@ export class AIService {
       serverConfigured: hasServerKey,
       supportedProviders: [
         { id: 'claude', name: 'Anthropic Claude', defaultModel: 'claude-3-5-sonnet-20241022' },
-        { id: 'gemini', name: 'Google Gemini', defaultModel: 'gemini-2.0-flash' },
+        { id: 'gemini', name: 'Google Gemini', defaultModel: 'gemini-1.5-flash' },
         { id: 'openai', name: 'OpenAI', defaultModel: 'gpt-4o-mini' },
       ],
     };
@@ -137,9 +137,8 @@ export class AIService {
 
     let defaultModel = 'claude-3-5-sonnet-20241022';
     if (provider === 'gemini') {
-      // Auto-heal legacy or typo names
-      if (!req.userModel || req.userModel === 'gemini-2.5-flash') {
-        defaultModel = 'gemini-2.0-flash';
+      if (!req.userModel || req.userModel.includes('2.5')) {
+        defaultModel = 'gemini-1.5-flash';
       } else {
         defaultModel = req.userModel;
       }
@@ -157,40 +156,55 @@ export class AIService {
   }
 
   // ==========================================
-  // Claude (Anthropic API)
+  // Claude (Anthropic API) with candidate fallback
   // ==========================================
   private async chatWithClaude(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const messages = this.sanitizeClaudeMessages(req.conversationHistory, req.prompt);
 
-    let activeModel = model;
-    let response = await this.callClaudeAPI(apiKey, activeModel, systemPrompt, messages);
+    const candidates = [
+      model,
+      'claude-3-5-sonnet-20241022',
+      'claude-3-5-haiku-20241022',
+      'claude-3-haiku-20240307',
+    ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-    // Auto-fallback if model not found on user account
-    if (!response.ok && (response.status === 404 || response.status === 400)) {
-      const errText = await response.clone().text();
-      if (errText.includes('model') || response.status === 404) {
-        const fallback = activeModel.includes('haiku') ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022';
-        const retryRes = await this.callClaudeAPI(apiKey, fallback, systemPrompt, messages);
-        if (retryRes.ok) {
-          response = retryRes;
-          activeModel = fallback;
+    let lastError: Error | null = null;
+    let successfulData: any = null;
+    let usedModel = candidates[0];
+
+    for (const cand of candidates) {
+      try {
+        const response = await this.callClaudeAPI(apiKey, cand, systemPrompt, messages);
+        if (response.ok) {
+          successfulData = (await response.json()) as any;
+          usedModel = cand;
+          lastError = null;
+          break;
+        } else {
+          const errText = await response.text();
+          let parsed = errText;
+          try {
+            const json = JSON.parse(errText);
+            parsed = json.error?.message || errText;
+          } catch {}
+          lastError = new Error(`Claude error (${response.status}): ${parsed}`);
+          if (response.status === 404 || parsed.includes('not_found') || parsed.includes('model')) {
+            continue; // try next candidate
+          } else {
+            break; // auth or quota error, stop
+          }
         }
+      } catch (err: any) {
+        lastError = err;
       }
     }
 
-    if (!response.ok) {
-      const errText = await response.text();
-      let parsed = errText;
-      try {
-        const json = JSON.parse(errText);
-        parsed = json.error?.message || errText;
-      } catch {}
-      throw new Error(`Claude error (${response.status}): ${parsed}`);
+    if (!successfulData) {
+      throw lastError || new Error('Claude request failed.');
     }
 
-    const data = (await response.json()) as any;
-    const replyText = data.content?.[0]?.text || '';
+    const replyText = successfulData.content?.[0]?.text || '';
     const extracted = this.extractCodeBlock(replyText);
 
     return {
@@ -198,7 +212,7 @@ export class AIService {
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'claude',
-      model: activeModel,
+      model: usedModel,
     };
   }
 
@@ -228,7 +242,6 @@ export class AIService {
     }
     raw.push({ role: 'user', content: prompt.trim() });
 
-    // Anthropic requires the first message to be user
     while (raw.length > 0 && raw[0].role !== 'user') {
       raw.shift();
     }
@@ -236,7 +249,6 @@ export class AIService {
       raw.push({ role: 'user', content: prompt.trim() });
     }
 
-    // Merge consecutive messages with the same role
     const merged: Array<{ role: 'user' | 'assistant'; content: string }> = [];
     for (const item of raw) {
       if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
@@ -276,42 +288,88 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
   }
 
   // ==========================================
-  // Gemini (Google AI API)
+  // Gemini (Google AI API) with candidate fallback & dynamic discovery
   // ==========================================
   private async chatWithGemini(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const contents = this.sanitizeGeminiContents(req.conversationHistory, req.prompt);
 
-    // Auto-heal legacy or typo model
-    let activeModel = model;
-    if (activeModel === 'gemini-2.5-flash') {
-      activeModel = 'gemini-2.0-flash';
+    // Build candidates pool, strictly filtering out discontinued 2.5
+    const candidates: string[] = [
+      model,
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-3.8-flash',
+      'gemini-1.5-pro',
+    ].filter((m, i, arr) => m && arr.indexOf(m) === i && !m.includes('2.5'));
+
+    if (candidates.length === 0) {
+      candidates.push('gemini-1.5-flash');
     }
 
-    let response = await this.callGeminiAPI(apiKey, activeModel, systemPrompt, contents);
+    let lastError: Error | null = null;
+    let successfulData: any = null;
+    let usedModel = candidates[0];
+    const attempted = new Set<string>();
 
-    // Auto-fallback from 2.0-flash to 1.5-flash if 404/400
-    if (!response.ok && (response.status === 404 || response.status === 400)) {
-      const fallback = activeModel === 'gemini-2.0-flash' ? 'gemini-1.5-flash' : 'gemini-2.0-flash';
-      const retryRes = await this.callGeminiAPI(apiKey, fallback, systemPrompt, contents);
-      if (retryRes.ok) {
-        response = retryRes;
-        activeModel = fallback;
+    while (candidates.length > 0) {
+      const cand = candidates.shift()!;
+      if (attempted.has(cand)) continue;
+      attempted.add(cand);
+
+      try {
+        console.log(`[AIService] Calling Gemini API with model: ${cand}`);
+        const response = await this.callGeminiAPI(apiKey, cand, systemPrompt, contents);
+        if (response.ok) {
+          successfulData = (await response.json()) as any;
+          usedModel = cand;
+          lastError = null;
+          console.log(`[AIService] Gemini request succeeded with model: ${cand}`);
+          break;
+        } else {
+          const errText = await response.text();
+          let parsed = errText;
+          try {
+            const json = JSON.parse(errText);
+            parsed = json.error?.message || errText;
+          } catch {}
+
+          console.warn(`[AIService] Gemini model "${cand}" returned HTTP ${response.status}: ${parsed}`);
+          lastError = new Error(`Gemini error (${response.status}): ${parsed}`);
+
+          // If Google recommends a specific newer model in the error message, queue it dynamically
+          const recModelMatch = parsed.match(/models\/([a-zA-Z0-9._-]+)/i);
+          if (recModelMatch && recModelMatch[1] && !recModelMatch[1].includes('2.5')) {
+            const recommended = recModelMatch[1];
+            if (!attempted.has(recommended)) {
+              console.log(`[AIService] Google suggested alternative model: ${recommended}. Queuing retry...`);
+              candidates.unshift(recommended);
+            }
+          }
+
+          const isModelAvailabilityError = 
+            response.status === 404 || 
+            parsed.includes('not found') || 
+            parsed.includes('no longer available') ||
+            parsed.includes('deprecated') ||
+            (response.status === 400 && !parsed.includes('API key') && !parsed.includes('API_KEY'));
+
+          if (isModelAvailabilityError) {
+            continue; // try next candidate model
+          } else {
+            break; // auth failure, quota exhaustion, etc. stop immediately
+          }
+        }
+      } catch (err: any) {
+        lastError = err;
       }
     }
 
-    if (!response.ok) {
-      const errText = await response.text();
-      let parsed = errText;
-      try {
-        const json = JSON.parse(errText);
-        parsed = json.error?.message || errText;
-      } catch {}
-      throw new Error(`Gemini error (${response.status}): ${parsed}`);
+    if (!successfulData) {
+      throw lastError || new Error('Gemini request failed.');
     }
 
-    const data = (await response.json()) as any;
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const replyText = successfulData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const extracted = this.extractCodeBlock(replyText);
 
     return {
@@ -319,12 +377,13 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'gemini',
-      model: activeModel,
+      model: usedModel,
     };
   }
 
   private async callGeminiAPI(apiKey: string, model: string, systemPrompt: string, contents: any[]) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const cleanModel = model.replace(/^models\//, '');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
     return await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -348,7 +407,6 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
     }
     raw.push({ role: 'user', text: prompt.trim() });
 
-    // First content must be user
     while (raw.length > 0 && raw[0].role !== 'user') {
       raw.shift();
     }
@@ -356,7 +414,6 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       raw.push({ role: 'user', text: prompt.trim() });
     }
 
-    // Merge consecutive messages with the same role
     const merged: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
     for (const item of raw) {
       if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
@@ -396,37 +453,55 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
   }
 
   // ==========================================
-  // OpenAI (GPT-4o / GPT-4o-mini)
+  // OpenAI (GPT-4o / GPT-4o-mini) with candidate fallback
   // ==========================================
   private async chatWithOpenAI(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const messages = this.sanitizeOpenAIMessages(systemPrompt, req.conversationHistory, req.prompt);
 
-    let activeModel = model;
-    let response = await this.callOpenAIAPI(apiKey, activeModel, messages);
+    const candidates = [
+      model,
+      'gpt-4o-mini',
+      'gpt-4o',
+      'gpt-3.5-turbo',
+    ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-    // Auto-fallback if requested model is unavailable
-    if (!response.ok && (response.status === 404 || response.status === 400)) {
-      const fallback = activeModel === 'gpt-4o-mini' ? 'gpt-4o' : 'gpt-4o-mini';
-      const retryRes = await this.callOpenAIAPI(apiKey, fallback, messages);
-      if (retryRes.ok) {
-        response = retryRes;
-        activeModel = fallback;
+    let lastError: Error | null = null;
+    let successfulData: any = null;
+    let usedModel = candidates[0];
+
+    for (const cand of candidates) {
+      try {
+        const response = await this.callOpenAIAPI(apiKey, cand, messages);
+        if (response.ok) {
+          successfulData = (await response.json()) as any;
+          usedModel = cand;
+          lastError = null;
+          break;
+        } else {
+          const errText = await response.text();
+          let parsed = errText;
+          try {
+            const json = JSON.parse(errText);
+            parsed = json.error?.message || errText;
+          } catch {}
+          lastError = new Error(`OpenAI error (${response.status}): ${parsed}`);
+          if (response.status === 404 || parsed.includes('model_not_found') || parsed.includes('does not exist')) {
+            continue; // try next candidate
+          } else {
+            break; // auth or quota error, stop
+          }
+        }
+      } catch (err: any) {
+        lastError = err;
       }
     }
 
-    if (!response.ok) {
-      const errText = await response.text();
-      let parsed = errText;
-      try {
-        const json = JSON.parse(errText);
-        parsed = json.error?.message || errText;
-      } catch {}
-      throw new Error(`OpenAI error (${response.status}): ${parsed}`);
+    if (!successfulData) {
+      throw lastError || new Error('OpenAI request failed.');
     }
 
-    const data = (await response.json()) as any;
-    const replyText = data.choices?.[0]?.message?.content || '';
+    const replyText = successfulData.choices?.[0]?.message?.content || '';
     const extracted = this.extractCodeBlock(replyText);
 
     return {
@@ -434,7 +509,7 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'openai',
-      model: activeModel,
+      model: usedModel,
     };
   }
 

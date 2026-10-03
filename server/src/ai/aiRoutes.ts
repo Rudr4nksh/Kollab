@@ -21,6 +21,8 @@ aiRouter.post('/chat', async (req, res) => {
     const userProvider = ((req.headers['x-user-ai-provider'] as string) || req.body.userProvider) as any;
     const userModel = (req.headers['x-user-ai-model'] as string) || req.body.userModel;
 
+    console.log(`[AIRoutes] Incoming chat request: provider=${userProvider || 'auto'}, model=${userModel || 'default'}, prompt="${prompt.trim().slice(0, 40)}..."`);
+
     const payload: AIChatRequest = {
       prompt: prompt.trim(),
       context,
@@ -33,8 +35,10 @@ aiRouter.post('/chat', async (req, res) => {
     };
 
     const response = await aiService.chat(payload);
+    console.log(`[AIRoutes] Chat succeeded with provider=${response.provider}, model=${response.model}`);
     res.json(response);
   } catch (error: any) {
+    console.error(`[AIRoutes] Chat failed: ${error.message}`);
     res.status(400).json({ error: error.message || 'AI request failed' });
   }
 });

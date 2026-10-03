@@ -17,7 +17,8 @@ import {
   EyeOff,
   Trash2,
   ChevronLeft,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
 import { sendAIChat } from '../../services/api.ts';
 import { 
@@ -110,6 +111,33 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     setIsConfiguringKey(false);
     setInputApiKey('');
     setKeyError(null);
+
+    // Refresh chat greeting upon successful connection
+    const providerName = selectedProvider === 'claude' 
+      ? 'Claude' 
+      : selectedProvider === 'gemini' 
+      ? 'Google Gemini' 
+      : 'OpenAI';
+
+    setMessages([
+      {
+        id: 'connected_' + Date.now(),
+        role: 'assistant',
+        content: `Connected to ${providerName} successfully! Ready to assist with your code, debugging, and algorithms.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  };
+
+  const handleClearMessages = () => {
+    setMessages([
+      {
+        id: 'welcome_' + Date.now(),
+        role: 'assistant',
+        content: `Chat history cleared. How can I assist you with your project?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
   };
 
   const handleRemoveKey = () => {
@@ -258,6 +286,17 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
               <span className={styles.activeDot} />
               <span>{providerLabel}</span>
             </span>
+          )}
+
+          {!isConfiguringKey && (
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={handleClearMessages}
+              title="Clear Conversation"
+            >
+              <RotateCcw size={12} />
+            </button>
           )}
 
           <button

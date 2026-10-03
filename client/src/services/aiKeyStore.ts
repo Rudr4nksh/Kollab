@@ -19,6 +19,20 @@ export interface UserAIConfig {
 
 const STORAGE_KEY = 'kollab_user_ai_config';
 
+// Immediate self-heal on evaluation to sanitize any legacy model strings
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const rawInit = localStorage.getItem(STORAGE_KEY);
+    if (rawInit) {
+      const parsedInit = JSON.parse(rawInit);
+      if (parsedInit?.provider === 'gemini' && (parsedInit?.model?.includes('2.5') || !parsedInit?.model)) {
+        parsedInit.model = 'gemini-1.5-flash';
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsedInit));
+      }
+    }
+  }
+} catch {}
+
 export function getStoredAIConfig(): UserAIConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -27,8 +41,8 @@ export function getStoredAIConfig(): UserAIConfig | null {
     if (!parsed || !parsed.apiKey || !parsed.provider) return null;
 
     // Auto-heal legacy or retired model names
-    if (parsed.model === 'gemini-2.5-flash') {
-      parsed.model = 'gemini-2.0-flash';
+    if (parsed.provider === 'gemini' && (parsed.model?.includes('2.5') || !parsed.model)) {
+      parsed.model = 'gemini-1.5-flash';
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
     }
 
@@ -63,7 +77,7 @@ export function getDefaultModelForProvider(provider: AIProvider): string {
     case 'claude':
       return 'claude-3-5-sonnet-20241022';
     case 'gemini':
-      return 'gemini-2.0-flash';
+      return 'gemini-1.5-flash';
     case 'openai':
       return 'gpt-4o-mini';
     default:
