@@ -136,8 +136,8 @@ export class CodeRunnerService {
         };
       }
 
-      // 2. Execute compiled binary (with 5-second runtime limit to prevent infinite loops)
-      const runResult = await this.spawnProcess(binFile, [], input, env, 5000);
+      // 2. Execute compiled binary (with 10-second runtime limit to prevent infinite loops)
+      const runResult = await this.spawnProcess(binFile, [], input, env, 10000);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -182,7 +182,7 @@ export class CodeRunnerService {
         };
       }
 
-      const runResult = await this.spawnProcess(binFile, [], input, env, 5000);
+      const runResult = await this.spawnProcess(binFile, [], input, env, 10000);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -209,7 +209,7 @@ export class CodeRunnerService {
     try {
       const isWin = process.platform === 'win32';
       const pyCmd = isWin ? 'python' : 'python3';
-      const runResult = await this.spawnProcess(pyCmd, ['-u', pyFile], input, env, 5000);
+      const runResult = await this.spawnProcess(pyCmd, ['-u', pyFile], input, env, 10000);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -233,7 +233,7 @@ export class CodeRunnerService {
     const startTime = Date.now();
 
     try {
-      const runResult = await this.spawnProcess('node', [jsFile], input, env, 5000);
+      const runResult = await this.spawnProcess('node', [jsFile], input, env, 10000);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -279,7 +279,7 @@ export class CodeRunnerService {
         };
       }
 
-      const runResult = await this.spawnProcess('java', [className], input, env, 5000, javaDir);
+      const runResult = await this.spawnProcess('java', [className], input, env, 10000, javaDir);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -301,7 +301,7 @@ export class CodeRunnerService {
     args: string[],
     input: string,
     env: NodeJS.ProcessEnv,
-    timeoutMs = 5000,
+    timeoutMs = 10000,
     cwd = this.tempDir
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     return new Promise((resolve) => {
@@ -316,11 +316,18 @@ export class CodeRunnerService {
 
       const timer = setTimeout(() => {
         isTimedOut = true;
-        child.kill('SIGKILL');
+        if (process.platform === 'win32' && child.pid) {
+          exec(`taskkill /pid ${child.pid} /T /F`, () => {});
+        } else {
+          child.kill('SIGKILL');
+        }
       }, timeoutMs);
 
-      if (input && child.stdin) {
-        child.stdin.write(input);
+      // Always pipe input (if any) and immediately close stdin with EOF so cin/scanf/input() don't hang
+      if (child.stdin) {
+        if (input) {
+          child.stdin.write(input);
+        }
         child.stdin.end();
       }
 
@@ -341,7 +348,7 @@ export class CodeRunnerService {
         if (isTimedOut) {
           resolve({
             stdout,
-            stderr: stderr + `\n[Time Limit Exceeded]: Process terminated after ${timeoutMs / 1000}s.`,
+            stderr: (stderr ? stderr + '\n' : '') + `[Time Limit Exceeded]: Process terminated after ${timeoutMs / 1000}s.\nTip: If your program expects inputs (e.g. cin, scanf, input()), enter them into the "Custom Input (stdin)" tab before clicking Run.`,
             exitCode: 124,
           });
         } else {

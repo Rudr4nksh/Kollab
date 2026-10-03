@@ -485,8 +485,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           id: 'stat_' + Date.now(),
           type: data.exitCode === 0 ? 'system' : 'stderr',
           text: data.exitCode === 0
-            ? `✓ [Process finished with exit code 0 in ${data.executionTimeMs}ms]`
-            : `✕ [Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
+            ? `[Process finished with exit code 0 in ${data.executionTimeMs}ms]`
+            : `[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
           timestamp: finishTime,
         },
       ]);
