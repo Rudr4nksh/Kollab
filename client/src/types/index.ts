@@ -148,3 +148,21 @@ export interface ConsoleLogItem {
   text: string;
   timestamp: string;
 }
+
+export interface AIProviderStatus {
+  configured: boolean;
+  provider: 'claude' | 'gemini' | 'openai' | 'kollab-engine';
+  displayName: string;
+  model: string;
+}
+
+export interface AIProposal {
+  id: string;
+  filePath: string;
+  originalCode: string;
+  proposedCode: string;
+  explanation: string;
+  requestedBy: string;
+  timestamp: number;
+}
+

@@ -32,11 +32,13 @@ app.use((_req, res, next) => {
 import { roomRouter } from './rooms/roomRoutes.js';
 import { githubAuthRouter } from './auth/githubAuth.js';
 import { runnerRouter } from './runner/runnerRoutes.js';
+import { aiRouter } from './ai/aiRoutes.js';
 
 app.use(express.json({ limit: '10mb' }));
 app.use('/api/rooms', roomRouter);
 app.use('/api/auth/github', githubAuthRouter);
 app.use('/api/runner', runnerRouter);
+app.use('/api/ai', aiRouter);
 
 import { setupSocketIO } from './socket/roomSocket.js';
 

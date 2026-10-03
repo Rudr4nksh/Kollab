@@ -2,6 +2,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { prisma } from '../database/prisma.js';
 import { RoomService } from '../rooms/RoomService.js';
 import { interactiveRunner } from '../runner/interactiveRunner.js';
+import { aiService } from '../ai/aiService.js';
 import type { 
   Participant, 
   FileNode, 
@@ -316,7 +317,7 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
-    // In-room Group Text Chat
+    // In-room Group Text Chat & Collaborative @ai Bot
     socket.on('chat-message', (data: {
       roomId: string;
       userId: string;
@@ -327,13 +328,14 @@ export function setupSocketIO(io: SocketIOServer) {
       const session = activeRooms.get(roomIdKey);
       if (session && text.trim().length > 0) {
         const participant = session.participants.get(socket.id);
+        const trimmedText = text.trim();
         const message: ChatMessage = {
           id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
           roomId: roomIdKey,
           userId,
           userName: participant?.name || 'Collaborator',
           userColor: participant?.color || '#7357E8',
-          text: text.trim().slice(0, 1000), // Max 1000 chars per message
+          text: trimmedText.slice(0, 1000), // Max 1000 chars per message
           timestamp: Date.now(),
         };
 
@@ -343,6 +345,47 @@ export function setupSocketIO(io: SocketIOServer) {
         }
 
         io.to(roomIdKey).emit('chat-message', message);
+
+        // Collaborative @ai trigger
+        if (trimmedText.toLowerCase().startsWith('@ai')) {
+          const aiPrompt = trimmedText.replace(/^@ai\s*/i, '').trim();
+          if (aiPrompt) {
+            const activeFile = session.files.find((f) => f.type === 'file' && f.content);
+            setTimeout(async () => {
+              try {
+                const aiRes = await aiService.chat({
+                  prompt: aiPrompt,
+                  context: activeFile
+                    ? {
+                        activeFile: activeFile.path,
+                        language: activeFile.language,
+                        activeCode: activeFile.content,
+                      }
+                    : undefined,
+                  userName: participant?.name,
+                });
+
+                const aiMsg: ChatMessage = {
+                  id: 'msg_ai_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+                  roomId: roomIdKey,
+                  userId: 'kollab_ai_bot',
+                  userName: 'Kollab AI ✦',
+                  userColor: '#a855f7',
+                  text: aiRes.reply,
+                  timestamp: Date.now(),
+                };
+
+                session.messages.push(aiMsg);
+                if (session.messages.length > 100) {
+                  session.messages.shift();
+                }
+                io.to(roomIdKey).emit('chat-message', aiMsg);
+              } catch (e: any) {
+                console.error('[Room AI Bot Error]:', e);
+              }
+            }, 300);
+          }
+        }
       }
     });
 

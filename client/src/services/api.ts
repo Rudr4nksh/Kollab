@@ -87,3 +87,53 @@ export async function getRoomActivities(roomId: string): Promise<ActivityEvent[]
   }
   return data;
 }
+
+export async function getAIStatus() {
+  const res = await fetch(`${API_BASE}/ai/status`);
+  if (!res.ok) {
+    return { configured: false, provider: 'kollab-engine', displayName: 'Kollab Assistant', model: 'v1' };
+  }
+  return res.json();
+}
+
+export async function sendAIChat(payload: {
+  prompt: string;
+  context?: {
+    activeFile?: string;
+    language?: string;
+    activeCode?: string;
+    selection?: string;
+  };
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  userName?: string;
+}) {
+  const res = await fetch(`${API_BASE}/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'AI request failed');
+  }
+  return data;
+}
+
+export async function sendAIRefactor(payload: {
+  code: string;
+  language: string;
+  instruction: string;
+  filename?: string;
+}) {
+  const res = await fetch(`${API_BASE}/ai/refactor`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'AI refactor failed');
+  }
+  return data;
+}
+

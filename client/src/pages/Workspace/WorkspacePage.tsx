@@ -15,7 +15,8 @@ import {
   Upload,
   FileCode,
   MessageSquare,
-  Terminal
+  Terminal,
+  Sparkles
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -23,6 +24,8 @@ import { CodeEditor } from '../../components/Editor/CodeEditor.tsx';
 import { ConsolePanel } from '../../components/Console/ConsolePanel.tsx';
 import { ParticipantList } from '../../components/Participants/ParticipantList.tsx';
 import { ActivityFeed } from '../../components/ActivityFeed/ActivityFeed.tsx';
+import { AIAssistantPanel } from '../../components/AIAssistant/AIAssistantPanel.tsx';
+import { AIDiffReviewModal } from '../../components/AIAssistant/AIDiffReviewModal.tsx';
 import { RoomSettingsModal } from '../../components/RoomJoin/RoomSettingsModal.tsx';
 import { DiscordPanel } from '../../components/DiscordChat/DiscordPanel.tsx';
 import { ToastContainer, ToastMessage } from '../../components/UI/Toast.tsx';
@@ -34,7 +37,8 @@ import type {
   ConsoleLogItem,
   SupportedLanguage,
   ChatMessage,
-  VoiceParticipant
+  VoiceParticipant,
+  AIProposal
 } from '../../types/index.ts';
 import { 
   findFileByPath, 
@@ -87,7 +91,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   onSendMessage,
 }) => {
   // Activity bar active tool
-  const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
+  const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity' | 'ai'>('files');
+  const [activeProposal, setActiveProposal] = useState<AIProposal | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -231,6 +236,27 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       prev.map((f) => (f.path === activeFilePath ? { ...f, content: newContent } : f))
     );
     socketService.emitFileContentChange(roomId, activeFilePath, newContent, userId);
+  };
+
+  // Safe Multi-User AI Proposal Applicator
+  const handleApplyProposal = (proposal: AIProposal) => {
+    const targetPath = proposal.filePath;
+    const updated = updateFileContentInTree(files, targetPath, proposal.proposedCode);
+    onFilesChange(updated);
+    setOpenFiles((prev) =>
+      prev.map((f) => (f.path === targetPath ? { ...f, content: proposal.proposedCode } : f))
+    );
+    socketService.emitFileContentChange(roomId, targetPath, proposal.proposedCode, userId);
+    setActiveProposal(null);
+
+    if (onRecordActivity) {
+      onRecordActivity('edit', `applied AI code proposal to ${targetPath}`);
+    }
+    socketService.emitChatMessage(
+      roomId,
+      userId,
+      `✨ Applied AI code proposal to ${targetPath}`
+    );
   };
 
   // Create new file
@@ -559,6 +585,18 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             </div>
 
             <div
+              className={`${styles.activityIcon} ${activeTool === 'ai' ? styles.activeActivity : ''}`}
+              onClick={() => {
+                setActiveTool('ai');
+                setIsSidebarOpen(true);
+              }}
+              title="AI Assistant (Claude / Gemini / Antigravity)"
+            >
+              {activeTool === 'ai' && <span className={styles.activePill} />}
+              <Sparkles size={16} />
+            </div>
+
+            <div
               className={`${styles.activityIcon} ${consoleOpen ? styles.activeActivity : ''}`}
               onClick={() => setConsoleOpen(!consoleOpen)}
               title="Terminal (VS Code Shell)"
@@ -610,6 +648,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             )}
             {activeTool === 'activity' && (
               <ActivityFeed activities={activities} />
+            )}
+            {activeTool === 'ai' && (
+              <AIAssistantPanel
+                activeFile={activeFile}
+                files={files}
+                userName={displayName}
+                onProposeCode={(prop) => setActiveProposal(prop)}
+              />
             )}
           </aside>
         )}
@@ -792,6 +838,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         roomId={roomId}
         isHost={isHost}
         hasPasscode={hasPasscode}
+      />
+
+      {/* Collision-Free AI Diff & Review Modal */}
+      <AIDiffReviewModal
+        proposal={activeProposal}
+        onApply={handleApplyProposal}
+        onDismiss={() => setActiveProposal(null)}
       />
 
       <ToastContainer toasts={toasts} onDismiss={onDismissToast} />
