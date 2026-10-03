@@ -45,10 +45,18 @@ ENV PORT=4000
 # - build-essential (gcc, g++, make) for C and C++17
 # - python3 for Python execution
 # - default-jdk-headless for Java (javac and java)
+# - golang-go for Go execution
+# - rustc for Rust execution
+# - php-cli for PHP execution
+# - ruby for Ruby execution
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
     default-jdk-headless \
+    golang-go \
+    rustc \
+    php-cli \
+    ruby \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

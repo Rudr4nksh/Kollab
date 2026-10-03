@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { exec, spawn } from 'child_process';
+import { exec, execSync, spawn } from 'child_process';
 
 export interface CodeExecutionRequest {
   language: string;
@@ -76,19 +76,50 @@ export class CodeRunnerService {
 
       case 'javascript':
       case 'js':
+      case 'mjs':
+      case 'cjs':
+        res = await this.runNode(id, req.code, req.input, safeEnv, false);
+        break;
+
       case 'typescript':
       case 'ts':
-        res = await this.runNode(id, req.code, req.input, safeEnv);
+      case 'tsx':
+        res = await this.runNode(id, req.code, req.input, safeEnv, true);
         break;
 
       case 'java':
         res = await this.runJava(id, req.code, req.input, safeEnv);
         break;
 
+      case 'rust':
+      case 'rs':
+        res = await this.runRust(id, req.code, req.input, safeEnv);
+        break;
+
+      case 'go':
+      case 'golang':
+        res = await this.runGo(id, req.code, req.input, safeEnv);
+        break;
+
+      case 'php':
+        res = await this.runPhp(id, req.code, req.input, safeEnv);
+        break;
+
+      case 'ruby':
+      case 'rb':
+        res = await this.runRuby(id, req.code, req.input, safeEnv);
+        break;
+
+      case 'shell':
+      case 'bash':
+      case 'sh':
+        res = await this.runBash(id, req.code, req.input, safeEnv);
+        break;
+
       default:
         return {
           stdout: '',
-          stderr: `Language '${lang}' execution is not supported on this runner. Supported: cpp, c, python, javascript, typescript, java.`,
+          stderr: `Language '${lang}' execution is not supported on this runner. Supported: cpp, c, python, javascript, typescript, java, rust, go, php, ruby, shell.`,
           exitCode: 1,
           executionTimeMs: 0,
         };
@@ -221,19 +252,22 @@ export class CodeRunnerService {
     }
   }
 
-  // --- Node.js Execution ---
+  // --- Node.js & TypeScript Execution ---
   private async runNode(
     id: string,
     code: string,
     input = '',
-    env: NodeJS.ProcessEnv
+    env: NodeJS.ProcessEnv,
+    isTypeScript = false
   ): Promise<CodeExecutionResponse> {
-    const jsFile = path.join(this.tempDir, `${id}.js`);
-    fs.writeFileSync(jsFile, code, 'utf-8');
+    const ext = isTypeScript ? '.ts' : '.js';
+    const srcFile = path.join(this.tempDir, `${id}${ext}`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
     const startTime = Date.now();
 
     try {
-      const runResult = await this.spawnProcess('node', [jsFile], input, env, 10000);
+      const args = isTypeScript ? ['--experimental-strip-types', srcFile] : [srcFile];
+      const runResult = await this.spawnProcess('node', args, input, env, 10000);
       return {
         stdout: runResult.stdout,
         stderr: runResult.stderr,
@@ -241,7 +275,7 @@ export class CodeRunnerService {
         executionTimeMs: Date.now() - startTime,
       };
     } finally {
-      this.safeDelete(jsFile);
+      this.safeDelete(srcFile);
     }
   }
 
@@ -292,6 +326,146 @@ export class CodeRunnerService {
       } catch {
         // Ignore cleanup error
       }
+    }
+  }
+
+  // --- Rust Execution ---
+  private async runRust(
+    id: string,
+    code: string,
+    input = '',
+    env: NodeJS.ProcessEnv
+  ): Promise<CodeExecutionResponse> {
+    const isWin = process.platform === 'win32';
+    const srcFile = path.join(this.tempDir, `${id}.rs`);
+    const binFile = path.join(this.tempDir, isWin ? `${id}.exe` : `${id}.out`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
+    const startTime = Date.now();
+
+    try {
+      const compileCmd = `rustc -O "${srcFile}" -o "${binFile}"`;
+      const compileResult = await new Promise<{ error: Error | null; stderr: string }>((resolve) => {
+        exec(compileCmd, { timeout: 12000, env }, (error, _stdout, stderr) => {
+          resolve({ error, stderr });
+        });
+      });
+
+      if (compileResult.error || !fs.existsSync(binFile)) {
+        return {
+          stdout: '',
+          stderr: compileResult.stderr || 'Rust compilation failed.',
+          exitCode: 1,
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+
+      const runResult = await this.spawnProcess(binFile, [], input, env, 10000);
+      return {
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        exitCode: runResult.exitCode,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } finally {
+      this.safeDelete(srcFile);
+      this.safeDelete(binFile);
+    }
+  }
+
+  // --- Go Execution ---
+  private async runGo(
+    id: string,
+    code: string,
+    input = '',
+    env: NodeJS.ProcessEnv
+  ): Promise<CodeExecutionResponse> {
+    const srcFile = path.join(this.tempDir, `${id}.go`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
+    const startTime = Date.now();
+
+    try {
+      const runResult = await this.spawnProcess('go', ['run', srcFile], input, env, 10000);
+      return {
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        exitCode: runResult.exitCode,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } finally {
+      this.safeDelete(srcFile);
+    }
+  }
+
+  // --- PHP Execution ---
+  private async runPhp(
+    id: string,
+    code: string,
+    input = '',
+    env: NodeJS.ProcessEnv
+  ): Promise<CodeExecutionResponse> {
+    const srcFile = path.join(this.tempDir, `${id}.php`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
+    const startTime = Date.now();
+
+    try {
+      const runResult = await this.spawnProcess('php', [srcFile], input, env, 10000);
+      return {
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        exitCode: runResult.exitCode,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } finally {
+      this.safeDelete(srcFile);
+    }
+  }
+
+  // --- Ruby Execution ---
+  private async runRuby(
+    id: string,
+    code: string,
+    input = '',
+    env: NodeJS.ProcessEnv
+  ): Promise<CodeExecutionResponse> {
+    const srcFile = path.join(this.tempDir, `${id}.rb`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
+    const startTime = Date.now();
+
+    try {
+      const runResult = await this.spawnProcess('ruby', [srcFile], input, env, 10000);
+      return {
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        exitCode: runResult.exitCode,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } finally {
+      this.safeDelete(srcFile);
+    }
+  }
+
+  // --- Bash Execution ---
+  private async runBash(
+    id: string,
+    code: string,
+    input = '',
+    env: NodeJS.ProcessEnv
+  ): Promise<CodeExecutionResponse> {
+    const srcFile = path.join(this.tempDir, `${id}.sh`);
+    fs.writeFileSync(srcFile, code, 'utf-8');
+    const startTime = Date.now();
+    const shCmd = process.platform === 'win32' ? 'bash' : 'sh';
+
+    try {
+      const runResult = await this.spawnProcess(shCmd, [srcFile], input, env, 10000);
+      return {
+        stdout: runResult.stdout,
+        stderr: runResult.stderr,
+        exitCode: runResult.exitCode,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } finally {
+      this.safeDelete(srcFile);
     }
   }
 
@@ -360,11 +534,15 @@ export class CodeRunnerService {
         }
       });
 
-      child.on('error', (err) => {
+      child.on('error', (err: any) => {
         clearTimeout(timer);
+        const isNotFound = err.code === 'ENOENT' || err.message?.includes('ENOENT');
+        const msg = isNotFound
+          ? `[Runner Error]: '${command}' runtime/compiler is not installed on this server.\nPlease install '${command}' on your system or run Kollab inside its pre-configured Docker container where all compilers (C++, Java, Go, Rust, Python, Node, PHP, Ruby) are bundled.`
+          : `Execution error: ${err.message}`;
         resolve({
           stdout,
-          stderr: `Execution error: ${err.message}`,
+          stderr: msg,
           exitCode: 1,
         });
       });

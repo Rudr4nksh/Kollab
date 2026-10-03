@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { exec, spawn, ChildProcess } from 'child_process';
+import { exec, execSync, spawn, ChildProcess } from 'child_process';
 import { Socket } from 'socket.io';
 
 interface ActiveExecution {
@@ -10,6 +10,17 @@ interface ActiveExecution {
   tempDirs: string[];
   timer: NodeJS.Timeout;
   startTime: number;
+}
+
+function commandExists(cmd: string): boolean {
+  try {
+    const isWin = process.platform === 'win32';
+    const checkCmd = isWin ? `where ${cmd}` : `which ${cmd}`;
+    execSync(checkCmd, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getSafeEnvironment(): NodeJS.ProcessEnv {
@@ -119,19 +130,23 @@ export class InteractiveRunnerManager {
         let spawnArgs: string[] = [];
         let cwd = this.tempDir;
 
-        // 1. C++ / C
-        if (lang === 'cpp' || lang === 'c++' || lang === 'c') {
-          const isCpp = lang === 'cpp' || lang === 'c++';
-          const ext = isCpp ? '.cpp' : '.c';
-          const srcFile = path.join(this.tempDir, `${id}${ext}`);
+        // 1. C++ (cpp, c++, cc, cxx)
+        if (lang === 'cpp' || lang === 'c++' || lang === 'cc' || lang === 'cxx') {
+          if (!commandExists('g++')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `g++: C++ compiler 'g++' is not installed or not in PATH.\nTip: Install MinGW/GCC or run Kollab inside Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.cpp`);
           const binFile = path.join(this.tempDir, isWin ? `${id}.exe` : `${id}.out`);
           tempFiles.push(srcFile, binFile);
-
           fs.writeFileSync(srcFile, payload.code, 'utf-8');
 
-          const compiler = isCpp ? 'g++ -O2 -std=c++17 -Wall' : 'gcc -O2 -Wall';
-          const compileCmd = `${compiler} "${srcFile}" -o "${binFile}"`;
-
+          const compileCmd = `g++ -O2 -std=c++17 -Wall "${srcFile}" -o "${binFile}"`;
           const compileResult = await new Promise<{ error: Error | null; stderr: string }>((resolve) => {
             exec(compileCmd, { timeout: 8000, maxBuffer: 512 * 1024, env: safeEnv }, (error, _stdout, stderr) => {
               resolve({ error, stderr });
@@ -142,7 +157,6 @@ export class InteractiveRunnerManager {
             const errText = this.cleanOutput(compileResult.stderr || (compileResult.error ? compileResult.error.message : 'Compilation failed.'), id, payload.filename);
             socket.emit('terminal:output', { type: 'stderr', text: errText.trim() });
             socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: Date.now() - startTime });
-            // Clean files
             tempFiles.forEach((f) => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} });
             return;
           }
@@ -151,18 +165,49 @@ export class InteractiveRunnerManager {
           spawnArgs = [];
         }
 
-        // 2. Python
-        else if (lang === 'python' || lang === 'py') {
-          const srcFile = path.join(this.tempDir, `${id}.py`);
-          tempFiles.push(srcFile);
+        // 2. C (c)
+        else if (lang === 'c') {
+          if (!commandExists('gcc')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `gcc: C compiler 'gcc' is not installed or not in PATH.\nTip: Install MinGW/GCC or run Kollab inside Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.c`);
+          const binFile = path.join(this.tempDir, isWin ? `${id}.exe` : `${id}.out`);
+          tempFiles.push(srcFile, binFile);
           fs.writeFileSync(srcFile, payload.code, 'utf-8');
 
-          spawnCmd = 'python';
-          spawnArgs = ['-u', srcFile];
+          const compileCmd = `gcc -O2 -Wall "${srcFile}" -o "${binFile}"`;
+          const compileResult = await new Promise<{ error: Error | null; stderr: string }>((resolve) => {
+            exec(compileCmd, { timeout: 8000, maxBuffer: 512 * 1024, env: safeEnv }, (error, _stdout, stderr) => {
+              resolve({ error, stderr });
+            });
+          });
+
+          if (compileResult.error || !fs.existsSync(binFile)) {
+            const errText = this.cleanOutput(compileResult.stderr || (compileResult.error ? compileResult.error.message : 'Compilation failed.'), id, payload.filename);
+            socket.emit('terminal:output', { type: 'stderr', text: errText.trim() });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: Date.now() - startTime });
+            tempFiles.forEach((f) => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} });
+            return;
+          }
+
+          spawnCmd = binFile;
+          spawnArgs = [];
         }
 
-        // 3. Node.js / JavaScript / TypeScript
-        else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
+        // 3. JavaScript (js, mjs, cjs, javascript)
+        else if (lang === 'javascript' || lang === 'js' || lang === 'mjs' || lang === 'cjs') {
+          if (!commandExists('node')) {
+            socket.emit('terminal:output', { type: 'stderr', text: `node: Node.js runtime not found on PATH.` });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
           const srcFile = path.join(this.tempDir, `${id}.js`);
           tempFiles.push(srcFile);
           fs.writeFileSync(srcFile, payload.code, 'utf-8');
@@ -171,8 +216,53 @@ export class InteractiveRunnerManager {
           spawnArgs = [srcFile];
         }
 
-        // 4. Java
+        // 4. TypeScript (ts, tsx, typescript)
+        else if (lang === 'typescript' || lang === 'ts' || lang === 'tsx') {
+          if (!commandExists('node')) {
+            socket.emit('terminal:output', { type: 'stderr', text: `node: Node.js runtime not found on PATH.` });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.ts`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = 'node';
+          spawnArgs = ['--experimental-strip-types', srcFile];
+        }
+
+        // 5. Python (python, py, python3)
+        else if (lang === 'python' || lang === 'py' || lang === 'python3') {
+          const pyCmd = commandExists('python') ? 'python' : (commandExists('python3') ? 'python3' : null);
+          if (!pyCmd) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `python: Python interpreter not found.\nTip: Install Python from python.org or run Kollab inside Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.py`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = pyCmd;
+          spawnArgs = ['-u', srcFile];
+        }
+
+        // 6. Java (java)
         else if (lang === 'java') {
+          if (!commandExists('javac') || !commandExists('java')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `java: JDK (javac/java) not found on PATH.\nTip: Install Java JDK or run Kollab inside Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
           const match = payload.code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
           const className = match ? match[1] : 'Main';
           const javaDir = path.join(this.tempDir, id);
@@ -202,17 +292,129 @@ export class InteractiveRunnerManager {
           cwd = javaDir;
         }
 
+        // 7. Rust (rust, rs)
+        else if (lang === 'rust' || lang === 'rs') {
+          if (!commandExists('rustc')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `rust: 'rustc' compiler is not installed on this host.\nTip: Install Rust via https://rustup.rs or deploy Kollab with Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.rs`);
+          const binFile = path.join(this.tempDir, isWin ? `${id}.exe` : `${id}.out`);
+          tempFiles.push(srcFile, binFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          const compileCmd = `rustc -O "${srcFile}" -o "${binFile}"`;
+          const compileResult = await new Promise<{ error: Error | null; stderr: string }>((resolve) => {
+            exec(compileCmd, { timeout: 12000, maxBuffer: 512 * 1024, env: safeEnv }, (error, _stdout, stderr) => {
+              resolve({ error, stderr });
+            });
+          });
+
+          if (compileResult.error || !fs.existsSync(binFile)) {
+            const errText = this.cleanOutput(compileResult.stderr || 'Rust compilation failed.', id, payload.filename);
+            socket.emit('terminal:output', { type: 'stderr', text: errText.trim() });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: Date.now() - startTime });
+            tempFiles.forEach((f) => { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} });
+            return;
+          }
+
+          spawnCmd = binFile;
+          spawnArgs = [];
+        }
+
+        // 8. Go (go, golang)
+        else if (lang === 'go' || lang === 'golang') {
+          if (!commandExists('go')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `go: 'go' toolchain is not installed on this host.\nTip: Install Go via https://go.dev/dl or deploy Kollab with Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.go`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = 'go';
+          spawnArgs = ['run', srcFile];
+        }
+
+        // 9. PHP (php)
+        else if (lang === 'php') {
+          if (!commandExists('php')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `php: 'php' CLI interpreter is not installed on this host.\nTip: Install PHP or deploy Kollab with Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.php`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = 'php';
+          spawnArgs = [srcFile];
+        }
+
+        // 10. Ruby (ruby, rb)
+        else if (lang === 'ruby' || lang === 'rb') {
+          if (!commandExists('ruby')) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `ruby: 'ruby' interpreter is not installed on this host.\nTip: Install Ruby or deploy Kollab with Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.rb`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = 'ruby';
+          spawnArgs = [srcFile];
+        }
+
+        // 11. Bash / Shell (shell, bash, sh)
+        else if (lang === 'shell' || lang === 'bash' || lang === 'sh') {
+          const shCmd = commandExists('bash') ? 'bash' : (commandExists('sh') ? 'sh' : null);
+          if (!shCmd) {
+            socket.emit('terminal:output', {
+              type: 'stderr',
+              text: `bash: Shell interpreter not available on this host.\nTip: Run commands directly in the integrated terminal or use Docker.`,
+            });
+            socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
+            return;
+          }
+
+          const srcFile = path.join(this.tempDir, `${id}.sh`);
+          tempFiles.push(srcFile);
+          fs.writeFileSync(srcFile, payload.code, 'utf-8');
+
+          spawnCmd = shCmd;
+          spawnArgs = [srcFile];
+        }
+
         // Unsupported language
         else {
           socket.emit('terminal:output', {
             type: 'stderr',
-            text: `Language '${lang}' execution is not supported. Supported: c, cpp, python, javascript, java`,
+            text: `Language '${lang}' execution is not supported.\nSupported languages: JavaScript (js), TypeScript (ts), Python (py), C++ (cpp), C (c), Java (java), Go (go), Rust (rs), PHP (php), Ruby (rb), Shell (sh).`,
           });
           socket.emit('terminal:exit', { exitCode: 1, executionTimeMs: 0 });
           return;
         }
 
-        // Spawn child process
+        // Spawn child process with unbuffered, clean environment
         const child = spawn(spawnCmd, spawnArgs, {
           cwd,
           env: safeEnv,
@@ -223,7 +425,7 @@ export class InteractiveRunnerManager {
         const timer = setTimeout(() => {
           socket.emit('terminal:output', {
             type: 'stderr',
-            text: '[Time Limit Exceeded]: Process was terminated after 60s runtime.',
+            text: '\n[Time Limit Exceeded]: Process was terminated after 60s runtime.',
           });
           this.killSession(socket.id);
         }, 60000);
