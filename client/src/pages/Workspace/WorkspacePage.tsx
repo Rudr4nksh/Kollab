@@ -765,61 +765,79 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
         </nav>
 
-        {/* 2. AI Assistant Panel (Pushes Explorer to the right when open) */}
-        {isAiOpen && (
-          <>
-            <aside className={styles.aiSidebar} style={{ width: `${aiWidth}px` }}>
-              <AIAssistantPanel
-                activeFile={activeFile}
-                files={files}
-                userName={displayName}
-                onProposeCode={(prop) => setActiveProposal(prop)}
-                onClose={() => {
-                  setIsAiOpen(false);
-                  localStorage.setItem('kollab_ai_open', 'false');
-                }}
-              />
-            </aside>
-            <div
-              className={`${styles.colResizer} ${activeResizer === 'ai' ? styles.resizerActive : ''}`}
-              onMouseDown={handleMouseDownAiResizer}
-              title="Drag to resize AI Assistant"
+        {/* 2. AI Assistant Panel (Smoothly pushes Explorer to the right when open) */}
+        <aside
+          className={styles.aiSidebar}
+          style={{
+            width: isAiOpen ? `${aiWidth}px` : '0px',
+            opacity: isAiOpen ? 1 : 0,
+            pointerEvents: isAiOpen ? 'auto' : 'none',
+            borderRight: isAiOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+          }}
+        >
+          <div style={{ width: `${aiWidth}px`, minWidth: `${aiWidth}px`, height: '100%' }}>
+            <AIAssistantPanel
+              activeFile={activeFile}
+              files={files}
+              userName={displayName}
+              onProposeCode={(prop) => setActiveProposal(prop)}
+              onClose={() => {
+                setIsAiOpen(false);
+                localStorage.setItem('kollab_ai_open', 'false');
+              }}
             />
-          </>
+          </div>
+        </aside>
+        {isAiOpen && (
+          <div
+            className={`${styles.colResizer} ${activeResizer === 'ai' ? styles.resizerActive : ''}`}
+            onMouseDown={handleMouseDownAiResizer}
+            title="Drag to resize AI Assistant"
+          />
         )}
 
         {/* 3. Left Primary Sidebar (File Explorer or Selected Tool) */}
+        <aside
+          className={styles.leftSidebar}
+          style={{
+            width: isSidebarOpen ? `${sidebarWidth}px` : '0px',
+            opacity: isSidebarOpen ? 1 : 0,
+            pointerEvents: isSidebarOpen ? 'auto' : 'none',
+            borderRight: isSidebarOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+          }}
+        >
+          <div style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, height: '100%' }}>
+            {activeTool === 'files' && (
+              <FileExplorer
+                files={files}
+                activeFilePath={activeFilePath}
+                onSelectFile={handleSelectFile}
+                onCreateFile={handleCreateFile}
+                onCreateFolder={handleCreateFolder}
+                onDeleteNode={handleDeleteNode}
+                onImportFolder={(imported) => {
+                  onFilesChange(imported);
+                  socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
+                }}
+                isHost={isHost}
+              />
+            )}
+            {activeTool === 'users' && (
+              <ParticipantList participants={participants} currentUserId={userId} />
+            )}
+            {activeTool === 'activity' && (
+              <ActivityFeed activities={activities} />
+            )}
+          </div>
+        </aside>
         {isSidebarOpen && (
-          <>
-            <aside className={styles.leftSidebar} style={{ width: `${sidebarWidth}px` }}>
-              {activeTool === 'files' && (
-                <FileExplorer
-                  files={files}
-                  activeFilePath={activeFilePath}
-                  onSelectFile={handleSelectFile}
-                  onCreateFile={handleCreateFile}
-                  onCreateFolder={handleCreateFolder}
-                  onDeleteNode={handleDeleteNode}
-                  onImportFolder={(imported) => {
-                    onFilesChange(imported);
-                    socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
-                  }}
-                  isHost={isHost}
-                />
-              )}
-              {activeTool === 'users' && (
-                <ParticipantList participants={participants} currentUserId={userId} />
-              )}
-              {activeTool === 'activity' && (
-                <ActivityFeed activities={activities} />
-              )}
-            </aside>
-            <div
-              className={`${styles.colResizer} ${activeResizer === 'sidebar' ? styles.resizerActive : ''}`}
-              onMouseDown={handleMouseDownSidebarResizer}
-              title="Drag to resize Explorer"
-            />
-          </>
+          <div
+            className={`${styles.colResizer} ${activeResizer === 'sidebar' ? styles.resizerActive : ''}`}
+            onMouseDown={handleMouseDownSidebarResizer}
+            title="Drag to resize Explorer"
+          />
         )}
 
         {/* 3. Center Canvas (Tabs + Monaco + Bottom Console) */}
@@ -989,12 +1007,23 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
         {/* 4. Discord Chat & Voice Panel (Right Docked with Resizer) */}
         {isChatOpen && (
-          <>
-            <div
-              className={`${styles.colResizer} ${activeResizer === 'chat' ? styles.resizerActive : ''}`}
-              onMouseDown={handleMouseDownChatResizer}
-              title="Drag to resize Chat"
-            />
+          <div
+            className={`${styles.colResizer} ${activeResizer === 'chat' ? styles.resizerActive : ''}`}
+            onMouseDown={handleMouseDownChatResizer}
+            title="Drag to resize Chat"
+          />
+        )}
+        <div
+          className={styles.chatSidebarWrapper}
+          style={{
+            width: isChatOpen ? `${chatWidth}px` : '0px',
+            opacity: isChatOpen ? 1 : 0,
+            pointerEvents: isChatOpen ? 'auto' : 'none',
+            borderLeft: isChatOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+          }}
+        >
+          <div style={{ width: `${chatWidth}px`, minWidth: `${chatWidth}px`, height: '100%' }}>
             <DiscordPanel
               roomId={roomId}
               userId={userId}
@@ -1006,8 +1035,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               onClose={() => setIsChatOpen(false)}
               width={chatWidth}
             />
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       {/* Invisible overlay while dragging to prevent Monaco or iframe event capture */}
