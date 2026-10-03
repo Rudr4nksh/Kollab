@@ -122,7 +122,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(false);
-  const [consoleTab, setConsoleTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>('output');
+  const [consoleTab, setConsoleTab] = useState<'terminal' | 'problems' | 'preview'>('terminal');
+  const [runTrigger, setRunTrigger] = useState<{ id: number; file: FileNode } | null>(null);
   const [stdinInput, setStdinInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<ConsoleLogItem[]>([
@@ -386,124 +387,24 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     setNewDirectFileName('');
   };
 
-  // Run Code execution (Server compiler runner or dedicated live HTML preview)
-  const handleRunCode = useCallback(async () => {
+  // Run Code execution (Server compiler runner directly in Terminal or dedicated live HTML preview)
+  const handleRunCode = useCallback(() => {
     if (!activeFile) return;
 
     const lang = activeFile.language || getLanguageFromFilename(activeFile.name);
 
-    // If HTML or CSS, open dedicated separate Live Preview tab
+    // If HTML or web file, open dedicated separate Live Preview tab
     if (lang === 'html' || activeFile.name.endsWith('.html') || activeFile.name.endsWith('.htm')) {
       setConsoleOpen(true);
       setConsoleTab('preview');
-      setLogs((prev) => [
-        ...prev,
-        {
-          id: 'prev_' + Date.now(),
-          type: 'info',
-          text: `[Live Preview] Switched to dedicated website preview for ${activeFile.name}.`,
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ]);
       return;
     }
 
-    // For programming languages (C++, C, Python, JavaScript, Java, etc.): run real runner
-    setIsRunning(true);
+    // For programming languages (C++, C, Python, JavaScript, Java, etc.): run directly in Terminal
     setConsoleOpen(true);
-    setConsoleTab('output');
-
-    const startTime = new Date().toLocaleTimeString();
-    setLogs((prev) => [
-      ...prev,
-      {
-        id: 'run_' + Date.now(),
-        type: 'info',
-        text: `▶ Running ${activeFile.name} (${lang})...`,
-        timestamp: startTime,
-      },
-    ]);
-
-    try {
-      const res = await fetch('/api/runner/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: lang,
-          code: activeFile.content || '',
-          filename: activeFile.name,
-          input: stdinInput,
-        }),
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || `Server responded with ${res.status}`);
-      }
-
-      const data = await res.json();
-      const finishTime = new Date().toLocaleTimeString();
-
-      if (data.compilerError) {
-        setLogs((prev) => [
-          ...prev,
-          {
-            id: 'cerr_' + Date.now(),
-            type: 'stderr',
-            text: data.compilerError.trim(),
-            timestamp: finishTime,
-          },
-        ]);
-      } else {
-        if (data.stdout) {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'out_' + Date.now(),
-              type: 'stdout',
-              text: data.stdout.trimEnd(),
-              timestamp: finishTime,
-            },
-          ]);
-        }
-        if (data.stderr) {
-          setLogs((prev) => [
-            ...prev,
-            {
-              id: 'err_' + Date.now(),
-              type: 'stderr',
-              text: data.stderr.trimEnd(),
-              timestamp: finishTime,
-            },
-          ]);
-        }
-      }
-
-      setLogs((prev) => [
-        ...prev,
-        {
-          id: 'stat_' + Date.now(),
-          type: data.exitCode === 0 ? 'system' : 'stderr',
-          text: data.exitCode === 0
-            ? `[Process finished with exit code 0 in ${data.executionTimeMs}ms]`
-            : `[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
-          timestamp: finishTime,
-        },
-      ]);
-    } catch (err: any) {
-      setLogs((prev) => [
-        ...prev,
-        {
-          id: 'err_' + Date.now(),
-          type: 'stderr',
-          text: `Execution failed: ${err.message}`,
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ]);
-    } finally {
-      setIsRunning(false);
-    }
-  }, [activeFile, stdinInput]);
+    setConsoleTab('terminal');
+    setRunTrigger({ id: Date.now(), file: activeFile });
+  }, [activeFile]);
 
   // Execute console command prompt
   const handleExecuteCommand = (cmd: string) => {
@@ -841,6 +742,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             roomId={roomId}
             activeTab={consoleTab}
             onTabChange={setConsoleTab}
+            runTrigger={runTrigger}
+            onRunningChange={setIsRunning}
             stdinInput={stdinInput}
             onStdinChange={setStdinInput}
             onCreateFile={handleCreateFile}
