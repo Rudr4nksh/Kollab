@@ -17,11 +17,13 @@ import {
   Smartphone,
   ShieldCheck,
   Lock,
-  Keyboard
+  Keyboard,
+  Square
 } from 'lucide-react';
 import type { ConsoleLogItem, FileNode } from '../../types/index.ts';
 import { findFileByPath, getLanguageFromFilename } from '../../services/fileUtils.ts';
 import { gitService } from '../../services/gitService.ts';
+import { socketService } from '../../services/socket.ts';
 import styles from './ConsolePanel.module.css';
 
 interface TerminalLineItem {
@@ -123,6 +125,7 @@ Type 'help' for shell commands or click '▶ Run' to compile & execute code dire
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   // Auto-scroll terminal on new lines
   useEffect(() => {
@@ -131,10 +134,49 @@ Type 'help' for shell commands or click '▶ Run' to compile & execute code dire
     }
   }, [terminalLines, tab]);
 
+  // Listen to interactive terminal events from server
+  useEffect(() => {
+    const unsubStart = socketService.onTerminalStarted(() => {
+      setIsExecuting(true);
+      onRunningChange?.(true);
+    });
+
+    const unsubOutput = socketService.onTerminalOutput((data) => {
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'out_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          type: data.type,
+          text: data.text,
+        },
+      ]);
+    });
+
+    const unsubExit = socketService.onTerminalExit((data) => {
+      setIsExecuting(false);
+      onRunningChange?.(false);
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'stat_' + Date.now(),
+          type: data.exitCode === 0 ? 'system' : 'stderr',
+          text: `[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
+        },
+      ]);
+    });
+
+    return () => {
+      unsubStart();
+      unsubOutput();
+      unsubExit();
+    };
+  }, [onRunningChange]);
+
   // Execute a file through backend runner directly into the terminal
-  const runCodeInTerminal = async (file: FileNode, inputStr = stdinInput) => {
+  const runCodeInTerminal = (file: FileNode, inputStr = stdinInput) => {
     const lang = file.language || getLanguageFromFilename(file.name);
-    
+    const code = file.content || activeFileContent || '';
+
     // Command echo line
     const cmdEcho: TerminalLineItem = {
       id: 'cmd_' + Date.now(),
@@ -146,65 +188,15 @@ Type 'help' for shell commands or click '▶ Run' to compile & execute code dire
     };
 
     setTerminalLines((prev) => [...prev, cmdEcho]);
+    setIsExecuting(true);
     onRunningChange?.(true);
 
-    try {
-      const res = await fetch('/api/runner/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language: lang,
-          code: file.content || '',
-          filename: file.name,
-          input: inputStr,
-        }),
-      });
-
-      const data = await res.json();
-      const newLines: TerminalLineItem[] = [];
-
-      if (data.compilerError) {
-        newLines.push({
-          id: 'err_' + Date.now(),
-          type: 'stderr',
-          text: data.compilerError.trim(),
-        });
-      } else {
-        if (data.stdout) {
-          newLines.push({
-            id: 'out_' + Date.now(),
-            type: 'stdout',
-            text: data.stdout.trimEnd(),
-          });
-        }
-        if (data.stderr) {
-          newLines.push({
-            id: 'err_' + Date.now(),
-            type: 'stderr',
-            text: data.stderr.trimEnd(),
-          });
-        }
-      }
-
-      newLines.push({
-        id: 'stat_' + Date.now(),
-        type: data.exitCode === 0 ? 'system' : 'stderr',
-        text: `[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
-      });
-
-      setTerminalLines((prev) => [...prev, ...newLines]);
-    } catch (err: any) {
-      setTerminalLines((prev) => [
-        ...prev,
-        {
-          id: 'err_' + Date.now(),
-          type: 'stderr',
-          text: `Execution failed: ${err.message}`,
-        },
-      ]);
-    } finally {
-      onRunningChange?.(false);
-    }
+    socketService.emitTerminalRun({
+      language: lang,
+      code,
+      filename: file.name,
+      initialInput: inputStr,
+    });
   };
 
   // Listen for run trigger from top-bar ▶ Run button
@@ -904,39 +896,18 @@ These are common Git commands:
       case 'g++':
       case 'gcc':
       case 'cpp':
+      case 'c++':
       case 'c': {
         const srcArg = args.find((a) => !a.startsWith('-')) || (activeFilePath ? findFileByPath(files, activeFilePath)?.name : '');
         if (!srcArg) {
-          addOut(`fatal error: no input files`, 'stderr');
+          addOut(`fatal error: no input files\nType 'g++ <filename.cpp>' or 'run' to execute.`, 'stderr');
         } else {
           const target = normalizePath(cwd, srcArg);
           const node = getNodeAtPath(files, target);
           if (!node || node.type !== 'file') {
             addOut(`${cmd}: ${srcArg}: No such file or directory`, 'stderr');
           } else {
-            addOut(`Compiling & executing ${node.name}...`, 'info');
-            try {
-              const res = await fetch('/api/runner/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  language: cmd === 'gcc' || cmd === 'c' ? 'c' : 'cpp',
-                  code: node.content || '',
-                  filename: node.name,
-                  input: stdinInput,
-                }),
-              });
-              const data = await res.json();
-              if (data.compilerError) {
-                addOut(data.compilerError.trim(), 'stderr');
-              } else {
-                if (data.stdout) addOut(data.stdout.trimEnd());
-                if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
-                addOut(`[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
-              }
-            } catch (err: any) {
-              addOut(`Execution error: ${err.message}`, 'stderr');
-            }
+            runCodeInTerminal(node);
           }
         }
         break;
@@ -967,24 +938,7 @@ These are common Git commands:
           if (!node || node.type !== 'file') {
             addOut(`node: cannot find module '${scriptArg}'`, 'stderr');
           } else {
-            try {
-              const res = await fetch('/api/runner/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  language: 'javascript',
-                  code: node.content || '',
-                  filename: node.name,
-                  input: stdinInput,
-                }),
-              });
-              const data = await res.json();
-              if (data.stdout) addOut(data.stdout.trimEnd());
-              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
-              addOut(`[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
-            } catch (err: any) {
-              addOut(`Execution error: ${err.message}`, 'stderr');
-            }
+            runCodeInTerminal(node);
           }
         }
         break;
@@ -1001,24 +955,7 @@ These are common Git commands:
           if (!node || node.type !== 'file') {
             addOut(`python: can't open file '${pyFile}': [Errno 2] No such file or directory`, 'stderr');
           } else {
-            try {
-              const res = await fetch('/api/runner/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  language: 'python',
-                  code: node.content || '',
-                  filename: node.name,
-                  input: stdinInput,
-                }),
-              });
-              const data = await res.json();
-              if (data.stdout) addOut(data.stdout.trimEnd());
-              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
-              addOut(`[Process finished with exit code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
-            } catch (err: any) {
-              addOut(`Execution error: ${err.message}`, 'stderr');
-            }
+            runCodeInTerminal(node);
           }
         }
         break;
@@ -1031,36 +968,12 @@ These are common Git commands:
           addOut(`run: no active file open to execute.`, 'stderr');
         } else {
           const lang = targetNode.language || getLanguageFromFilename(targetNode.name);
-          addOut(`▶ Running ${targetNode.name} (${lang})...`, 'info');
-
           if (lang === 'html' || targetNode.name.endsWith('.html') || targetNode.name.endsWith('.htm')) {
             handleSetTab('preview');
             addOut(`Switched to Live Preview tab for ${targetNode.name}.`, 'success');
             break;
           }
-
-          try {
-            const res = await fetch('/api/runner/execute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                language: lang,
-                code: targetNode.content || '',
-                filename: targetNode.name,
-                input: stdinInput,
-              }),
-            });
-            const data = await res.json();
-            if (data.compilerError) {
-              addOut(data.compilerError.trim(), 'stderr');
-            } else {
-              if (data.stdout) addOut(data.stdout.trimEnd());
-              if (data.stderr) addOut(data.stderr.trimEnd(), 'stderr');
-              addOut(`[Process finished with exit code ${data.exitCode} in ${data.executionTimeMs}ms]`, data.exitCode === 0 ? 'system' : 'stderr');
-            }
-          } catch (err: any) {
-            addOut(`Execution error: ${err.message}`, 'stderr');
-          }
+          runCodeInTerminal(targetNode);
         }
         break;
       }
@@ -1086,11 +999,38 @@ These are common Git commands:
 
   const handleTerminalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await executeTerminalCommand(inputVal);
+    const val = inputVal;
     setInputVal('');
+
+    if (isExecuting) {
+      // Program is currently executing: send live stdin directly into running process!
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'stdin_' + Date.now(),
+          type: 'stdout',
+          text: val,
+        },
+      ]);
+      socketService.emitTerminalStdin(val + '\n');
+      return;
+    }
+
+    await executeTerminalCommand(val);
   };
 
   const handleTerminalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Intercept Ctrl+C to terminate running program
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      if (isExecuting) {
+        e.preventDefault();
+        socketService.emitTerminalKill();
+        setIsExecuting(false);
+        onRunningChange?.(false);
+        return;
+      }
+    }
+
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (commandHistory.length > 0) {
@@ -1303,6 +1243,22 @@ These are common Git commands:
             </button>
           )}
 
+          {tab === 'terminal' && isExecuting && (
+            <button
+              type="button"
+              className={styles.stopActionBtn}
+              onClick={() => {
+                socketService.emitTerminalKill();
+                setIsExecuting(false);
+                onRunningChange?.(false);
+              }}
+              title="Stop running program (Ctrl+C)"
+            >
+              <Square size={10} fill="currentColor" />
+              <span>Stop</span>
+            </button>
+          )}
+
           {tab === 'terminal' && (
             <button
               className={styles.actionBtn}
@@ -1407,26 +1363,57 @@ These are common Git commands:
                 })}
 
                 {/* Active Prompt Input */}
-                <form onSubmit={handleTerminalSubmit} className={styles.activeInputLine}>
-                  <span className={styles.promptUser}>{userName}</span>
-                  <span className={styles.promptColon}>:</span>
-                  <span className={styles.promptPath}>{cwd === '/' ? '~' : `~${cwd}`}</span>
-                  {gitBranch && (
-                    <span className={styles.promptBranch}> ({gitBranch})</span>
-                  )}
-                  <span className={styles.promptSymbol}>$</span>
-                  <input
-                    ref={terminalInputRef}
-                    type="text"
-                    className={styles.terminalInput}
-                    value={inputVal}
-                    onChange={(e) => setInputVal(e.target.value)}
-                    onKeyDown={handleTerminalKeyDown}
-                    autoFocus
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                </form>
+                {isExecuting ? (
+                  <form onSubmit={handleTerminalSubmit} className={styles.runningPromptLine}>
+                    <span className={styles.runningDot} title="Program is executing" />
+                    <span className={styles.runningPromptSymbol}>❯</span>
+                    <input
+                      ref={terminalInputRef}
+                      type="text"
+                      className={styles.terminalInput}
+                      value={inputVal}
+                      onChange={(e) => setInputVal(e.target.value)}
+                      onKeyDown={handleTerminalKeyDown}
+                      placeholder="Type input here & press Enter (or Ctrl+C to stop)..."
+                      autoFocus
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className={styles.stopProcessBtn}
+                      onClick={() => {
+                        socketService.emitTerminalKill();
+                        setIsExecuting(false);
+                        onRunningChange?.(false);
+                      }}
+                      title="Stop running program (Ctrl+C)"
+                    >
+                      Stop
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleTerminalSubmit} className={styles.activeInputLine}>
+                    <span className={styles.promptUser}>{userName}</span>
+                    <span className={styles.promptColon}>:</span>
+                    <span className={styles.promptPath}>{cwd === '/' ? '~' : `~${cwd}`}</span>
+                    {gitBranch && (
+                      <span className={styles.promptBranch}> ({gitBranch})</span>
+                    )}
+                    <span className={styles.promptSymbol}>$</span>
+                    <input
+                      ref={terminalInputRef}
+                      type="text"
+                      className={styles.terminalInput}
+                      value={inputVal}
+                      onChange={(e) => setInputVal(e.target.value)}
+                      onKeyDown={handleTerminalKeyDown}
+                      autoFocus
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                  </form>
+                )}
                 <div ref={terminalEndRef} />
               </div>
             </div>
