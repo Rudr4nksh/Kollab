@@ -773,10 +773,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             opacity: isAiOpen ? 1 : 0,
             pointerEvents: isAiOpen ? 'auto' : 'none',
             borderRight: isAiOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
-            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+            transition: activeResizer ? 'none' : 'width 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
           }}
         >
-          <div style={{ width: `${aiWidth}px`, minWidth: `${aiWidth}px`, height: '100%' }}>
+          <div style={{ width: `${aiWidth}px`, minWidth: `${aiWidth}px`, height: '100%', overflow: 'hidden' }}>
             <AIAssistantPanel
               activeFile={activeFile}
               files={files}
@@ -788,14 +788,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               }}
             />
           </div>
+          {isAiOpen && (
+            <div
+              className={`${styles.colResizer} ${activeResizer === 'ai' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownAiResizer}
+              title="Drag to resize AI Assistant"
+            />
+          )}
         </aside>
-        {isAiOpen && (
-          <div
-            className={`${styles.colResizer} ${activeResizer === 'ai' ? styles.resizerActive : ''}`}
-            onMouseDown={handleMouseDownAiResizer}
-            title="Drag to resize AI Assistant"
-          />
-        )}
 
         {/* 3. Left Primary Sidebar (File Explorer or Selected Tool) */}
         <aside
@@ -805,10 +805,10 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             opacity: isSidebarOpen ? 1 : 0,
             pointerEvents: isSidebarOpen ? 'auto' : 'none',
             borderRight: isSidebarOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
-            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+            transition: activeResizer ? 'none' : 'width 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
           }}
         >
-          <div style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, height: '100%' }}>
+          <div style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, height: '100%', overflow: 'hidden' }}>
             {activeTool === 'files' && (
               <FileExplorer
                 files={files}
@@ -831,14 +831,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               <ActivityFeed activities={activities} />
             )}
           </div>
+          {isSidebarOpen && (
+            <div
+              className={`${styles.colResizer} ${activeResizer === 'sidebar' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownSidebarResizer}
+              title="Drag to resize Explorer"
+            />
+          )}
         </aside>
-        {isSidebarOpen && (
-          <div
-            className={`${styles.colResizer} ${activeResizer === 'sidebar' ? styles.resizerActive : ''}`}
-            onMouseDown={handleMouseDownSidebarResizer}
-            title="Drag to resize Explorer"
-          />
-        )}
 
         {/* 3. Center Canvas (Tabs + Monaco + Bottom Console) */}
         <main className={styles.centerCanvas}>
@@ -955,64 +955,59 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           </div>
 
           {/* Bottom Console / Output */}
-          {consoleOpen && (
-            <div
-              className={`${styles.rowResizer} ${activeResizer === 'console' ? styles.rowResizerActive : ''}`}
-              onMouseDown={handleMouseDownConsoleResizer}
-              title="Drag to resize Terminal"
-            />
-          )}
+          <div style={{ position: 'relative', width: '100%', flexShrink: 0 }}>
+            {consoleOpen && (
+              <div
+                className={`${styles.rowResizer} ${activeResizer === 'console' ? styles.rowResizerActive : ''}`}
+                onMouseDown={handleMouseDownConsoleResizer}
+                title="Drag to resize Terminal"
+              />
+            )}
 
-          <ConsolePanel
-            logs={logs}
-            onClearLogs={() => setLogs([])}
-            onExecuteCommand={handleExecuteCommand}
-            files={files}
-            activeFileContent={activeFile?.content || ''}
-            activeFilePath={activeFilePath}
-            isOpen={consoleOpen}
-            onToggleOpen={() => setConsoleOpen(!consoleOpen)}
-            height={consoleHeight}
-            userName={displayName}
-            roomId={roomId}
-            activeTab={consoleTab}
-            onTabChange={setConsoleTab}
-            runTrigger={runTrigger}
-            onRunningChange={setIsRunning}
-            stdinInput={stdinInput}
-            onStdinChange={setStdinInput}
-            onCreateFile={handleCreateFile}
-            onCreateFolder={handleCreateFolder}
-            onDeleteNode={handleDeleteNode}
-            onUpdateFileContent={handleContentChange}
-            onFilesChange={(newFiles) => {
-              onFilesChange(newFiles);
-              socketService.emitFilesTreeUpdate(roomId, newFiles, userId, 'updated workspace files via git', 'file_created');
-              if (newFiles.length > 0 && (!activeFilePath || !findFileByPath(newFiles, activeFilePath))) {
-                const first = findFirstFileNode(newFiles);
-                if (first) {
-                  setActiveFilePath(first.path);
-                  setOpenFiles([first]);
+            <ConsolePanel
+              logs={logs}
+              onClearLogs={() => setLogs([])}
+              onExecuteCommand={handleExecuteCommand}
+              files={files}
+              activeFileContent={activeFile?.content || ''}
+              activeFilePath={activeFilePath}
+              isOpen={consoleOpen}
+              onToggleOpen={() => setConsoleOpen(!consoleOpen)}
+              height={consoleHeight}
+              userName={displayName}
+              roomId={roomId}
+              activeTab={consoleTab}
+              onTabChange={setConsoleTab}
+              runTrigger={runTrigger}
+              onRunningChange={setIsRunning}
+              stdinInput={stdinInput}
+              onStdinChange={setStdinInput}
+              onCreateFile={handleCreateFile}
+              onCreateFolder={handleCreateFolder}
+              onDeleteNode={handleDeleteNode}
+              onUpdateFileContent={handleContentChange}
+              onFilesChange={(newFiles) => {
+                onFilesChange(newFiles);
+                socketService.emitFilesTreeUpdate(roomId, newFiles, userId, 'updated workspace files via git', 'file_created');
+                if (newFiles.length > 0 && (!activeFilePath || !findFileByPath(newFiles, activeFilePath))) {
+                  const first = findFirstFileNode(newFiles);
+                  if (first) {
+                    setActiveFilePath(first.path);
+                    setOpenFiles([first]);
+                  }
                 }
-              }
-            }}
-            onGitPush={(commitUrl, msg) => {
-              if (onRecordActivity) {
-                onRecordActivity('git_push', `${msg}: ${commitUrl}`);
-              }
-              socketService.emitChatMessage(roomId, userId, `🚀 Committed & pushed to GitHub: ${commitUrl}`);
-            }}
-          />
+              }}
+              onGitPush={(commitUrl, msg) => {
+                if (onRecordActivity) {
+                  onRecordActivity('git_push', `${msg}: ${commitUrl}`);
+                }
+                socketService.emitChatMessage(roomId, userId, `🚀 Committed & pushed to GitHub: ${commitUrl}`);
+              }}
+            />
+          </div>
         </main>
 
         {/* 4. Discord Chat & Voice Panel (Right Docked with Resizer) */}
-        {isChatOpen && (
-          <div
-            className={`${styles.colResizer} ${activeResizer === 'chat' ? styles.resizerActive : ''}`}
-            onMouseDown={handleMouseDownChatResizer}
-            title="Drag to resize Chat"
-          />
-        )}
         <div
           className={styles.chatSidebarWrapper}
           style={{
@@ -1020,10 +1015,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             opacity: isChatOpen ? 1 : 0,
             pointerEvents: isChatOpen ? 'auto' : 'none',
             borderLeft: isChatOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
-            transition: activeResizer ? 'none' : 'width 260ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+            transition: activeResizer ? 'none' : 'width 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
           }}
         >
-          <div style={{ width: `${chatWidth}px`, minWidth: `${chatWidth}px`, height: '100%' }}>
+          {isChatOpen && (
+            <div
+              className={`${styles.colResizerLeft} ${activeResizer === 'chat' ? styles.resizerActive : ''}`}
+              onMouseDown={handleMouseDownChatResizer}
+              title="Drag to resize Chat"
+            />
+          )}
+          <div style={{ width: `${chatWidth}px`, minWidth: `${chatWidth}px`, height: '100%', overflow: 'hidden' }}>
             <DiscordPanel
               roomId={roomId}
               userId={userId}

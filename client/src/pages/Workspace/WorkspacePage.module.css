@@ -368,10 +368,10 @@
   background-color: #0A0B10;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   position: relative;
   z-index: 15;
   box-sizing: border-box;
+  transform: translateZ(0);
 }
 
 .leftSidebar {
@@ -380,64 +380,84 @@
   background-color: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   position: relative;
   z-index: 12;
   box-sizing: border-box;
+  transform: translateZ(0);
 }
 
 .chatSidebarWrapper {
   height: 100%;
   flex-shrink: 0;
-  overflow: hidden;
   position: relative;
   z-index: 30;
   box-sizing: border-box;
+  transform: translateZ(0);
 }
 
-/* VS Code Style Col & Row Resizers (Sashes) with smooth glow */
+/* VS Code Style Col & Row Resizers (Sashes) - Subtle, refined luxury */
 .colResizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
   width: 6px;
-  margin-left: -3px;
-  margin-right: -3px;
-  height: 100%;
   cursor: col-resize;
-  position: relative;
-  z-index: 25;
+  z-index: 40;
   background: transparent;
-  flex-shrink: 0;
   user-select: none;
 }
 
-.colResizer::after {
+.colResizerLeft {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 40;
+  background: transparent;
+  user-select: none;
+}
+
+/* Subtle accent indicator line: completely invisible at rest, soft refined accent on hover */
+.colResizer::after,
+.colResizerLeft::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
   left: 2px;
-  width: 1px;
-  background-color: rgba(255, 255, 255, 0.08);
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 2px;
+  background-color: rgba(138, 75, 255, 0.45);
+  opacity: 0;
+  transition: opacity 180ms ease, background-color 180ms ease;
+  pointer-events: none;
 }
 
 .colResizer:hover::after,
-.resizerActive::after {
-  width: 2px;
-  left: 2px;
-  background-color: #8A4BFF !important;
-  box-shadow: 0 0 10px rgba(138, 75, 255, 0.8), 0 0 20px rgba(138, 75, 255, 0.4);
+.colResizerLeft:hover::after {
+  opacity: 0.75;
+  background-color: rgba(138, 75, 255, 0.5);
+  box-shadow: 0 0 4px rgba(138, 75, 255, 0.25);
+}
+
+.colResizer.resizerActive::after,
+.colResizerLeft.resizerActive::after {
+  opacity: 1;
+  background-color: rgba(138, 75, 255, 0.7);
+  box-shadow: 0 0 5px rgba(138, 75, 255, 0.3);
 }
 
 .rowResizer {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
   height: 6px;
-  margin-top: -3px;
-  margin-bottom: -3px;
-  width: 100%;
   cursor: row-resize;
-  position: relative;
-  z-index: 25;
+  z-index: 40;
   background: transparent;
-  flex-shrink: 0;
   user-select: none;
 }
 
@@ -447,17 +467,23 @@
   left: 0;
   right: 0;
   top: 2px;
-  height: 1px;
-  background-color: rgba(255, 255, 255, 0.08);
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  height: 2px;
+  background-color: rgba(138, 75, 255, 0.45);
+  opacity: 0;
+  transition: opacity 180ms ease, background-color 180ms ease;
+  pointer-events: none;
 }
 
-.rowResizer:hover::after,
-.rowResizerActive::after {
-  height: 2px;
-  top: 2px;
-  background-color: #8A4BFF !important;
-  box-shadow: 0 0 10px rgba(138, 75, 255, 0.8), 0 0 20px rgba(138, 75, 255, 0.4);
+.rowResizer:hover::after {
+  opacity: 0.75;
+  background-color: rgba(138, 75, 255, 0.5);
+  box-shadow: 0 0 4px rgba(138, 75, 255, 0.25);
+}
+
+.rowResizer.rowResizerActive::after {
+  opacity: 1;
+  background-color: rgba(138, 75, 255, 0.7);
+  box-shadow: 0 0 5px rgba(138, 75, 255, 0.3);
 }
 
 /* Invisible overlay while dragging to prevent Monaco or iframe capture */
