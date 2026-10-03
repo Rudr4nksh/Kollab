@@ -1,7 +1,8 @@
 /**
- * Kollab AI Service
- * Supports Anthropic (Claude), Google Gemini, OpenAI, or Built-in Kollab Developer Engine.
- * Multi-user safe: all code proposals require explicit diff review before applying.
+ * Kollab AI Service (BYOK - Bring Your Own Key)
+ * 
+ * Supports Anthropic (Claude), Google Gemini, and OpenAI.
+ * Keys are passed per-user via request headers, never logged, and never persisted to server disk.
  */
 
 export interface AIChatContext {
@@ -23,6 +24,9 @@ export interface AIChatRequest {
   conversationHistory?: ChatMessageItem[];
   userId?: string;
   userName?: string;
+  userApiKey?: string;
+  userProvider?: 'claude' | 'gemini' | 'openai';
+  userModel?: string;
 }
 
 export interface AIChatResponse {
@@ -38,6 +42,9 @@ export interface AIRefactorRequest {
   language: string;
   instruction: string;
   filename?: string;
+  userApiKey?: string;
+  userProvider?: 'claude' | 'gemini' | 'openai';
+  userModel?: string;
 }
 
 export interface AIRefactorResponse {
@@ -48,46 +55,25 @@ export interface AIRefactorResponse {
 }
 
 export class AIService {
-  private anthropicKey: string;
-  private geminiKey: string;
-  private openaiKey: string;
+  private serverAnthropicKey: string;
+  private serverGeminiKey: string;
+  private serverOpenaiKey: string;
 
   constructor() {
-    this.anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-    this.geminiKey = process.env.GEMINI_API_KEY || '';
-    this.openaiKey = process.env.OPENAI_API_KEY || '';
+    this.serverAnthropicKey = process.env.ANTHROPIC_API_KEY || '';
+    this.serverGeminiKey = process.env.GEMINI_API_KEY || '';
+    this.serverOpenaiKey = process.env.OPENAI_API_KEY || '';
   }
 
   public getStatus() {
-    if (this.anthropicKey) {
-      return {
-        configured: true,
-        provider: 'claude',
-        displayName: 'Claude 3.5 Sonnet',
-        model: 'claude-3-5-sonnet-20241022',
-      };
-    }
-    if (this.geminiKey) {
-      return {
-        configured: true,
-        provider: 'gemini',
-        displayName: 'Gemini 2.5 Flash',
-        model: 'gemini-2.5-flash',
-      };
-    }
-    if (this.openaiKey) {
-      return {
-        configured: true,
-        provider: 'openai',
-        displayName: 'OpenAI GPT-4o',
-        model: 'gpt-4o-mini',
-      };
-    }
+    const hasServerKey = Boolean(this.serverAnthropicKey || this.serverGeminiKey || this.serverOpenaiKey);
     return {
-      configured: false,
-      provider: 'kollab-engine',
-      displayName: 'Kollab Assistant (Built-in)',
-      model: 'kollab-pair-programmer-v1',
+      serverConfigured: hasServerKey,
+      supportedProviders: [
+        { id: 'claude', name: 'Anthropic Claude', models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'] },
+        { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.5-flash', 'gemini-1.5-pro'] },
+        { id: 'openai', name: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini'] },
+      ],
     };
   }
 
@@ -95,49 +81,80 @@ export class AIService {
    * Main chat completion handler
    */
   public async chat(req: AIChatRequest): Promise<AIChatResponse> {
-    const status = this.getStatus();
+    const { provider, apiKey, model } = this.resolveAuth(req);
 
-    try {
-      if (status.provider === 'claude') {
-        return await this.chatWithClaude(req);
-      } else if (status.provider === 'gemini') {
-        return await this.chatWithGemini(req);
-      } else if (status.provider === 'openai') {
-        return await this.chatWithOpenAI(req);
-      }
-    } catch (err: any) {
-      console.warn(`[AI Service] ${status.provider} call failed:`, err?.message || err);
-      // Fallback to internal engine on transient network or quota error
+    if (provider === 'claude') {
+      return await this.chatWithClaude(req, apiKey, model);
+    } else if (provider === 'gemini') {
+      return await this.chatWithGemini(req, apiKey, model);
+    } else if (provider === 'openai') {
+      return await this.chatWithOpenAI(req, apiKey, model);
     }
 
-    return this.chatWithBuiltInEngine(req);
+    throw new Error(`Unsupported AI provider: ${provider}`);
   }
 
   /**
    * Code refactoring handler
    */
   public async refactor(req: AIRefactorRequest): Promise<AIRefactorResponse> {
-    const status = this.getStatus();
+    const { provider, apiKey, model } = this.resolveAuth(req);
 
-    try {
-      if (status.provider === 'claude') {
-        return await this.refactorWithClaude(req);
-      } else if (status.provider === 'gemini') {
-        return await this.refactorWithGemini(req);
-      } else if (status.provider === 'openai') {
-        return await this.refactorWithOpenAI(req);
-      }
-    } catch (err: any) {
-      console.warn(`[AI Service] ${status.provider} refactor failed:`, err?.message || err);
+    if (provider === 'claude') {
+      return await this.refactorWithClaude(req, apiKey, model);
+    } else if (provider === 'gemini') {
+      return await this.refactorWithGemini(req, apiKey, model);
+    } else if (provider === 'openai') {
+      return await this.refactorWithOpenAI(req, apiKey, model);
     }
 
-    return this.refactorWithBuiltInEngine(req);
+    throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+
+  private resolveAuth(req: { userApiKey?: string; userProvider?: string; userModel?: string }) {
+    let provider = req.userProvider;
+    let apiKey = req.userApiKey?.trim();
+
+    if (!apiKey) {
+      // Check server fallback environment
+      if (this.serverAnthropicKey) {
+        provider = 'claude';
+        apiKey = this.serverAnthropicKey;
+      } else if (this.serverGeminiKey) {
+        provider = 'gemini';
+        apiKey = this.serverGeminiKey;
+      } else if (this.serverOpenaiKey) {
+        provider = 'openai';
+        apiKey = this.serverOpenaiKey;
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error('No API key provided. Please connect your Claude, Gemini, or OpenAI API key in the AI Assistant settings.');
+    }
+
+    if (!provider) {
+      if (apiKey.startsWith('sk-ant-')) provider = 'claude';
+      else if (apiKey.startsWith('AIza')) provider = 'gemini';
+      else if (apiKey.startsWith('sk-')) provider = 'openai';
+      else provider = 'claude';
+    }
+
+    let defaultModel = 'claude-3-5-sonnet-20241022';
+    if (provider === 'gemini') defaultModel = 'gemini-2.5-flash';
+    if (provider === 'openai') defaultModel = 'gpt-4o-mini';
+
+    return {
+      provider,
+      apiKey,
+      model: req.userModel || defaultModel,
+    };
   }
 
   // ==========================================
   // Claude (Anthropic API)
   // ==========================================
-  private async chatWithClaude(req: AIChatRequest): Promise<AIChatResponse> {
+  private async chatWithClaude(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const messages = [
       ...(req.conversationHistory || []).map((m) => ({
@@ -151,12 +168,12 @@ export class AIService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': this.anthropicKey,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 3000,
+        model,
+        max_tokens: 4096,
         system: systemPrompt,
         messages,
       }),
@@ -164,7 +181,12 @@ export class AIService {
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Claude API error (${response.status}): ${errText}`);
+      let parsed = errText;
+      try {
+        const json = JSON.parse(errText);
+        parsed = json.error?.message || errText;
+      } catch {}
+      throw new Error(`Claude error (${response.status}): ${parsed}`);
     }
 
     const data = (await response.json()) as any;
@@ -176,11 +198,11 @@ export class AIService {
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'claude',
-      model: 'claude-3-5-sonnet-20241022',
+      model,
     };
   }
 
-  private async refactorWithClaude(req: AIRefactorRequest): Promise<AIRefactorResponse> {
+  private async refactorWithClaude(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
     const prompt = `Refactor the following ${req.language} code according to this instruction:
 Instruction: "${req.instruction}"
 Filename: ${req.filename || 'active file'}
@@ -195,21 +217,21 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
     const res = await this.chatWithClaude({
       prompt,
       context: { activeCode: req.code, language: req.language, activeFile: req.filename },
-    });
+    }, apiKey, model);
 
     const code = res.suggestedCode || req.code;
     return {
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored as requested.',
       provider: 'claude',
-      model: 'claude-3-5-sonnet-20241022',
+      model,
     };
   }
 
   // ==========================================
   // Gemini (Google AI API)
   // ==========================================
-  private async chatWithGemini(req: AIChatRequest): Promise<AIChatResponse> {
+  private async chatWithGemini(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const contents: any[] = [];
 
@@ -226,7 +248,7 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       parts: [{ text: req.prompt }],
     });
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.geminiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -235,14 +257,19 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
         contents,
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 3000,
+          maxOutputTokens: 4096,
         },
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Gemini API error (${response.status}): ${errText}`);
+      let parsed = errText;
+      try {
+        const json = JSON.parse(errText);
+        parsed = json.error?.message || errText;
+      } catch {}
+      throw new Error(`Gemini error (${response.status}): ${parsed}`);
     }
 
     const data = (await response.json()) as any;
@@ -254,11 +281,11 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'gemini',
-      model: 'gemini-2.5-flash',
+      model,
     };
   }
 
-  private async refactorWithGemini(req: AIRefactorRequest): Promise<AIRefactorResponse> {
+  private async refactorWithGemini(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
     const prompt = `Refactor the following ${req.language} code according to this instruction:
 Instruction: "${req.instruction}"
 Filename: ${req.filename || 'active file'}
@@ -273,21 +300,21 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
     const res = await this.chatWithGemini({
       prompt,
       context: { activeCode: req.code, language: req.language, activeFile: req.filename },
-    });
+    }, apiKey, model);
 
     const code = res.suggestedCode || req.code;
     return {
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored successfully.',
       provider: 'gemini',
-      model: 'gemini-2.5-flash',
+      model,
     };
   }
 
   // ==========================================
-  // OpenAI (GPT-4o)
+  // OpenAI (GPT-4o / GPT-4o-mini)
   // ==========================================
-  private async chatWithOpenAI(req: AIChatRequest): Promise<AIChatResponse> {
+  private async chatWithOpenAI(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -302,10 +329,10 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.openaiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         messages,
         temperature: 0.2,
       }),
@@ -313,7 +340,12 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+      let parsed = errText;
+      try {
+        const json = JSON.parse(errText);
+        parsed = json.error?.message || errText;
+      } catch {}
+      throw new Error(`OpenAI error (${response.status}): ${parsed}`);
     }
 
     const data = (await response.json()) as any;
@@ -325,11 +357,11 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
       suggestedCode: extracted?.code,
       suggestedLanguage: extracted?.language,
       provider: 'openai',
-      model: 'gpt-4o-mini',
+      model,
     };
   }
 
-  private async refactorWithOpenAI(req: AIRefactorRequest): Promise<AIRefactorResponse> {
+  private async refactorWithOpenAI(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
     const prompt = `Refactor the following ${req.language} code according to this instruction:
 Instruction: "${req.instruction}"
 Filename: ${req.filename || 'active file'}
@@ -344,90 +376,14 @@ Provide the COMPLETE updated code in a markdown block and a short explanation.`;
     const res = await this.chatWithOpenAI({
       prompt,
       context: { activeCode: req.code, language: req.language, activeFile: req.filename },
-    });
+    }, apiKey, model);
 
     const code = res.suggestedCode || req.code;
     return {
       refactoredCode: code,
       explanation: res.reply.replace(/```[\s\S]*?```/g, '').trim() || 'Code refactored as requested.',
       provider: 'openai',
-      model: 'gpt-4o-mini',
-    };
-  }
-
-  // ==========================================
-  // Built-in Kollab Developer Engine (Offline/Mock)
-  // Provides helpful code assistance when no external API key is set
-  // ==========================================
-  private chatWithBuiltInEngine(req: AIChatRequest): AIChatResponse {
-    const promptLower = req.prompt.toLowerCase();
-    const lang = req.context?.language || 'javascript';
-    const activeFile = req.context?.activeFile || 'current file';
-    const code = req.context?.activeCode || '';
-
-    // 1. Explain code
-    if (promptLower.includes('explain') || promptLower.includes('what does this do')) {
-      const linesCount = code.split('\n').length;
-      return {
-        reply: `### 🔍 Code Explanation for \`${activeFile}\` (${lang})\n\n` +
-          `• **Structure**: The file contains **${linesCount} lines** of ${lang} code.\n` +
-          `• **Summary**: This file implements the main program logic, declarations, and execution flows.\n` +
-          `• **Multiplayer Note**: Edits can be made collaboratively by any room member without locking the document.\n\n` +
-          `*Tip: To use full Claude 3.5 or Gemini 2.5 models for deep architectural audits, provide your API key in \`.env\`.*`,
-        provider: 'kollab-engine',
-        model: 'kollab-developer-v1',
-      };
-    }
-
-    // 2. Bug search / code review
-    if (promptLower.includes('bug') || promptLower.includes('error') || promptLower.includes('review')) {
-      return {
-        reply: `### 🛡️ Code Review & Bug Check for \`${activeFile}\`\n\n` +
-          `1. **Type Safety & Bounds**: Ensure all array and vector accesses check boundary conditions.\n` +
-          `2. **Resource Management**: Check that streams, sockets, and subprocesses handle error and close events.\n` +
-          `3. **Input Handling**: When running interactively, confirm stdin inputs handle EOF and newline trims cleanly.\n` +
-          `4. **Multi-User Consistency**: Kollab syncs every keystroke in real-time. Ensure state updates are deterministic.`,
-        provider: 'kollab-engine',
-        model: 'kollab-developer-v1',
-      };
-    }
-
-    // 3. Optimize / Refactor
-    if (promptLower.includes('optimize') || promptLower.includes('refactor') || promptLower.includes('clean')) {
-      const sampleOptimized = code ? `// Optimized version of ${activeFile}\n` + code : `// Clean template\nconsole.log("Optimized");`;
-      return {
-        reply: `### ⚡ Optimization Suggestions\n\n` +
-          `Here is an optimized refactoring that enhances performance, readability, and modularity:\n\n` +
-          `\`\`\`${lang}\n${sampleOptimized}\n\`\`\`\n\n` +
-          `Click **[Review & Apply to File]** to preview changes before applying.`,
-        suggestedCode: sampleOptimized,
-        suggestedLanguage: lang,
-        provider: 'kollab-engine',
-        model: 'kollab-developer-v1',
-      };
-    }
-
-    // 4. General / code generation
-    return {
-      reply: `### ✦ Kollab Pair Programmer\n\n` +
-        `I am your collaborative AI assistant inside Kollab.\n\n` +
-        `• **Active File**: \`${activeFile}\` (${lang})\n` +
-        `• **Multi-User Safe**: When I generate code proposals, you can review before applying so you never collide with other collaborators.\n` +
-        `• **Collaborative @ai**: In the right-hand chat, anyone in the room can ask questions with \`@ai <question>\`.\n\n` +
-        `*To connect state-of-the-art Claude 3.5 or Gemini 2.5, add \`ANTHROPIC_API_KEY\` or \`GEMINI_API_KEY\` to your \`.env\` file.*`,
-      provider: 'kollab-engine',
-      model: 'kollab-developer-v1',
-    };
-  }
-
-  private refactorWithBuiltInEngine(req: AIRefactorRequest): AIRefactorResponse {
-    const header = `// [Kollab AI Refactor]: ${req.instruction}\n// Applied cleanly for ${req.filename || 'active file'}\n\n`;
-    const refactored = header + req.code;
-    return {
-      refactoredCode: refactored,
-      explanation: `Applied refactoring instructions: "${req.instruction}". Added clean structure and standardized documentation.`,
-      provider: 'kollab-engine',
-      model: 'kollab-developer-v1',
+      model,
     };
   }
 

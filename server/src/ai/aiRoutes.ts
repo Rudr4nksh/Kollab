@@ -17,19 +17,25 @@ aiRouter.post('/chat', async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
+    const userApiKey = (req.headers['x-user-api-key'] as string) || req.body.userApiKey;
+    const userProvider = ((req.headers['x-user-ai-provider'] as string) || req.body.userProvider) as any;
+    const userModel = (req.headers['x-user-ai-model'] as string) || req.body.userModel;
+
     const payload: AIChatRequest = {
       prompt: prompt.trim(),
       context,
       conversationHistory,
       userId,
       userName,
+      userApiKey,
+      userProvider,
+      userModel,
     };
 
     const response = await aiService.chat(payload);
     res.json(response);
   } catch (error: any) {
-    console.error('[AI Route Error]:', error);
-    res.status(500).json({ error: error.message || 'Internal AI error' });
+    res.status(400).json({ error: error.message || 'AI request failed' });
   }
 });
 
@@ -41,17 +47,23 @@ aiRouter.post('/refactor', async (req, res) => {
       return res.status(400).json({ error: 'Code and instruction are required' });
     }
 
+    const userApiKey = (req.headers['x-user-api-key'] as string) || req.body.userApiKey;
+    const userProvider = ((req.headers['x-user-ai-provider'] as string) || req.body.userProvider) as any;
+    const userModel = (req.headers['x-user-ai-model'] as string) || req.body.userModel;
+
     const payload: AIRefactorRequest = {
       code,
       language: language || 'javascript',
       instruction,
       filename,
+      userApiKey,
+      userProvider,
+      userModel,
     };
 
     const response = await aiService.refactor(payload);
     res.json(response);
   } catch (error: any) {
-    console.error('[AI Refactor Route Error]:', error);
-    res.status(500).json({ error: error.message || 'Internal AI refactor error' });
+    res.status(400).json({ error: error.message || 'AI refactor failed' });
   }
 });

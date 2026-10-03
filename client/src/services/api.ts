@@ -88,10 +88,12 @@ export async function getRoomActivities(roomId: string): Promise<ActivityEvent[]
   return data;
 }
 
+import { getStoredAIConfig } from './aiKeyStore.ts';
+
 export async function getAIStatus() {
   const res = await fetch(`${API_BASE}/ai/status`);
   if (!res.ok) {
-    return { configured: false, provider: 'kollab-engine', displayName: 'Kollab Assistant', model: 'v1' };
+    return { serverConfigured: false, supportedProviders: [] };
   }
   return res.json();
 }
@@ -107,9 +109,22 @@ export async function sendAIChat(payload: {
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   userName?: string;
 }) {
+  const userConfig = getStoredAIConfig();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (userConfig?.apiKey) {
+    headers['x-user-api-key'] = userConfig.apiKey;
+    headers['x-user-ai-provider'] = userConfig.provider;
+    if (userConfig.model) {
+      headers['x-user-ai-model'] = userConfig.model;
+    }
+  }
+
   const res = await fetch(`${API_BASE}/ai/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   });
   const data = await res.json();
@@ -125,9 +140,22 @@ export async function sendAIRefactor(payload: {
   instruction: string;
   filename?: string;
 }) {
+  const userConfig = getStoredAIConfig();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (userConfig?.apiKey) {
+    headers['x-user-api-key'] = userConfig.apiKey;
+    headers['x-user-ai-provider'] = userConfig.provider;
+    if (userConfig.model) {
+      headers['x-user-ai-model'] = userConfig.model;
+    }
+  }
+
   const res = await fetch(`${API_BASE}/ai/refactor`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   });
   const data = await res.json();
