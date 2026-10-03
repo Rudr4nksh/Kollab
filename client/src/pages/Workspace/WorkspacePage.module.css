@@ -357,6 +357,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 150ms ease;
+}
+
+.leftSidebarAi {
+  width: 275px;
 }
 
 /* 3. Center Canvas */
