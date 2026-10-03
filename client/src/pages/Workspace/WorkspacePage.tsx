@@ -201,11 +201,12 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     e.preventDefault();
     setActiveResizer('console');
     const startY = e.clientY;
-    const startH = consoleHeight;
+    const startH = targetConsoleHeight;
 
     const onMouseMove = (ev: MouseEvent) => {
       const nextH = Math.max(120, Math.min(600, startH + (startY - ev.clientY)));
       setConsoleHeight(nextH);
+      setIsConsoleMaximized(false);
     };
 
     const onMouseUp = (ev: MouseEvent) => {
@@ -257,7 +258,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   // Console & execution state
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [isConsoleMaximized, setIsConsoleMaximized] = useState(false);
   const [consoleTab, setConsoleTab] = useState<'terminal' | 'problems' | 'preview'>('terminal');
+
+  const targetConsoleHeight = isConsoleMaximized
+    ? Math.max(380, consoleHeight + 140)
+    : consoleHeight;
+
   const [runTrigger, setRunTrigger] = useState<{ id: number; file: FileNode } | null>(null);
   const [stdinInput, setStdinInput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
@@ -954,8 +961,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             )}
           </div>
 
-          {/* Bottom Console / Output */}
-          <div style={{ position: 'relative', width: '100%', flexShrink: 0 }}>
+          {/* Bottom Console / Output Drawer */}
+          <div
+            className={styles.consoleDrawerWrapper}
+            style={{
+              height: consoleOpen ? `${targetConsoleHeight}px` : '0px',
+              opacity: consoleOpen ? 1 : 0,
+              pointerEvents: consoleOpen ? 'auto' : 'none',
+              borderTop: consoleOpen ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+              transition: activeResizer ? 'none' : 'height 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
+            }}
+          >
             {consoleOpen && (
               <div
                 className={`${styles.rowResizer} ${activeResizer === 'console' ? styles.rowResizerActive : ''}`}
@@ -964,46 +980,50 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               />
             )}
 
-            <ConsolePanel
-              logs={logs}
-              onClearLogs={() => setLogs([])}
-              onExecuteCommand={handleExecuteCommand}
-              files={files}
-              activeFileContent={activeFile?.content || ''}
-              activeFilePath={activeFilePath}
-              isOpen={consoleOpen}
-              onToggleOpen={() => setConsoleOpen(!consoleOpen)}
-              height={consoleHeight}
-              userName={displayName}
-              roomId={roomId}
-              activeTab={consoleTab}
-              onTabChange={setConsoleTab}
-              runTrigger={runTrigger}
-              onRunningChange={setIsRunning}
-              stdinInput={stdinInput}
-              onStdinChange={setStdinInput}
-              onCreateFile={handleCreateFile}
-              onCreateFolder={handleCreateFolder}
-              onDeleteNode={handleDeleteNode}
-              onUpdateFileContent={handleContentChange}
-              onFilesChange={(newFiles) => {
-                onFilesChange(newFiles);
-                socketService.emitFilesTreeUpdate(roomId, newFiles, userId, 'updated workspace files via git', 'file_created');
-                if (newFiles.length > 0 && (!activeFilePath || !findFileByPath(newFiles, activeFilePath))) {
-                  const first = findFirstFileNode(newFiles);
-                  if (first) {
-                    setActiveFilePath(first.path);
-                    setOpenFiles([first]);
+            <div style={{ height: `${targetConsoleHeight}px`, minHeight: `${targetConsoleHeight}px`, width: '100%', overflow: 'hidden' }}>
+              <ConsolePanel
+                logs={logs}
+                onClearLogs={() => setLogs([])}
+                onExecuteCommand={handleExecuteCommand}
+                files={files}
+                activeFileContent={activeFile?.content || ''}
+                activeFilePath={activeFilePath}
+                isOpen={consoleOpen}
+                onToggleOpen={() => setConsoleOpen(!consoleOpen)}
+                height={targetConsoleHeight}
+                isMaximized={isConsoleMaximized}
+                onToggleMaximize={() => setIsConsoleMaximized((prev) => !prev)}
+                userName={displayName}
+                roomId={roomId}
+                activeTab={consoleTab}
+                onTabChange={setConsoleTab}
+                runTrigger={runTrigger}
+                onRunningChange={setIsRunning}
+                stdinInput={stdinInput}
+                onStdinChange={setStdinInput}
+                onCreateFile={handleCreateFile}
+                onCreateFolder={handleCreateFolder}
+                onDeleteNode={handleDeleteNode}
+                onUpdateFileContent={handleContentChange}
+                onFilesChange={(newFiles) => {
+                  onFilesChange(newFiles);
+                  socketService.emitFilesTreeUpdate(roomId, newFiles, userId, 'updated workspace files via git', 'file_created');
+                  if (newFiles.length > 0 && (!activeFilePath || !findFileByPath(newFiles, activeFilePath))) {
+                    const first = findFirstFileNode(newFiles);
+                    if (first) {
+                      setActiveFilePath(first.path);
+                      setOpenFiles([first]);
+                    }
                   }
-                }
-              }}
-              onGitPush={(commitUrl, msg) => {
-                if (onRecordActivity) {
-                  onRecordActivity('git_push', `${msg}: ${commitUrl}`);
-                }
-                socketService.emitChatMessage(roomId, userId, `🚀 Committed & pushed to GitHub: ${commitUrl}`);
-              }}
-            />
+                }}
+                onGitPush={(commitUrl, msg) => {
+                  if (onRecordActivity) {
+                    onRecordActivity('git_push', `${msg}: ${commitUrl}`);
+                  }
+                  socketService.emitChatMessage(roomId, userId, `🚀 Committed & pushed to GitHub: ${commitUrl}`);
+                }}
+              />
+            </div>
           </div>
         </main>
 

@@ -486,6 +486,16 @@
   box-shadow: 0 0 5px rgba(138, 75, 255, 0.3);
 }
 
+.consoleDrawerWrapper {
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 25;
+  box-sizing: border-box;
+  transform: translateZ(0);
+  background-color: #07090D;
+}
+
 /* Invisible overlay while dragging to prevent Monaco or iframe capture */
 .resizeOverlay {
   position: fixed;

@@ -2,25 +2,15 @@
   display: flex;
   flex-direction: column;
   background-color: #07090D;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   user-select: none;
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  animation: slideUpConsole 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  height: 100%;
+  width: 100%;
 }
 
-@keyframes slideUpConsole {
-  from {
-    opacity: 0.7;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 .collapsedBar {
   height: 28px;

@@ -60,13 +60,15 @@ interface ConsolePanelProps {
   onGitPush?: (commitUrl: string, message: string) => void;
   onRunningChange?: (running: boolean) => void;
   height?: number;
+  isMaximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   files,
   activeFileContent,
   activeFilePath,
-  isOpen,
+  isOpen: _isOpen,
   onToggleOpen,
   userName = 'collaborator',
   roomId = 'workspace',
@@ -74,7 +76,9 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onTabChange,
   runTrigger,
   stdinInput = '',
-  height,
+  height: _height,
+  isMaximized,
+  onToggleMaximize,
   onStdinChange,
   onCreateFile,
   onCreateFolder,
@@ -88,6 +92,16 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [previewKey, setPreviewKey] = useState(0);
   const [showStdin, setShowStdin] = useState(false);
+  const [internalMaximized, setInternalMaximized] = useState(false);
+  const maximized = isMaximized !== undefined ? isMaximized : internalMaximized;
+
+  const handleToggleMaximize = () => {
+    if (onToggleMaximize) {
+      onToggleMaximize();
+    } else {
+      setInternalMaximized(!internalMaximized);
+    }
+  };
 
   useEffect(() => {
     if (activeTab) {
@@ -104,7 +118,6 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   const [inputVal, setInputVal] = useState('');
   const [cwd, setCwd] = useState('/');
   const [gitBranch, setGitBranch] = useState(gitService.getBranch());
-  const [isMaximized, setIsMaximized] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
@@ -1285,25 +1298,8 @@ These are common Git commands:
     window.open(blobUrl, '_blank', 'noopener,noreferrer');
   };
 
-  if (!isOpen) {
-    return (
-      <div className={styles.collapsedBar} onClick={onToggleOpen}>
-        <div className={styles.collapsedLeft}>
-          <Terminal size={13} />
-          <span>TERMINAL</span>
-          <span className={styles.logCount}>{terminalLines.length}</span>
-        </div>
-        <button className={styles.expandBtn} title="Expand Terminal Panel">
-          <Terminal size={14} />
-        </button>
-      </div>
-    );
-  }
-
-  const panelHeight = isMaximized ? Math.max(380, (height || 220) + 140) : (height || 210);
-
   return (
-    <div className={styles.consolePanel} style={{ height: `${panelHeight}px` }}>
+    <div className={styles.consolePanel} style={{ height: '100%' }}>
       {/* VS Code Style Header */}
       <div className={styles.header}>
         <div className={styles.tabsGroup}>
@@ -1396,10 +1392,10 @@ These are common Git commands:
 
           <button
             className={styles.actionBtn}
-            onClick={() => setIsMaximized(!isMaximized)}
-            title={isMaximized ? 'Restore Panel Size' : 'Maximize Panel Size'}
+            onClick={handleToggleMaximize}
+            title={maximized ? 'Restore Panel Size' : 'Maximize Panel Size'}
           >
-            {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            {maximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
 
           <button
