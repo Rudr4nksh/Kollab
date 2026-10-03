@@ -337,18 +337,31 @@
   background-color: var(--bg-surface-elevated);
 }
 
-/* Blue vertical pill indicator on the left edge from reference */
+/* Blue/Purple vertical pill indicator on the left edge with smooth entrance */
 .activePill {
   position: absolute;
-  left: -4px;
-  top: 6px;
-  bottom: 6px;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
   width: 3px;
-  background-color: var(--accent-blue);
-  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, #8A4BFF, #00F0FF);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 10px rgba(138, 75, 255, 0.7);
+  animation: pillIn 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* 2. Left Sidebars: AI Assistant & Primary Sidebar */
+@keyframes pillIn {
+  from {
+    transform: scaleY(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* 2. Left Sidebars: AI Assistant & Primary Sidebar with smooth entrance */
 .aiSidebar {
   height: 100%;
   flex-shrink: 0;
@@ -358,6 +371,8 @@
   overflow: hidden;
   position: relative;
   z-index: 15;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  animation: slideInSidebar 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .leftSidebar {
@@ -369,9 +384,22 @@
   overflow: hidden;
   position: relative;
   z-index: 12;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  animation: slideInSidebar 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* VS Code Style Col & Row Resizers (Sashes) */
+@keyframes slideInSidebar {
+  from {
+    opacity: 0.65;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* VS Code Style Col & Row Resizers (Sashes) with smooth glow */
 .colResizer {
   width: 6px;
   margin-left: -3px;
@@ -393,7 +421,7 @@
   left: 2px;
   width: 1px;
   background-color: rgba(255, 255, 255, 0.08);
-  transition: background-color 150ms ease, width 150ms ease;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .colResizer:hover::after,
@@ -401,7 +429,7 @@
   width: 2px;
   left: 2px;
   background-color: #8A4BFF !important;
-  box-shadow: 0 0 8px rgba(138, 75, 255, 0.7);
+  box-shadow: 0 0 10px rgba(138, 75, 255, 0.8), 0 0 20px rgba(138, 75, 255, 0.4);
 }
 
 .rowResizer {
@@ -425,7 +453,7 @@
   top: 2px;
   height: 1px;
   background-color: rgba(255, 255, 255, 0.08);
-  transition: background-color 150ms ease, height 150ms ease;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .rowResizer:hover::after,
@@ -433,7 +461,7 @@
   height: 2px;
   top: 2px;
   background-color: #8A4BFF !important;
-  box-shadow: 0 0 8px rgba(138, 75, 255, 0.7);
+  box-shadow: 0 0 10px rgba(138, 75, 255, 0.8), 0 0 20px rgba(138, 75, 255, 0.4);
 }
 
 /* Invisible overlay while dragging to prevent Monaco or iframe capture */
