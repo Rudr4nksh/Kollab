@@ -8,7 +8,6 @@ import {
   Maximize2, 
   Minimize2, 
   AlertCircle,
-  FileText,
   FolderGit2,
   GitBranch,
   ExternalLink,
@@ -36,9 +35,9 @@ interface TerminalLineItem {
 }
 
 interface ConsolePanelProps {
-  logs: ConsoleLogItem[];
-  onClearLogs: () => void;
-  onExecuteCommand: (code: string) => void;
+  logs?: ConsoleLogItem[];
+  onClearLogs?: () => void;
+  onExecuteCommand?: (code: string) => void;
   files: FileNode[];
   activeFileContent?: string;
   activeFilePath?: string;
@@ -46,8 +45,9 @@ interface ConsolePanelProps {
   onToggleOpen: () => void;
   userName?: string;
   roomId?: string;
-  activeTab?: 'terminal' | 'output' | 'problems' | 'preview';
-  onTabChange?: (tab: 'terminal' | 'output' | 'problems' | 'preview') => void;
+  activeTab?: 'terminal' | 'problems' | 'preview';
+  onTabChange?: (tab: 'terminal' | 'problems' | 'preview') => void;
+  runTrigger?: { id: number; file: FileNode } | null;
   stdinInput?: string;
   onStdinChange?: (val: string) => void;
   onCreateFile?: (name: string, parentPath?: string) => void;
@@ -56,11 +56,10 @@ interface ConsolePanelProps {
   onUpdateFileContent?: (path: string, content: string) => void;
   onFilesChange?: (files: FileNode[]) => void;
   onGitPush?: (commitUrl: string, message: string) => void;
+  onRunningChange?: (running: boolean) => void;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
-  logs,
-  onClearLogs,
   files,
   activeFileContent,
   activeFilePath,
@@ -70,6 +69,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   roomId = 'workspace',
   activeTab,
   onTabChange,
+  runTrigger,
   stdinInput = '',
   onStdinChange,
   onCreateFile,
@@ -78,8 +78,9 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   onUpdateFileContent,
   onFilesChange,
   onGitPush,
+  onRunningChange,
 }) => {
-  const [tab, setInternalTab] = useState<'terminal' | 'output' | 'problems' | 'preview'>(activeTab || 'terminal');
+  const [tab, setInternalTab] = useState<'terminal' | 'problems' | 'preview'>(activeTab || 'terminal');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [previewKey, setPreviewKey] = useState(0);
   const [showStdin, setShowStdin] = useState(false);
@@ -90,7 +91,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
     }
   }, [activeTab]);
 
-  const handleSetTab = (newTab: 'terminal' | 'output' | 'problems' | 'preview') => {
+  const handleSetTab = (newTab: 'terminal' | 'problems' | 'preview') => {
     setInternalTab(newTab);
     if (onTabChange) {
       onTabChange(newTab);
@@ -115,23 +116,107 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
     {
       id: 'banner_1',
       type: 'system',
-      text: `Kollab Integrated Shell (v1.0.0, node v20.x, x86_64-pc-windows)
-Type 'help' for a list of available commands or 'clear' to clear screen.`,
+      text: `Kollab Integrated Terminal (bash) — Workspace Room: ${roomId}
+Type 'help' for shell commands or click '▶ Run' to compile & execute code directly here.`,
     },
   ]);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
-  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll terminal on new lines
   useEffect(() => {
     if (tab === 'terminal') {
       terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    } else if (tab === 'output') {
-      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [terminalLines, logs, tab]);
+  }, [terminalLines, tab]);
+
+  // Execute a file through backend runner directly into the terminal
+  const runCodeInTerminal = async (file: FileNode, inputStr = stdinInput) => {
+    const lang = file.language || getLanguageFromFilename(file.name);
+    
+    // Command echo line
+    const cmdEcho: TerminalLineItem = {
+      id: 'cmd_' + Date.now(),
+      type: 'command',
+      command: `run ${file.name}`,
+      cwd,
+      user: userName,
+      branch: gitBranch,
+    };
+
+    setTerminalLines((prev) => [...prev, cmdEcho]);
+    onRunningChange?.(true);
+
+    try {
+      const res = await fetch('/api/runner/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: lang,
+          code: file.content || '',
+          filename: file.name,
+          input: inputStr,
+        }),
+      });
+
+      const data = await res.json();
+      const newLines: TerminalLineItem[] = [];
+
+      if (data.compilerError) {
+        newLines.push({
+          id: 'err_' + Date.now(),
+          type: 'stderr',
+          text: data.compilerError.trim(),
+        });
+      } else {
+        if (data.stdout) {
+          newLines.push({
+            id: 'out_' + Date.now(),
+            type: 'stdout',
+            text: data.stdout.trimEnd(),
+          });
+        }
+        if (data.stderr) {
+          newLines.push({
+            id: 'err_' + Date.now(),
+            type: 'stderr',
+            text: data.stderr.trimEnd(),
+          });
+        }
+      }
+
+      newLines.push({
+        id: 'stat_' + Date.now(),
+        type: data.exitCode === 0 ? 'system' : 'stderr',
+        text: `[Process exited with code ${data.exitCode} in ${data.executionTimeMs}ms]`,
+      });
+
+      setTerminalLines((prev) => [...prev, ...newLines]);
+    } catch (err: any) {
+      setTerminalLines((prev) => [
+        ...prev,
+        {
+          id: 'err_' + Date.now(),
+          type: 'stderr',
+          text: `Execution failed: ${err.message}`,
+        },
+      ]);
+    } finally {
+      onRunningChange?.(false);
+    }
+  };
+
+  // Listen for run trigger from top-bar ▶ Run button
+  const prevRunTriggerId = useRef<number | null>(null);
+  useEffect(() => {
+    if (runTrigger && runTrigger.id !== prevRunTriggerId.current) {
+      prevRunTriggerId.current = runTrigger.id;
+      setInternalTab('terminal');
+      if (onTabChange) onTabChange('terminal');
+      runCodeInTerminal(runTrigger.file);
+    }
+  }, [runTrigger]);
 
   // Focus input when clicking terminal container
   const handleContainerClick = () => {
@@ -1181,14 +1266,6 @@ These are common Git commands:
             <span>TERMINAL</span>
           </button>
           <button
-            className={`${styles.tabBtn} ${tab === 'output' ? styles.activeTab : ''}`}
-            onClick={() => handleSetTab('output')}
-          >
-            <FileText size={12} />
-            <span>OUTPUT</span>
-            {logs.length > 0 && <span className={styles.tabBadge}>{logs.length}</span>}
-          </button>
-          <button
             className={`${styles.tabBtn} ${tab === 'problems' ? styles.activeTab : ''}`}
             onClick={() => handleSetTab('problems')}
           >
@@ -1215,6 +1292,19 @@ These are common Git commands:
 
           {tab === 'terminal' && (
             <button
+              type="button"
+              className={`${styles.stdinToggleBtn} ${showStdin ? styles.stdinToggleBtnActive : ''}`}
+              onClick={() => setShowStdin(!showStdin)}
+              title="Toggle standard input (stdin) for programs that read cin, input(), Scanner"
+            >
+              <Keyboard size={12} />
+              <span>Custom Input (stdin)</span>
+              {stdinInput.trim().length > 0 && <span className={styles.stdinDot} />}
+            </button>
+          )}
+
+          {tab === 'terminal' && (
+            <button
               className={styles.actionBtn}
               onClick={() => {
                 setTerminalLines([
@@ -1233,14 +1323,8 @@ These are common Git commands:
 
           <button
             className={styles.actionBtn}
-            onClick={() => {
-              if (tab === 'terminal') {
-                setTerminalLines([]);
-              } else {
-                onClearLogs();
-              }
-            }}
-            title="Clear Panel"
+            onClick={() => setTerminalLines([])}
+            title="Clear Terminal"
           >
             <Trash2 size={13} />
           </button>
@@ -1267,166 +1351,117 @@ These are common Git commands:
       <div className={styles.contentBody}>
         {/* Real VS Code Terminal Shell */}
         {tab === 'terminal' && (
-          <div className={styles.terminalContainer} onClick={handleContainerClick}>
-            <div className={styles.terminalOutput}>
-              <div className={styles.terminalBanner}>
-                {`Kollab Integrated Shell (bash) — Workspace Room: ${roomId}`}
-              </div>
-
-              {terminalLines.map((line) => {
-                if (line.type === 'command') {
-                  return (
-                    <div key={line.id} className={styles.commandEcho}>
-                      <span className={styles.promptUser}>{line.user || userName}</span>
-                      <span className={styles.promptColon}>:</span>
-                      <span className={styles.promptPath}>{line.cwd === '/' ? '~' : `~${line.cwd}`}</span>
-                      {(line.branch || gitBranch) && (
-                        <span className={styles.promptBranch}> ({line.branch || gitBranch})</span>
-                      )}
-                      <span className={styles.promptSymbol}>$</span>
-                      <span className={styles.commandText}>{line.command}</span>
-                    </div>
-                  );
-                }
-
-                if (line.type === 'login_prompt') {
-                  return (
-                    <div key={line.id} className={styles.terminalLoginBanner}>
-                      <div className={styles.loginBannerText}>
-                        <GitBranch size={15} className={styles.loginIcon} />
-                        <span>{line.text || 'GitHub login is required to use Git commands.'}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className={styles.loginBannerBtn}
-                        onClick={handleTerminalGitHubLogin}
-                      >
-                        <FolderGit2 size={13} />
-                        <span>Sign in with GitHub</span>
-                      </button>
-                    </div>
-                  );
-                }
-
-                let styleClass = styles.outText;
-                if (line.type === 'success') styleClass = `${styles.outText} ${styles.outSuccess}`;
-                if (line.type === 'stderr') styleClass = `${styles.outText} ${styles.outError}`;
-                if (line.type === 'info') styleClass = `${styles.outText} ${styles.outInfo}`;
-                if (line.type === 'system') styleClass = `${styles.outText} ${styles.outWarning}`;
-
-                return (
-                  <div key={line.id} className={styles.terminalLine}>
-                    <pre className={styleClass}>{line.text}</pre>
-                  </div>
-                );
-              })}
-
-              {/* Active Prompt Input */}
-              <form onSubmit={handleTerminalSubmit} className={styles.activeInputLine}>
-                <span className={styles.promptUser}>{userName}</span>
-                <span className={styles.promptColon}>:</span>
-                <span className={styles.promptPath}>{cwd === '/' ? '~' : `~${cwd}`}</span>
-                {gitBranch && (
-                  <span className={styles.promptBranch}> ({gitBranch})</span>
-                )}
-                <span className={styles.promptSymbol}>$</span>
-                <input
-                  ref={terminalInputRef}
-                  type="text"
-                  className={styles.terminalInput}
-                  value={inputVal}
-                  onChange={(e) => setInputVal(e.target.value)}
-                  onKeyDown={handleTerminalKeyDown}
-                  autoFocus
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-              </form>
-              <div ref={terminalEndRef} />
-            </div>
-          </div>
-        )}
-
-        {/* Output Tab */}
-        {tab === 'output' && (
-          <div className={styles.outputTabContainer}>
-            <div className={styles.outputToolbar}>
-              <div className={styles.outputToolbarLeft}>
-                <span>EXECUTION LOGS</span>
-                {logs.length > 0 && (
-                  <span className={styles.outputCountBadge}>{logs.length}</span>
-                )}
-              </div>
-              <div className={styles.outputToolbarRight}>
-                <button
-                  type="button"
-                  className={`${styles.stdinToggleBtn} ${showStdin ? styles.stdinToggleBtnActive : ''}`}
-                  onClick={() => setShowStdin(!showStdin)}
-                  title="Toggle standard input (stdin) for programs that read cin, input(), Scanner"
-                >
-                  <Keyboard size={12} />
-                  <span>Custom Input (stdin)</span>
-                  {stdinInput.trim().length > 0 && <span className={styles.stdinDot} />}
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.outputBody}>
-              <div className={styles.logList}>
-                {logs.length === 0 ? (
-                  <div className={styles.emptyLogs}>
-                    <span>No output yet. Click ▶ Run in the top bar to execute code.</span>
-                  </div>
-                ) : (
-                  logs.map((log) => (
-                    <div key={log.id} className={`${styles.logLine} ${styles[log.type]}`}>
-                      <span className={styles.logTime}>{log.timestamp}</span>
-                      <span className={styles.logPrefix}>
-                        {log.type === 'stdout' && '>'}
-                        {log.type === 'stderr' && '✕'}
-                        {log.type === 'info' && 'ℹ'}
-                        {log.type === 'system' && '⚙'}
-                        {log.type === 'result' && '←'}
-                      </span>
-                      <pre className={styles.logText}>{log.text}</pre>
-                    </div>
-                  ))
-                )}
-                <div ref={logsEndRef} />
-              </div>
-
-              {showStdin && (
-                <div className={styles.stdinDrawer}>
-                  <div className={styles.stdinDrawerHeader}>
-                    <div className={styles.stdinDrawerTitle}>
-                      <Terminal size={11} />
-                      <span>STANDARD INPUT (STDIN)</span>
-                    </div>
-                    {stdinInput.length > 0 && (
-                      <button
-                        type="button"
-                        className={styles.stdinClearBtn}
-                        onClick={() => onStdinChange?.('')}
-                        title="Clear standard input"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    className={styles.stdinTextarea}
-                    placeholder="Type or paste input for cin >> x, scanf, input(), Scanner..."
-                    value={stdinInput}
-                    onChange={(e) => onStdinChange?.(e.target.value)}
-                    spellCheck={false}
-                  />
-                  <div className={styles.stdinFooter}>
-                    <span>{stdinInput ? `${stdinInput.split('\n').length} line(s)` : 'Piped to stdin'}</span>
-                    <span>{stdinInput.length} chars</span>
-                  </div>
+          <div className={styles.terminalWrapper}>
+            <div className={styles.terminalContainer} onClick={handleContainerClick}>
+              <div className={styles.terminalOutput}>
+                <div className={styles.terminalBanner}>
+                  {`Kollab Integrated Shell (bash) — Workspace Room: ${roomId}`}
                 </div>
-              )}
+
+                {terminalLines.map((line) => {
+                  if (line.type === 'command') {
+                    return (
+                      <div key={line.id} className={styles.commandEcho}>
+                        <span className={styles.promptUser}>{line.user || userName}</span>
+                        <span className={styles.promptColon}>:</span>
+                        <span className={styles.promptPath}>{line.cwd === '/' ? '~' : `~${line.cwd}`}</span>
+                        {(line.branch || gitBranch) && (
+                          <span className={styles.promptBranch}> ({line.branch || gitBranch})</span>
+                        )}
+                        <span className={styles.promptSymbol}>$</span>
+                        <span className={styles.commandText}>{line.command}</span>
+                      </div>
+                    );
+                  }
+
+                  if (line.type === 'login_prompt') {
+                    return (
+                      <div key={line.id} className={styles.terminalLoginBanner}>
+                        <div className={styles.loginBannerText}>
+                          <GitBranch size={15} className={styles.loginIcon} />
+                          <span>{line.text || 'GitHub login is required to use Git commands.'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.loginBannerBtn}
+                          onClick={handleTerminalGitHubLogin}
+                        >
+                          <FolderGit2 size={13} />
+                          <span>Sign in with GitHub</span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  let styleClass = styles.outText;
+                  if (line.type === 'success') styleClass = `${styles.outText} ${styles.outSuccess}`;
+                  if (line.type === 'stderr') styleClass = `${styles.outText} ${styles.outError}`;
+                  if (line.type === 'info') styleClass = `${styles.outText} ${styles.outInfo}`;
+                  if (line.type === 'system') styleClass = `${styles.outText} ${styles.outWarning}`;
+
+                  return (
+                    <div key={line.id} className={styles.terminalLine}>
+                      <pre className={styleClass}>{line.text}</pre>
+                    </div>
+                  );
+                })}
+
+                {/* Active Prompt Input */}
+                <form onSubmit={handleTerminalSubmit} className={styles.activeInputLine}>
+                  <span className={styles.promptUser}>{userName}</span>
+                  <span className={styles.promptColon}>:</span>
+                  <span className={styles.promptPath}>{cwd === '/' ? '~' : `~${cwd}`}</span>
+                  {gitBranch && (
+                    <span className={styles.promptBranch}> ({gitBranch})</span>
+                  )}
+                  <span className={styles.promptSymbol}>$</span>
+                  <input
+                    ref={terminalInputRef}
+                    type="text"
+                    className={styles.terminalInput}
+                    value={inputVal}
+                    onChange={(e) => setInputVal(e.target.value)}
+                    onKeyDown={handleTerminalKeyDown}
+                    autoFocus
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </form>
+                <div ref={terminalEndRef} />
+              </div>
             </div>
+
+            {showStdin && (
+              <div className={styles.stdinDrawer}>
+                <div className={styles.stdinDrawerHeader}>
+                  <div className={styles.stdinDrawerTitle}>
+                    <Keyboard size={11} />
+                    <span>STANDARD INPUT (STDIN)</span>
+                  </div>
+                  {stdinInput.length > 0 && (
+                    <button
+                      type="button"
+                      className={styles.stdinClearBtn}
+                      onClick={() => onStdinChange?.('')}
+                      title="Clear standard input"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  className={styles.stdinTextarea}
+                  placeholder="Type or paste input for cin >> x, scanf, input(), Scanner..."
+                  value={stdinInput}
+                  onChange={(e) => onStdinChange?.(e.target.value)}
+                  spellCheck={false}
+                />
+                <div className={styles.stdinFooter}>
+                  <span>{stdinInput ? `${stdinInput.split('\n').length} line(s)` : 'Piped to stdin'}</span>
+                  <span>{stdinInput.length} chars</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

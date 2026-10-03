@@ -168,6 +168,15 @@
 }
 
 /* Terminal Shell Body (Real VS Code Style) */
+.terminalWrapper {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: #050608;
+}
+
 .terminalContainer {
   flex: 1;
   display: flex;
