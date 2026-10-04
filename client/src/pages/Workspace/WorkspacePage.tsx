@@ -27,6 +27,7 @@ import { ActivityFeed } from '../../components/ActivityFeed/ActivityFeed.tsx';
 import { AIAssistantPanel } from '../../components/AIAssistant/AIAssistantPanel.tsx';
 import { AIDiffReviewModal } from '../../components/AIAssistant/AIDiffReviewModal.tsx';
 import { RoomSettingsModal } from '../../components/RoomJoin/RoomSettingsModal.tsx';
+import { LastPersonLeaveModal } from '../../components/UI/LastPersonLeaveModal.tsx';
 import { DiscordPanel } from '../../components/DiscordChat/DiscordPanel.tsx';
 import { ToastContainer, ToastMessage } from '../../components/UI/Toast.tsx';
 import type { 
@@ -251,6 +252,31 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     setCopiedRoom(true);
     setTimeout(() => setCopiedRoom(false), 2000);
   };
+
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+
+  // If the user is the only person remaining in the room, warn them before leaving
+  const handleAttemptLeave = () => {
+    const otherParticipants = participants.filter((p) => p.id !== userId);
+    if (otherParticipants.length === 0) {
+      setIsLeaveConfirmOpen(true);
+    } else {
+      onLeaveRoom();
+    }
+  };
+
+  // Warn on accidental tab close / page refresh if last person in the room
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const otherParticipants = participants.filter((p) => p.id !== userId);
+      if (otherParticipants.length === 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [participants, userId]);
 
   // Tabs & active file
   const [openFiles, setOpenFiles] = useState<FileNode[]>(() => {
@@ -1097,7 +1123,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
             <div
               className={`${styles.activityIcon} ${styles.activityIconLeave}`}
-              onClick={onLeaveRoom}
+              onClick={handleAttemptLeave}
               title="Leave Workspace"
             >
               <LogOut size={16} />
@@ -1430,6 +1456,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         proposal={activeProposal}
         onApply={handleApplyProposal}
         onDismiss={() => setActiveProposal(null)}
+      />
+
+      {/* Warning popup when last person attempts to leave */}
+      <LastPersonLeaveModal
+        isOpen={isLeaveConfirmOpen}
+        roomId={roomId}
+        onConfirmLeave={() => {
+          setIsLeaveConfirmOpen(false);
+          onLeaveRoom();
+        }}
+        onCancel={() => setIsLeaveConfirmOpen(false)}
       />
 
       <ToastContainer toasts={toasts} onDismiss={onDismissToast} />
