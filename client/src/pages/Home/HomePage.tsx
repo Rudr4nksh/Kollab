@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   XCircle,
   Cpu,
-  ArrowUpRight
+  ArrowUpRight,
+  Sparkles,
+  Shield
 } from 'lucide-react';
 import { Input } from '../../components/UI/Input.tsx';
 import { Button } from '../../components/UI/Button.tsx';
@@ -201,8 +203,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       cmd: 'whoami',
       out: [
         'user: guest_developer',
-        'status: searching for zero-lag code collaboration',
-        'tip: type "help" or click the pills below for quick commands'
+        'status: Kollab v2.0 live (multi-file IDE, voice chat, and terminal runner)',
+        'tip: type "specs" or "about" to explore the system architecture'
       ]
     }
   ]);
@@ -279,19 +281,21 @@ export const HomePage: React.FC<HomePageProps> = ({
         break;
       case 'about':
         out = [
-          'Kollab was built by students who were tired of Google Docs destroying code indentation',
-          'and Discord screen share dropping to 15fps at 2 AM.',
-          'No signup walls, no credit cards. Drop a folder and start coding.'
+          'Kollab is a real-time collaborative IDE engineered for seamless pair-programming.',
+          'No 720p 15fps screen shares. No Google Docs indentation destruction.',
+          'Latest v2: Multi-file tree with Ctrl+Z/Y undo, in-browser terminal runner,',
+          'Discord-style WebRTC voice chat, and an AI diff review copilot. No signup walls.'
         ];
         break;
       case 'specs':
         out = [
-          'ARCHITECTURE SPECS:',
-          '  [Engine]     Yjs CRDT (Conflict-Free Replicated Data Types)',
-          '  [Editor]     Monaco Editor (VS Code engine)',
-          '  [Transport]  Real-time Socket.IO WebSockets with rate-limiting',
-          '  [Storage]    Local SQLite via Prisma (100% free hosting ready)',
-          '  [Audio]      Synthesized Web Audio API mechanical switches'
+          'ARCHITECTURE SPECS (Kollab v2.0):',
+          '  [Engine]     Yjs CRDT & real-time cursor presence awareness',
+          '  [File Tree]  Recursive folder hierarchy with full Ctrl+Z / Ctrl+Y history',
+          '  [Terminal]   Integrated runner (Python, C++, JS, HTML live preview)',
+          '  [Voice/Chat] WebRTC low-latency Discord-style voice channel & messaging',
+          '  [AI Copilot] Interactive diff-review AI assistant (Gemini & Claude)',
+          '  [Lifecycle]  Bcrypt passcodes, leave warning alerts & zero-ghost auto-cleanup'
         ];
         break;
       case 'matrix':
@@ -423,7 +427,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className={styles.badgeWrapper}>
           <div className={styles.heroBadge} onClick={() => handleOpenModal('create')}>
             <span className={styles.badgeTag}>NEW RELEASE v2.0</span>
-            <span>Instant Browser Code Runner &bull; Multi-File Tabs ↗</span>
+            <span>Multi-File IDE &bull; Ctrl+Z/Y Undo &bull; Discord Voice & AI Copilot ↗</span>
           </div>
         </div>
 
@@ -433,8 +437,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         </h1>
 
         <p className={styles.heroSubtext}>
-          Instant cursor synchronization, native folder drag-and-drop, and in-browser execution. <br />
-          No signup walls, no expiring tokens, 100% free hosting ready.
+          Instant cursor synchronization, multi-file tree with Ctrl+Z/Y undo, and in-browser terminal execution. <br />
+          Zero signup walls, Discord-style voice chat, and auto-cleaning workspaces.
         </p>
 
         {/* Hero Actions Row (Solid White Pill + Dark Glass Pill) */}
@@ -505,6 +509,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
                 <div className={styles.mockupIcon}>
                   <TerminalIcon size={14} />
+                </div>
+                <div className={styles.mockupIcon}>
+                  <Sparkles size={14} />
                 </div>
               </div>
 
@@ -613,27 +620,27 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className={styles.logosFlex}>
           <div className={styles.logoItem}>
             <Cpu size={15} />
-            <span>Yjs CRDT</span>
-          </div>
-          <div className={styles.logoItem}>
-            <Code2 size={15} />
-            <span>Monaco Editor</span>
+            <span>Monaco & Yjs CRDT</span>
           </div>
           <div className={styles.logoItem}>
             <Zap size={15} />
-            <span>WebSockets</span>
+            <span>Socket.IO & WebRTC</span>
           </div>
           <div className={styles.logoItem}>
             <TerminalIcon size={15} />
-            <span>TypeScript</span>
+            <span>Terminal Runner</span>
+          </div>
+          <div className={styles.logoItem}>
+            <Sparkles size={15} />
+            <span>AI Diff Assistant</span>
           </div>
           <div className={styles.logoItem}>
             <FolderTree size={15} />
-            <span>SQLite Engine</span>
+            <span>File Tree (Ctrl+Z/Y)</span>
           </div>
           <div className={styles.logoItem}>
-            <Users size={15} />
-            <span>GitHub Open Source</span>
+            <Shield size={15} />
+            <span>Passcode & Auto-Cleanup</span>
           </div>
         </div>
       </section>
@@ -682,7 +689,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className={styles.compRowGood}>
               <CheckCircle2 size={16} />
               <div>
-                <strong>The Kollab Way:</strong> Monaco editor, real-time colored cursors, instant browser runner.
+                <strong>The Kollab Way:</strong> Full multi-file IDE with Ctrl+Z/Y file undo, live Monaco cursors, Discord-style voice chat, AI assistant, and built-in terminal runner.
               </div>
             </div>
           </div>
@@ -772,17 +779,17 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger1}`} data-scroll-box>
             <div className={styles.stepNumber}>01</div>
             <h3>Create a Room</h3>
-            <p>Enter your name and pick a room name. No email, no password, no waitlist.</p>
+            <p>Set a custom room ID, optional passcode, and jump in. No email or signup walls required.</p>
           </div>
           <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger2}`} data-scroll-box>
             <div className={styles.stepNumber}>02</div>
-            <h3>Drop Your Project</h3>
-            <p>Drop your local project folder to populate the file tree, or start with a fresh file.</p>
+            <h3>Build & Manage Files</h3>
+            <p>Create nested folders and files with full Ctrl+Z and Ctrl+Y file undo/redo safety and AI diff review.</p>
           </div>
           <div className={`${styles.stepCard} ${styles.scrollBox} ${styles.stagger3}`} data-scroll-box>
             <div className={styles.stepNumber}>03</div>
-            <h3>Share the 5-Digit ID</h3>
-            <p>Send the room ID to your lab partners. Edit code together simultaneously with zero lag.</p>
+            <h3>Code & Talk in Real Time</h3>
+            <p>Share your room link. Hop on integrated voice chat, follow colored cursors, and execute code in the terminal.</p>
           </div>
         </div>
       </section>
