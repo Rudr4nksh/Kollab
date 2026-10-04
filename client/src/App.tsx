@@ -71,17 +71,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Check URL query on mount (?room=demo123)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const roomParam = params.get('room');
-    if (roomParam) {
-      const savedName = getStoredDisplayName();
-      if (savedName) {
-        setDisplayName(savedName);
-      }
-    }
-  }, []);
 
   // Listen for socket connection status
   useEffect(() => {
@@ -192,6 +181,8 @@ export const App: React.FC = () => {
       const res = await validateJoinRoom({ roomId, displayName: name, passcode });
       if (!res.isValid) {
         setError(res.error || 'Failed to join room');
+        sessionStorage.removeItem('kollab_active_session');
+        window.history.replaceState({}, '', window.location.pathname);
         setIsLoading(false);
         try {
           const stored = localStorage.getItem('kollab_recent_workspaces');
@@ -247,6 +238,10 @@ export const App: React.FC = () => {
       };
       setActivities([joinActivity]);
 
+      sessionStorage.setItem(
+        'kollab_active_session',
+        JSON.stringify({ roomId, name, isHost: !!res.isHost, passcode })
+      );
       saveRecentRoom(roomId, name);
       window.history.pushState({}, '', `?room=${encodeURIComponent(roomId)}`);
       addToast('success', `Joined workspace ${roomId}`);
@@ -301,6 +296,10 @@ export const App: React.FC = () => {
       };
       setActivities([createdActivity]);
 
+      sessionStorage.setItem(
+        'kollab_active_session',
+        JSON.stringify({ roomId: res.room.roomId, name, isHost: true, passcode })
+      );
       saveRecentRoom(res.room.roomId, name);
       window.history.pushState({}, '', `?room=${encodeURIComponent(res.room.roomId)}`);
       addToast('success', `Created workspace ${res.room.roomId}`);
@@ -313,6 +312,7 @@ export const App: React.FC = () => {
 
   const handleLeaveRoom = () => {
     socketService.leaveRoom();
+    sessionStorage.removeItem('kollab_active_session');
     setActiveRoomId(null);
     setFiles([]);
     setParticipants([]);
@@ -320,6 +320,32 @@ export const App: React.FC = () => {
     setVoiceUsers([]);
     window.history.pushState({}, '', window.location.pathname);
   };
+
+  // Check URL query and saved active session on mount - seamlessly reconnect on page refresh without popups
+  useEffect(() => {
+    try {
+      const activeSessionStr = sessionStorage.getItem('kollab_active_session');
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+
+      if (activeSessionStr) {
+        const session = JSON.parse(activeSessionStr);
+        if (session && session.roomId && (!roomParam || roomParam === session.roomId)) {
+          handleJoin(session.roomId, session.name || getStoredDisplayName() || 'Anonymous', session.passcode);
+          return;
+        }
+      }
+
+      if (roomParam) {
+        const savedName = getStoredDisplayName();
+        if (savedName) {
+          setDisplayName(savedName);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleSendMessage = (text: string) => {
     if (activeRoomId) {

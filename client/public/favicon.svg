@@ -7,28 +7,14 @@
   </defs>
   <!-- Dark squircle container -->
   <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#kollabFaviconBg)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1.5" />
-  
-  <!-- Subtle code lines -->
-  <rect x="9" y="14" width="13" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.25" />
-  <rect x="9" y="20" width="17" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.3" />
-  <rect x="9" y="26" width="9"  height="2.2" rx="1.1" fill="#3B82F6" opacity="0.2" />
-  <rect x="9" y="32" width="15" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.26" />
-  <rect x="9" y="38" width="10" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.2" />
-  <rect x="9" y="44" width="16" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.3" />
-  <rect x="9" y="50" width="13" height="2.2" rx="1.1" fill="#3B82F6" opacity="0.22" />
 
-  <!-- Top electric blue cursor block -->
-  <rect x="21" y="13" width="9.5" height="7.5" rx="1.8" fill="#2563EB" />
-
-  <!-- White vertical stem -->
-  <rect x="21" y="22.5" width="8" height="29.5" rx="1.5" fill="#FFFFFF" />
+  <!-- Pure Geometric 'K' Mark - Clean stem and diagonal arms -->
+  <!-- Vertical white stem -->
+  <rect x="18.5" y="14" width="7" height="36" rx="2" fill="#FFFFFF" />
 
   <!-- Upper diagonal arm (Electric blue) -->
-  <line x1="28" y1="34" x2="43.5" y2="18.5" stroke="#2563EB" stroke-width="6.8" stroke-linecap="round" />
+  <line x1="25.5" y1="31" x2="42.5" y2="15.5" stroke="#3B82F6" stroke-width="7" stroke-linecap="round" />
 
   <!-- Lower diagonal leg (Sky blue) -->
-  <line x1="28" y1="36" x2="42.5" y2="50" stroke="#60A5FA" stroke-width="6.8" stroke-linecap="round" />
-
-  <!-- Lower horizontal foot bracket (Sky blue) -->
-  <rect x="36" y="48.5" width="13.5" height="4.5" rx="1.6" fill="#60A5FA" />
+  <line x1="25.5" y1="33" x2="42.5" y2="48.5" stroke="#60A5FA" stroke-width="7" stroke-linecap="round" />
 </svg>

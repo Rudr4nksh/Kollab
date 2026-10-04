@@ -978,7 +978,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       {/* Top Header Bar */}
       <header className={styles.topHeader}>
         <div className={styles.brandGroup}>
-          <KollabLogo size={22} version="v2.0" />
+          <KollabLogo size={22} />
 
           <div className={styles.separator} />
 

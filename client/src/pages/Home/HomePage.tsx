@@ -90,13 +90,12 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [passcode, setPasscode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Auto-detect invite link with ?room= parameter
+  // Auto-detect invite link with ?room= parameter (prefill without popup)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam) {
       setRoomId(roomParam.trim());
-      setModalMode('join');
     }
   }, []);
 
@@ -380,7 +379,6 @@ export const HomePage: React.FC<HomePageProps> = ({
       <nav className={styles.navBar}>
         <KollabLogo
           size={28}
-          version="v2.0"
           className={styles.navBrand}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         />
@@ -814,7 +812,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerBrand}>
-          <KollabLogo size="sm" showTagline={true} showAccentLine={true} />
+          <KollabLogo size="sm" />
         </div>
         <div className={styles.footerCredits}>
           <span>Created by </span>
