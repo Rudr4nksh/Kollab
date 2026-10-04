@@ -811,19 +811,22 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <div className={styles.footerBrand}>
-          <KollabLogo size="sm" />
-        </div>
-        <div className={styles.footerCredits}>
-          <span>Created by </span>
-          <a 
-            href="https://github.com/Rudr4nksh" 
-            target="_blank" 
-            rel="noreferrer"
-            style={{ color: '#FF7A59', textDecoration: 'none', fontWeight: 600 }}
-          >
-            Rudranksh Parial
-          </a>
+        <div className={styles.footerLeft}>
+          <div className={styles.footerBrand}>
+            <KollabLogo size="sm" />
+          </div>
+          <span className={styles.footerDot}>&bull;</span>
+          <div className={styles.footerCredits}>
+            <span>Created by </span>
+            <a 
+              href="https://github.com/Rudr4nksh" 
+              target="_blank" 
+              rel="noreferrer"
+              style={{ color: '#FF7A59', textDecoration: 'none', fontWeight: 600 }}
+            >
+              Rudranksh Parial
+            </a>
+          </div>
         </div>
         <div className={styles.footerLinks}>
           <a href="https://github.com/Rudr4nksh/Kollab" target="_blank" rel="noreferrer">

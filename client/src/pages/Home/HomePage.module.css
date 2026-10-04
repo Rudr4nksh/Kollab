@@ -1016,6 +1016,17 @@
   background-color: #050608;
 }
 
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footerDot {
+  color: #4B5563;
+  font-size: 14px;
+}
+
 .footerBrand {
   display: flex;
   align-items: center;
