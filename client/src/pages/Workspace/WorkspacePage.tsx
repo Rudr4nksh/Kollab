@@ -532,8 +532,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         }
 
         onAddToast?.('success', `↩ Restored ${action.node.type} "${action.node.name}"`, {
-          label: 'Undo (Ctrl+Z)',
-          onClick: () => handleUndoFileAction(),
+          label: 'Redo (Ctrl+Y)',
+          onClick: () => handleRedoFileAction(),
         });
       }
 
@@ -585,7 +585,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             activeFilePathRef.current === action.node.path ||
             activeFilePathRef.current.startsWith(action.node.path + '/')
           ) {
-            setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1].path : '');
+            if (remaining.length > 0) {
+              setActiveFilePath(remaining[remaining.length - 1].path);
+            } else {
+              const first = findFirstFileNode(updated);
+              setActiveFilePath(first ? first.path : '');
+              if (first) return [first];
+            }
           }
           return remaining;
         });
