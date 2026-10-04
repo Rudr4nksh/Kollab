@@ -83,8 +83,20 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`[Kollab Server] running on http://localhost:${PORT}`);
+
+  // Purge any abandoned empty rooms from previous runs
+  try {
+    const existingRooms = await prisma.room.findMany();
+    if (existingRooms.length > 0) {
+      console.log(`[Kollab Server] Cleaning up ${existingRooms.length} abandoned room(s)...`);
+      await prisma.activity.deleteMany({});
+      await prisma.room.deleteMany({});
+    }
+  } catch (err) {
+    console.warn('[Kollab Server] Initial empty room cleanup warning:', err);
+  }
 });
 
 export { app, server };

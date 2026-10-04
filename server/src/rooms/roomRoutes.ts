@@ -103,3 +103,18 @@ roomRouter.get('/:roomId/activities', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * DELETE /api/rooms/:roomId - Permanently delete room
+ */
+roomRouter.delete('/:roomId', async (req, res) => {
+  try {
+    const success = await RoomService.deleteRoom(req.params.roomId);
+    if (!success) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    return res.json({ success: true, message: `Room ${req.params.roomId} permanently deleted` });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});

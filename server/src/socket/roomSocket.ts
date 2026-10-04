@@ -43,6 +43,7 @@ interface RoomSession {
   messages: ChatMessage[];
   files: FileNode[];
   saveTimeout?: NodeJS.Timeout;
+  emptyDeletionTimeout?: NodeJS.Timeout;
 }
 
 const activeRooms = new Map<string, RoomSession>();
@@ -95,6 +96,12 @@ export function setupSocketIO(io: SocketIOServer) {
       socket.join(roomIdKey);
 
       let session = activeRooms.get(roomIdKey);
+      if (session && session.emptyDeletionTimeout) {
+        clearTimeout(session.emptyDeletionTimeout);
+        session.emptyDeletionTimeout = undefined;
+        console.log(`[RoomSocket] User joined room ${roomIdKey}, cancelled pending room deletion.`);
+      }
+
       if (!session) {
         // Initialize room session
         let initialFiles: FileNode[] = [];
@@ -441,12 +448,38 @@ export function setupSocketIO(io: SocketIOServer) {
         io.to(currentRoomId).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
       }
 
-      // If room is empty, clear timeout and cleanup
+      // If room is empty (no one is in the room), permanently delete it after a 5s grace period
       if (session.participants.size === 0) {
         if (session.saveTimeout) {
           clearTimeout(session.saveTimeout);
+          session.saveTimeout = undefined;
         }
+        if (session.emptyDeletionTimeout) {
+          clearTimeout(session.emptyDeletionTimeout);
+        }
+
+        const roomToDelete = currentRoomId;
+        console.log(`[RoomSocket] Room ${roomToDelete} is now empty (0 participants). Scheduling permanent deletion in 5s...`);
+
+        session.emptyDeletionTimeout = setTimeout(async () => {
+          const currentSession = activeRooms.get(roomToDelete);
+          if (currentSession && currentSession.participants.size === 0) {
+            console.log(`[RoomSocket] No one is in room ${roomToDelete}. Permanently deleting room.`);
+            activeRooms.delete(roomToDelete);
+            try {
+              await RoomService.deleteRoom(roomToDelete);
+            } catch (err) {
+              console.error(`[RoomSocket] Error deleting room ${roomToDelete}:`, err);
+            }
+          }
+        }, 5000);
       } else {
+        // Clear any deletion timer if participants remain
+        if (session.emptyDeletionTimeout) {
+          clearTimeout(session.emptyDeletionTimeout);
+          session.emptyDeletionTimeout = undefined;
+        }
+
         // Notify others
         io.to(currentRoomId).emit(
           'participants-updated',

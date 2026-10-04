@@ -292,4 +292,30 @@ export class RoomService {
       timestamp: activity.timestamp.toISOString(),
     };
   }
+
+  /**
+   * Permanently delete a room and all its associated data
+   */
+  static async deleteRoom(roomId: string): Promise<boolean> {
+    try {
+      const room = await this.findRoomRecord(roomId);
+      if (!room) return false;
+
+      // Clean up activities
+      await prisma.activity.deleteMany({
+        where: { roomId: room.roomId },
+      });
+
+      // Permanently remove the room record
+      await prisma.room.delete({
+        where: { roomId: room.roomId },
+      });
+
+      console.log(`[RoomService] Room ${room.roomId} permanently deleted from database.`);
+      return true;
+    } catch (err) {
+      console.error(`[RoomService] Failed to permanently delete room ${roomId}:`, err);
+      return false;
+    }
+  }
 }

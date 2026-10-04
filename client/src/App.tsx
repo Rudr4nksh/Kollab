@@ -193,6 +193,14 @@ export const App: React.FC = () => {
       if (!res.isValid) {
         setError(res.error || 'Failed to join room');
         setIsLoading(false);
+        try {
+          const stored = localStorage.getItem('kollab_recent_workspaces');
+          if (stored) {
+            const recents = JSON.parse(stored);
+            const filtered = recents.filter((r: any) => r.roomId !== roomId);
+            localStorage.setItem('kollab_recent_workspaces', JSON.stringify(filtered));
+          }
+        } catch {}
         return;
       }
 
