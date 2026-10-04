@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { X, Trash2, LogOut } from 'lucide-react';
+import { Button } from './Button.tsx';
 import styles from './LastPersonLeaveModal.module.css';
 
 interface LastPersonLeaveModalProps {
@@ -28,7 +29,7 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
     setTimeout(() => {
       onCancel();
       setIsClosing(false);
-    }, 120);
+    }, 140);
   };
 
   const handleConfirm = () => {
@@ -66,17 +67,16 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
       <div
         className={`${styles.dialog} ${isClosing ? styles.dialogClosing : ''}`}
         onClick={(e) => e.stopPropagation()}
-        role="alertdialog"
+        role="dialog"
         aria-modal="true"
         aria-labelledby="last-person-leave-title"
       >
-        <div className={styles.headerRow}>
-          <div className={styles.iconBox}>
-            <AlertTriangle size={17} strokeWidth={2.2} />
-          </div>
+        {/* Modal Window Header */}
+        <div className={styles.header}>
           <div className={styles.titleArea}>
+            <span className={styles.statusDot} />
             <h3 id="last-person-leave-title" className={styles.title}>
-              Delete workspace?
+              Leave Workspace
             </h3>
           </div>
           <button
@@ -89,28 +89,33 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
           </button>
         </div>
 
-        <p className={styles.body}>
-          You are the only person left in{' '}
-          <span className={styles.roomIdBadge}>{roomId}</span>. Leaving now will
-          permanently delete this workspace and all files inside it.
-        </p>
+        {/* Modal Window Body */}
+        <div className={styles.body}>
+          <p className={styles.message}>
+            You are the last person in <span className={styles.roomTag}>{roomId}</span>. Leaving now will permanently delete this room from the server and purge all workspace files.
+          </p>
 
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.cancelBtn}
-            onClick={handleClose}
-            autoFocus
-          >
+          <div className={styles.warningCallout}>
+            <Trash2 size={14} className={styles.calloutIcon} />
+            <p className={styles.calloutText}>
+              This room will be permanently destroyed once you depart.
+            </p>
+          </div>
+        </div>
+
+        {/* Modal Window Footer */}
+        <div className={styles.footer}>
+          <Button variant="secondary" size="md" onClick={handleClose} autoFocus>
             Cancel
-          </button>
-          <button
-            type="button"
-            className={styles.deleteBtn}
+          </Button>
+          <Button
+            variant="danger"
+            size="md"
+            icon={<LogOut size={13} />}
             onClick={handleConfirm}
           >
             Delete & Leave
-          </button>
+          </Button>
         </div>
       </div>
     </div>
