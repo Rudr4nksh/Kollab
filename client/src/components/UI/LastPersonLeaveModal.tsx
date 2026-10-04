@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Trash2, LogOut, X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import styles from './LastPersonLeaveModal.module.css';
 
 interface LastPersonLeaveModalProps {
@@ -28,7 +28,7 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
     setTimeout(() => {
       onCancel();
       setIsClosing(false);
-    }, 180);
+    }, 120);
   };
 
   const handleConfirm = () => {
@@ -36,7 +36,7 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
     setTimeout(() => {
       onConfirmLeave();
       setIsClosing(false);
-    }, 120);
+    }, 100);
   };
 
   useEffect(() => {
@@ -66,49 +66,35 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
       <div
         className={`${styles.dialog} ${isClosing ? styles.dialogClosing : ''}`}
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
+        role="alertdialog"
         aria-modal="true"
         aria-labelledby="last-person-leave-title"
       >
-        <div className={styles.glowTop} />
-
-        <button
-          type="button"
-          className={styles.closeBtn}
-          onClick={handleClose}
-          aria-label="Close"
-          title="Stay in Room"
-        >
-          <X size={15} />
-        </button>
-
-        {/* Floating Animated Warning Badge */}
-        <div className={styles.iconWrapper}>
-          <div className={styles.pulseRing} />
-          <div className={styles.iconBadge}>
-            <AlertTriangle size={28} strokeWidth={2.2} />
+        <div className={styles.headerRow}>
+          <div className={styles.iconBox}>
+            <AlertTriangle size={17} strokeWidth={2.2} />
           </div>
+          <div className={styles.titleArea}>
+            <h3 id="last-person-leave-title" className={styles.title}>
+              Delete workspace?
+            </h3>
+          </div>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={handleClose}
+            aria-label="Close"
+          >
+            <X size={14} />
+          </button>
         </div>
 
-        {/* Title & Description */}
-        <h3 id="last-person-leave-title" className={styles.title}>
-          Delete Room Permanently?
-        </h3>
-        <p className={styles.description}>
-          You are the only person remaining in{' '}
-          <span className={styles.roomHighlight}>{roomId}</span>. Leaving now will
-          permanently delete this workspace and wipe all files and history.
+        <p className={styles.body}>
+          You are the only person left in{' '}
+          <span className={styles.roomIdBadge}>{roomId}</span>. Leaving now will
+          permanently delete this workspace and all files inside it.
         </p>
 
-        {/* Warning Callout Box */}
-        <div className={styles.warningBox}>
-          <Trash2 size={16} className={styles.warningBoxIcon} />
-          <p className={styles.warningBoxText}>
-            <strong>Irreversible Action:</strong> When the last participant departs, the room is destroyed immediately.
-          </p>
-        </div>
-
-        {/* Action Buttons */}
         <div className={styles.actions}>
           <button
             type="button"
@@ -116,15 +102,14 @@ export const LastPersonLeaveModal: React.FC<LastPersonLeaveModalProps> = ({
             onClick={handleClose}
             autoFocus
           >
-            Stay in Room
+            Cancel
           </button>
           <button
             type="button"
-            className={styles.confirmBtn}
+            className={styles.deleteBtn}
             onClick={handleConfirm}
           >
-            <LogOut size={15} />
-            <span>Leave & Delete</span>
+            Delete & Leave
           </button>
         </div>
       </div>
