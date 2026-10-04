@@ -372,6 +372,7 @@
   z-index: 15;
   box-sizing: border-box;
   transform: translateZ(0);
+  overflow: hidden;
 }
 
 .leftSidebar {
@@ -384,6 +385,7 @@
   z-index: 12;
   box-sizing: border-box;
   transform: translateZ(0);
+  overflow: hidden;
 }
 
 .chatSidebarWrapper {
@@ -393,6 +395,7 @@
   z-index: 30;
   box-sizing: border-box;
   transform: translateZ(0);
+  overflow: hidden;
 }
 
 /* VS Code Style Col & Row Resizers (Sashes) - Subtle, refined luxury */
@@ -494,6 +497,7 @@
   box-sizing: border-box;
   transform: translateZ(0);
   background-color: #07090D;
+  overflow: hidden;
 }
 
 /* Invisible overlay while dragging to prevent Monaco or iframe capture */
@@ -522,17 +526,21 @@
   flex-direction: column;
   background-color: var(--bg-editor);
   position: relative;
+  overflow: hidden;
 }
 
 /* Empty Editor Canvas - Transparent Obsidian */
 .emptyEditorState {
   flex: 1;
+  height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px 20px;
   background-color: #07090D;
   user-select: none;
+  box-sizing: border-box;
 }
 
 .emptyCard {
@@ -546,6 +554,7 @@
   background: transparent;
   border: none;
   box-shadow: none;
+  margin: auto;
 }
 
 .emptyIconCircle {

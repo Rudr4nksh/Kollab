@@ -1091,6 +1091,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           className={styles.aiSidebar}
           style={{
             width: isAiOpen ? `${aiWidth}px` : '0px',
+            overflow: 'hidden',
             opacity: isAiOpen ? 1 : 0,
             pointerEvents: isAiOpen ? 'auto' : 'none',
             borderRight: isAiOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
@@ -1123,6 +1124,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           className={styles.leftSidebar}
           style={{
             width: isSidebarOpen ? `${sidebarWidth}px` : '0px',
+            overflow: 'hidden',
             opacity: isSidebarOpen ? 1 : 0,
             pointerEvents: isSidebarOpen ? 'auto' : 'none',
             borderRight: isSidebarOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
@@ -1218,7 +1220,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                         placeholder="project-name or filename.ext"
                         value={newProjectName}
                         onChange={(e) => setNewProjectName(e.target.value)}
-                        autoFocus
+                        ref={(el) => {
+                          if (el) el.focus({ preventScroll: true });
+                        }}
                       />
                       <button type="submit" className={styles.createFolderInsideBtn}>
                         <span>Create</span>
@@ -1269,7 +1273,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                         placeholder="filename.ext (e.g. main.cpp, script.js)"
                         value={newDirectFileName}
                         onChange={(e) => setNewDirectFileName(e.target.value)}
-                        autoFocus
+                        ref={(el) => {
+                          if (el) el.focus({ preventScroll: true });
+                        }}
                       />
                       <button type="submit" className={styles.createFolderInsideBtn}>
                         <span>Create</span>
@@ -1286,6 +1292,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             className={styles.consoleDrawerWrapper}
             style={{
               height: consoleOpen ? `${targetConsoleHeight}px` : '0px',
+              overflow: 'hidden',
               opacity: consoleOpen ? 1 : 0,
               pointerEvents: consoleOpen ? 'auto' : 'none',
               borderTop: consoleOpen ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
@@ -1352,6 +1359,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
           className={styles.chatSidebarWrapper}
           style={{
             width: isChatOpen ? `${chatWidth}px` : '0px',
+            overflow: 'hidden',
             opacity: isChatOpen ? 1 : 0,
             pointerEvents: isChatOpen ? 'auto' : 'none',
             borderLeft: isChatOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
