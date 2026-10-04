@@ -117,47 +117,67 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }
     });
 
-    // Intercept Undo (Ctrl+Z) and Redo (Ctrl+Y / Ctrl+Shift+Z) at Monaco's command level.
-    // If Monaco's model version doesn't change after triggering text undo/redo (buffer has no more text steps),
-    // cascade immediately to file undo/redo.
-    let isUndoing = false;
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
-      if (isUndoing) return;
-      const model = ed.getModel();
-      if (!model) return;
-      isUndoing = true;
-      try {
-        const vBefore = model.getVersionId();
-        ed.trigger('keyboard', 'undo', null);
-        const vAfter = model.getVersionId();
-        if (vBefore === vAfter && onUndoFileRef.current) {
-          onUndoFileRef.current();
-        }
-      } finally {
-        isUndoing = false;
-      }
-    });
+    // Check whether Monaco has pending text undo/redo actions
+    const monacoCanUndo = () => {
+      const model = ed.getModel() as any;
+      if (!model) return false;
+      return typeof model.canUndo === 'function' ? model.canUndo() : false;
+    };
 
-    let isRedoing = false;
-    const handleMonacoRedo = () => {
-      if (isRedoing) return;
-      const model = ed.getModel();
-      if (!model) return;
-      isRedoing = true;
-      try {
-        const vBefore = model.getVersionId();
-        ed.trigger('keyboard', 'redo', null);
-        const vAfter = model.getVersionId();
-        if (vBefore === vAfter && onRedoFileRef.current) {
-          onRedoFileRef.current();
-        }
-      } finally {
-        isRedoing = false;
+    const monacoCanRedo = () => {
+      const model = ed.getModel() as any;
+      if (!model) return false;
+      return typeof model.canRedo === 'function' ? model.canRedo() : false;
+    };
+
+    // 1. Monaco command layer (invoked when Monaco command service resolves shortcuts)
+    const handleMonacoUndo = () => {
+      if (monacoCanUndo()) {
+        ed.trigger('keyboard', 'undo', null);
+      } else if (onUndoFileRef.current) {
+        onUndoFileRef.current();
       }
     };
 
+    const handleMonacoRedo = () => {
+      if (monacoCanRedo()) {
+        ed.trigger('keyboard', 'redo', null);
+      } else if (onRedoFileRef.current) {
+        onRedoFileRef.current();
+      }
+    };
+
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, handleMonacoUndo);
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, handleMonacoRedo);
     ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, handleMonacoRedo);
+
+    // 2. Editor keydown event listener (intercepts before Monaco built-in commands swallow the keypress)
+    ed.onKeyDown((e) => {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrMeta) return;
+
+      const key = e.browserEvent?.key?.toLowerCase();
+      const isZ = e.keyCode === monaco.KeyCode.KeyZ || e.code === 'KeyZ' || key === 'z';
+      const isY = e.keyCode === monaco.KeyCode.KeyY || e.code === 'KeyY' || key === 'y';
+
+      if (isZ && !e.shiftKey) {
+        if (!monacoCanUndo() && onUndoFileRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.browserEvent?.preventDefault();
+          e.browserEvent?.stopPropagation();
+          onUndoFileRef.current();
+        }
+      } else if ((isZ && e.shiftKey) || isY) {
+        if (!monacoCanRedo() && onRedoFileRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.browserEvent?.preventDefault();
+          e.browserEvent?.stopPropagation();
+          onRedoFileRef.current();
+        }
+      }
+    });
 
     if (onEditorMount) {
       onEditorMount(ed, monaco);

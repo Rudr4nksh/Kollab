@@ -413,6 +413,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const [fileUndoStack, setFileUndoStack] = useState<FileHistoryAction[]>([]);
   const [fileRedoStack, setFileRedoStack] = useState<FileHistoryAction[]>([]);
 
+  const fileUndoStackRef = useRef<FileHistoryAction[]>([]);
+  const fileRedoStackRef = useRef<FileHistoryAction[]>([]);
+  const handleUndoFileActionRef = useRef<() => void>(() => {});
+  const handleRedoFileActionRef = useRef<() => void>(() => {});
+
   const filesRef = useRef(files);
   filesRef.current = files;
   const openFilesRef = useRef(openFiles);
@@ -469,141 +474,142 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   };
 
   const handleUndoFileAction = useCallback(() => {
-    setFileUndoStack((prev) => {
-      if (prev.length === 0) return prev;
-      const nextUndo = [...prev];
-      const action = nextUndo.pop()!;
+    if (fileUndoStackRef.current.length === 0) return;
+    const action = fileUndoStackRef.current[fileUndoStackRef.current.length - 1];
+    const nextUndo = fileUndoStackRef.current.slice(0, -1);
+    fileUndoStackRef.current = nextUndo;
+    fileRedoStackRef.current = [...fileRedoStackRef.current, action];
+    setFileUndoStack(nextUndo);
+    setFileRedoStack(fileRedoStackRef.current);
 
-      setFileRedoStack((rPrev) => [...rPrev, action]);
-      const currentFiles = filesRef.current;
+    const currentFiles = filesRef.current;
 
-      if (action.type === 'create') {
-        const updated = removeNodeFromTree(currentFiles, action.node.path);
-        onFilesChange(updated);
-        socketService.emitFilesTreeUpdate(
-          roomId,
-          updated,
-          userId,
-          `undid create ${action.node.name}`,
-          'file_deleted'
+    if (action.type === 'create') {
+      const updated = removeNodeFromTree(currentFiles, action.node.path);
+      onFilesChange(updated);
+      socketService.emitFilesTreeUpdate(
+        roomId,
+        updated,
+        userId,
+        `undid create ${action.node.name}`,
+        'file_deleted'
+      );
+
+      setOpenFiles((openPrev) => {
+        const remaining = openPrev.filter(
+          (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
         );
-
-        setOpenFiles((openPrev) => {
-          const remaining = openPrev.filter(
-            (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
-          );
-          if (
-            activeFilePathRef.current === action.node.path ||
-            activeFilePathRef.current.startsWith(action.node.path + '/')
-          ) {
-            if (remaining.length > 0) {
-              setActiveFilePath(remaining[remaining.length - 1].path);
-            } else {
-              const first = findFirstFileNode(updated);
-              setActiveFilePath(first ? first.path : '');
-              if (first) return [first];
-            }
-          }
-          return remaining;
-        });
-
-        onAddToast?.('info', `↩ Undid creation of "${action.node.name}"`, {
-          label: 'Redo (Ctrl+Y)',
-          onClick: () => handleRedoFileAction(),
-        });
-      } else if (action.type === 'delete') {
-        const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
-        onFilesChange(updated);
-        socketService.emitFilesTreeUpdate(
-          roomId,
-          updated,
-          userId,
-          `restored ${action.node.name}`,
-          'file_created'
-        );
-
-        if (action.node.type === 'file') {
-          handleSelectFile(action.node);
-        } else {
-          const first = findFirstFileNode([action.node]);
-          if (first) {
-            handleSelectFile(first);
+        if (
+          activeFilePathRef.current === action.node.path ||
+          activeFilePathRef.current.startsWith(action.node.path + '/')
+        ) {
+          if (remaining.length > 0) {
+            setActiveFilePath(remaining[remaining.length - 1].path);
+          } else {
+            const first = findFirstFileNode(updated);
+            setActiveFilePath(first ? first.path : '');
+            if (first) return [first];
           }
         }
+        return remaining;
+      });
 
-        onAddToast?.('success', `↩ Restored ${action.node.type} "${action.node.name}"`, {
-          label: 'Redo (Ctrl+Y)',
-          onClick: () => handleRedoFileAction(),
-        });
+      onAddToast?.('info', `↩ Undid creation of "${action.node.name}"`, {
+        label: 'Redo (Ctrl+Y)',
+        onClick: () => handleRedoFileActionRef.current(),
+      });
+    } else if (action.type === 'delete') {
+      const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
+      onFilesChange(updated);
+      socketService.emitFilesTreeUpdate(
+        roomId,
+        updated,
+        userId,
+        `restored ${action.node.name}`,
+        'file_created'
+      );
+
+      if (action.node.type === 'file') {
+        handleSelectFile(action.node);
+      } else {
+        const first = findFirstFileNode([action.node]);
+        if (first) {
+          handleSelectFile(first);
+        }
       }
 
-      return nextUndo;
-    });
+      onAddToast?.('success', `↩ Restored ${action.node.type} "${action.node.name}"`, {
+        label: 'Redo (Ctrl+Y)',
+        onClick: () => handleRedoFileActionRef.current(),
+      });
+    }
   }, [roomId, userId, onFilesChange, handleSelectFile, onAddToast]);
 
   const handleRedoFileAction = useCallback(() => {
-    setFileRedoStack((prev) => {
-      if (prev.length === 0) return prev;
-      const nextRedo = [...prev];
-      const action = nextRedo.pop()!;
+    if (fileRedoStackRef.current.length === 0) return;
+    const action = fileRedoStackRef.current[fileRedoStackRef.current.length - 1];
+    const nextRedo = fileRedoStackRef.current.slice(0, -1);
+    fileRedoStackRef.current = nextRedo;
+    fileUndoStackRef.current = [...fileUndoStackRef.current, action];
+    setFileRedoStack(nextRedo);
+    setFileUndoStack(fileUndoStackRef.current);
 
-      setFileUndoStack((uPrev) => [...uPrev, action]);
-      const currentFiles = filesRef.current;
+    const currentFiles = filesRef.current;
 
-      if (action.type === 'create') {
-        const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
-        onFilesChange(updated);
-        socketService.emitFilesTreeUpdate(
-          roomId,
-          updated,
-          userId,
-          `re-created ${action.node.name}`,
-          'file_created'
-        );
-        if (action.node.type === 'file') {
-          handleSelectFile(action.node);
-        }
-        onAddToast?.('info', `↪ Re-created ${action.node.name}`, {
-          label: 'Undo (Ctrl+Z)',
-          onClick: () => handleUndoFileAction(),
-        });
-      } else if (action.type === 'delete') {
-        const updated = removeNodeFromTree(currentFiles, action.node.path);
-        onFilesChange(updated);
-        socketService.emitFilesTreeUpdate(
-          roomId,
-          updated,
-          userId,
-          `re-deleted ${action.node.name}`,
-          'file_deleted'
-        );
-        setOpenFiles((openPrev) => {
-          const remaining = openPrev.filter(
-            (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
-          );
-          if (
-            activeFilePathRef.current === action.node.path ||
-            activeFilePathRef.current.startsWith(action.node.path + '/')
-          ) {
-            if (remaining.length > 0) {
-              setActiveFilePath(remaining[remaining.length - 1].path);
-            } else {
-              const first = findFirstFileNode(updated);
-              setActiveFilePath(first ? first.path : '');
-              if (first) return [first];
-            }
-          }
-          return remaining;
-        });
-        onAddToast?.('info', `↪ Re-deleted ${action.node.name}`, {
-          label: 'Undo (Ctrl+Z)',
-          onClick: () => handleUndoFileAction(),
-        });
+    if (action.type === 'create') {
+      const updated = insertNodeIntoTree(currentFiles, action.node, action.parentPath);
+      onFilesChange(updated);
+      socketService.emitFilesTreeUpdate(
+        roomId,
+        updated,
+        userId,
+        `re-created ${action.node.name}`,
+        'file_created'
+      );
+      if (action.node.type === 'file') {
+        handleSelectFile(action.node);
       }
-
-      return nextRedo;
-    });
+      onAddToast?.('info', `↪ Re-created ${action.node.name}`, {
+        label: 'Undo (Ctrl+Z)',
+        onClick: () => handleUndoFileActionRef.current(),
+      });
+    } else if (action.type === 'delete') {
+      const updated = removeNodeFromTree(currentFiles, action.node.path);
+      onFilesChange(updated);
+      socketService.emitFilesTreeUpdate(
+        roomId,
+        updated,
+        userId,
+        `re-deleted ${action.node.name}`,
+        'file_deleted'
+      );
+      setOpenFiles((openPrev) => {
+        const remaining = openPrev.filter(
+          (f) => f.path !== action.node.path && !f.path.startsWith(action.node.path + '/')
+        );
+        if (
+          activeFilePathRef.current === action.node.path ||
+          activeFilePathRef.current.startsWith(action.node.path + '/')
+        ) {
+          if (remaining.length > 0) {
+            setActiveFilePath(remaining[remaining.length - 1].path);
+          } else {
+            const first = findFirstFileNode(updated);
+            setActiveFilePath(first ? first.path : '');
+            if (first) return [first];
+          }
+        }
+        return remaining;
+      });
+      onAddToast?.('info', `↪ Re-deleted ${action.node.name}`, {
+        label: 'Undo (Ctrl+Z)',
+        onClick: () => handleUndoFileActionRef.current(),
+      });
+    }
   }, [roomId, userId, onFilesChange, handleSelectFile, onAddToast]);
+
+  handleUndoFileActionRef.current = handleUndoFileAction;
+  handleRedoFileActionRef.current = handleRedoFileAction;
 
   // Global keydown listener for Ctrl+Z (Undo) and Ctrl+Y / Ctrl+Shift+Z (Redo)
   useEffect(() => {
@@ -613,28 +619,35 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
       const target = e.target as HTMLElement | null;
       const tagName = target?.tagName?.toLowerCase();
+      const isMonacoTextarea =
+        tagName === 'textarea' && !!target?.closest('.monaco-editor');
+      const isEmptyCanvasInput = !!target?.classList?.contains(styles.emptyFolderInput);
       const isTextInput =
-        tagName === 'input' || tagName === 'textarea' || target?.isContentEditable;
+        !isEmptyCanvasInput &&
+        (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable);
 
-      // If user is typing in a standard input/textarea (outside Monaco), let native text undo handle it
-      if (isTextInput && !target?.closest('.monaco-editor')) {
-        return;
+      // If user is actively typing in a non-empty input/textarea outside Monaco, let native text undo handle it
+      if (isTextInput && !isMonacoTextarea) {
+        const inputEl = target as HTMLInputElement | HTMLTextAreaElement;
+        if (inputEl.value && inputEl.value.trim().length > 0) {
+          return;
+        }
       }
 
-      // If not inside Monaco editor:
-      if (!target?.closest('.monaco-editor')) {
-        if ((e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+      const key = e.key?.toLowerCase();
+      const isZ = key === 'z' || e.code === 'KeyZ';
+      const isY = key === 'y' || e.code === 'KeyY';
+
+      // If focus is NOT in Monaco's editor textarea (e.g. empty canvas, explorer, tabs, toast, document body):
+      if (!isMonacoTextarea) {
+        if (isZ && !e.shiftKey) {
           e.preventDefault();
           e.stopPropagation();
-          handleUndoFileAction();
-        } else if (
-          ((e.key === 'z' || e.key === 'Z') && e.shiftKey) ||
-          e.key === 'y' ||
-          e.key === 'Y'
-        ) {
+          handleUndoFileActionRef.current();
+        } else if ((isZ && e.shiftKey) || isY) {
           e.preventDefault();
           e.stopPropagation();
-          handleRedoFileAction();
+          handleRedoFileActionRef.current();
         }
       }
     };
@@ -643,7 +656,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown, true);
     };
-  }, [handleUndoFileAction, handleRedoFileAction]);
+  }, []);
 
   // Create new file
   const handleCreateFile = (name: string, parentPath?: string) => {
@@ -684,19 +697,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
     // Add to Undo History
     const snapshot: FileNode = JSON.parse(JSON.stringify(newFile));
-    setFileUndoStack((prev) => [
-      ...prev,
-      {
-        type: 'create',
-        node: snapshot,
-        parentPath,
-        description: `created file ${name}`,
-      },
-    ]);
+    const actionItem: FileHistoryAction = {
+      type: 'create',
+      node: snapshot,
+      parentPath,
+      description: `created file ${name}`,
+    };
+    fileUndoStackRef.current = [...fileUndoStackRef.current, actionItem];
+    fileRedoStackRef.current = [];
+    setFileUndoStack(fileUndoStackRef.current);
     setFileRedoStack([]);
     onAddToast?.('success', `Created file "${name}"`, {
       label: 'Undo (Ctrl+Z)',
-      onClick: () => handleUndoFileAction(),
+      onClick: () => handleUndoFileActionRef.current(),
     });
   };
 
@@ -735,19 +748,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
     // Add to Undo History
     const snapshot: FileNode = JSON.parse(JSON.stringify(newFolder));
-    setFileUndoStack((prev) => [
-      ...prev,
-      {
-        type: 'create',
-        node: snapshot,
-        parentPath,
-        description: `created folder ${name}`,
-      },
-    ]);
+    const actionItem: FileHistoryAction = {
+      type: 'create',
+      node: snapshot,
+      parentPath,
+      description: `created folder ${name}`,
+    };
+    fileUndoStackRef.current = [...fileUndoStackRef.current, actionItem];
+    fileRedoStackRef.current = [];
+    setFileUndoStack(fileUndoStackRef.current);
     setFileRedoStack([]);
     onAddToast?.('success', `Created folder "${name}"`, {
       label: 'Undo (Ctrl+Z)',
-      onClick: () => handleUndoFileAction(),
+      onClick: () => handleUndoFileActionRef.current(),
     });
   };
 
@@ -763,19 +776,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     const found = findNodeAndParentInTree(files, targetPath);
     if (found) {
       const snapshot: FileNode = JSON.parse(JSON.stringify(found.node));
-      setFileUndoStack((prev) => [
-        ...prev,
-        {
-          type: 'delete',
-          node: snapshot,
-          parentPath: found.parentPath,
-          description: `deleted ${snapshot.type} ${snapshot.name}`,
-        },
-      ]);
+      const actionItem: FileHistoryAction = {
+        type: 'delete',
+        node: snapshot,
+        parentPath: found.parentPath,
+        description: `deleted ${snapshot.type} ${snapshot.name}`,
+      };
+      fileUndoStackRef.current = [...fileUndoStackRef.current, actionItem];
+      fileRedoStackRef.current = [];
+      setFileUndoStack(fileUndoStackRef.current);
       setFileRedoStack([]);
       onAddToast?.('warning', `Deleted ${snapshot.type} "${snapshot.name}"`, {
         label: 'Undo (Ctrl+Z)',
-        onClick: () => handleUndoFileAction(),
+        onClick: () => handleUndoFileActionRef.current(),
       });
     }
 
@@ -831,19 +844,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
     // Add to Undo History
     const snapshot: FileNode = JSON.parse(JSON.stringify(newFolder));
-    setFileUndoStack((prev) => [
-      ...prev,
-      {
-        type: 'create',
-        node: snapshot,
-        parentPath: undefined,
-        description: `created project folder ${clean}`,
-      },
-    ]);
+    const actionItem: FileHistoryAction = {
+      type: 'create',
+      node: snapshot,
+      parentPath: undefined,
+      description: `created project folder ${clean}`,
+    };
+    fileUndoStackRef.current = [...fileUndoStackRef.current, actionItem];
+    fileRedoStackRef.current = [];
+    setFileUndoStack(fileUndoStackRef.current);
     setFileRedoStack([]);
     onAddToast?.('success', `Created folder "${clean}"`, {
       label: 'Undo (Ctrl+Z)',
-      onClick: () => handleUndoFileAction(),
+      onClick: () => handleUndoFileActionRef.current(),
     });
   };
 
