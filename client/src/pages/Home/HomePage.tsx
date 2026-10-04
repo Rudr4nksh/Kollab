@@ -18,6 +18,7 @@ import { Input } from '../../components/UI/Input.tsx';
 import { Button } from '../../components/UI/Button.tsx';
 import { ThreeHeroCanvas } from '../../components/ThreeCanvas/ThreeHeroCanvas.tsx';
 import { ProjectTreeMap } from '../../components/TreeMap/ProjectTreeMap.tsx';
+import { KollabLogo } from '../../components/Brand/KollabLogo.tsx';
 import { playThockSound } from '../../utils/audioEffects.ts';
 import styles from './HomePage.module.css';
 
@@ -377,17 +378,12 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Main Navbar - Centered Navigation Grid */}
       <nav className={styles.navBar}>
-        <div className={styles.navBrand} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className={styles.brandIcon}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-              <line x1="14" y1="4" x2="10" y2="20" stroke="currentColor" strokeWidth="2" opacity="0.6" />
-            </svg>
-          </div>
-          <span className={styles.brandTitle}>Kollab</span>
-          <span className={styles.brandVersion}>v2.0</span>
-        </div>
+        <KollabLogo
+          size={28}
+          version="v2.0"
+          className={styles.navBrand}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        />
 
         {/* Dead-Centered Nav Links */}
         <div className={styles.navLinks}>
@@ -817,8 +813,11 @@ export const HomePage: React.FC<HomePageProps> = ({
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <div>
-          <span>Kollab &bull; Created by </span>
+        <div className={styles.footerBrand}>
+          <KollabLogo size="sm" showTagline={true} showAccentLine={true} />
+        </div>
+        <div className={styles.footerCredits}>
+          <span>Created by </span>
           <a 
             href="https://github.com/Rudr4nksh" 
             target="_blank" 

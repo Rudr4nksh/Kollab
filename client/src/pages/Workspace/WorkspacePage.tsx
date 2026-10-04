@@ -28,6 +28,7 @@ import { AIAssistantPanel } from '../../components/AIAssistant/AIAssistantPanel.
 import { AIDiffReviewModal } from '../../components/AIAssistant/AIDiffReviewModal.tsx';
 import { RoomSettingsModal } from '../../components/RoomJoin/RoomSettingsModal.tsx';
 import { LastPersonLeaveModal } from '../../components/UI/LastPersonLeaveModal.tsx';
+import { KollabLogo } from '../../components/Brand/KollabLogo.tsx';
 import { DiscordPanel } from '../../components/DiscordChat/DiscordPanel.tsx';
 import { ToastContainer, ToastMessage } from '../../components/UI/Toast.tsx';
 import type { 
@@ -977,11 +978,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       {/* Top Header Bar */}
       <header className={styles.topHeader}>
         <div className={styles.brandGroup}>
-          <div className={styles.brandBadge}>
-            <span>&lt;&nbsp;/&nbsp;&gt;</span>
-          </div>
-          <span className={styles.brandName}>Kollab</span>
-          <span className={styles.brandVersion}>v2.0</span>
+          <KollabLogo size={22} version="v2.0" />
 
           <div className={styles.separator} />
 
