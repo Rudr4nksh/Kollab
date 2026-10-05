@@ -736,7 +736,9 @@
   cursor: not-allowed;
 }
 
-/* Attachments & Drag-and-drop */
+/* ========================================================= */
+/* ULTRA-PROFESSIONAL DRAG-AND-DROP OVERLAY                  */
+/* ========================================================= */
 .chatView {
   position: relative;
   display: flex;
@@ -746,55 +748,166 @@
 }
 
 .chatViewDragOver {
-  outline: 2px dashed #6366f1;
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1.5px rgba(99, 102, 241, 0.7);
 }
 
 .dropOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(10, 11, 16, 0.88);
-  backdrop-filter: blur(4px);
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 18px;
   pointer-events: none;
+  animation: dropFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dropOverlayBackdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(13, 15, 24, 0.94) 0%, rgba(5, 6, 10, 0.98) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .dropOverlayCard {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 310px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 24px;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px dashed rgba(99, 102, 241, 0.4);
-  border-radius: 12px;
-  color: #e0e7ff;
   text-align: center;
+  padding: 24px 20px 20px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.32);
+  border-radius: 14px;
+  box-shadow: 
+    0 0 0 1px rgba(99, 102, 241, 0.15),
+    0 20px 48px -12px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: dropCardScale 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dropBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  font-family: var(--font-mono, monospace);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a5b4fc;
+  margin-bottom: 14px;
+}
+
+.dropDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  box-shadow: 0 0 8px #6366f1;
+  animation: dropPulse 2s ease-in-out infinite;
+}
+
+.dropIconHalo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.dropIconGlow {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(99, 102, 241, 0) 70%);
+  animation: dropHaloPulse 2.4s ease-in-out infinite alternate;
+}
+
+.dropIconWrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: #0f111a;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .dropOverlayIcon {
   color: #818cf8;
-  animation: bounce 1s infinite alternate ease-in-out;
 }
 
-@keyframes bounce {
-  from { transform: translateY(0); }
-  to { transform: translateY(-6px); }
-}
-
-.dropOverlayText {
-  font-size: 13px;
+.dropOverlayTitle {
+  font-size: 14px;
   font-weight: 600;
   color: #ffffff;
-  margin: 0;
+  letter-spacing: -0.01em;
+  margin: 0 0 5px 0;
 }
 
-.dropOverlayCard span {
-  font-size: 11px;
+.dropOverlayDesc {
+  font-size: 11.5px;
   color: #94a3b8;
+  line-height: 1.45;
+  margin: 0 0 14px 0;
+  max-width: 250px;
+}
+
+.dropFormats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+}
+
+.formatTag {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 500;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+@keyframes dropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dropCardScale {
+  from { 
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dropPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes dropHaloPulse {
+  from { transform: scale(0.9); opacity: 0.5; }
+  to { transform: scale(1.15); opacity: 0.85; }
 }
 
 /* Attachments Preview Strip */

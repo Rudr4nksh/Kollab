@@ -11,7 +11,8 @@ import {
   FileCode,
   Undo2,
   Redo2,
-  Edit2
+  Edit2,
+  UploadCloud
 } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
 import { 
@@ -61,6 +62,44 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [newItemName, setNewItemName] = useState('');
   const [targetParentPath, setTargetParentPath] = useState<string | undefined>();
   const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    if (e.dataTransfer) {
+      try {
+        const dropped = await parseDroppedItems(e.dataTransfer);
+        if (dropped && dropped.length > 0) {
+          onImportFolder([...files, ...dropped]);
+        }
+      } catch (err) {
+        console.error('Failed to import dropped files:', err);
+      }
+    }
+  };
 
   // In-place renaming state
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -409,23 +448,24 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   return (
     <div
       className={`${styles.explorer} ${isDragOver ? styles.dragOver : ''}`}
-      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={async (e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        if (e.dataTransfer) {
-          try {
-            const dropped = await parseDroppedItems(e.dataTransfer);
-            if (dropped && dropped.length > 0) {
-              onImportFolder([...files, ...dropped]);
-            }
-          } catch (err) {
-            console.error('Failed to import dropped files:', err);
-          }
-        }
-      }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* Sleek Professional Inset Drop Overlay */}
+      {isDragOver && (
+        <div className={styles.explorerDropOverlay}>
+          <div className={styles.explorerDropCard}>
+            <div className={styles.explorerDropIconWrapper}>
+              <UploadCloud size={18} />
+            </div>
+            <span className={styles.explorerDropTitle}>Drop to Import</span>
+            <span className={styles.explorerDropHint}>Release to import folders or files into workspace</span>
+          </div>
+        </div>
+      )}
+
       {/* Top Header matching VS Code Explorer */}
       <div className={styles.header}>
         <span className={styles.headerTitle}>EXPLORER</span>

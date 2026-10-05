@@ -16,7 +16,8 @@ import {
   FileCode,
   MessageSquare,
   Terminal,
-  Sparkles
+  Sparkles,
+  UploadCloud
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -108,6 +109,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const prevMessagesLength = React.useRef(messages?.length || 0);
+  const [isCanvasDragOver, setIsCanvasDragOver] = useState(false);
+  const canvasDragCounterRef = useRef(0);
 
   // Scalable panel dimensions with localStorage persistence
   const [aiWidth, setAiWidth] = useState<number>(() => {
@@ -1300,10 +1303,27 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               />
             ) : files.length === 0 ? (
               <div 
-                className={styles.emptyEditorState}
+                className={`${styles.emptyEditorState} ${isCanvasDragOver ? styles.emptyEditorStateDragOver : ''}`}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  canvasDragCounterRef.current++;
+                  if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+                    setIsCanvasDragOver(true);
+                  }
+                }}
                 onDragOver={(e) => { e.preventDefault(); }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  canvasDragCounterRef.current--;
+                  if (canvasDragCounterRef.current <= 0) {
+                    canvasDragCounterRef.current = 0;
+                    setIsCanvasDragOver(false);
+                  }
+                }}
                 onDrop={async (e) => {
                   e.preventDefault();
+                  canvasDragCounterRef.current = 0;
+                  setIsCanvasDragOver(false);
                   if (e.dataTransfer) {
                     try {
                       const dropped = await parseDroppedItems(e.dataTransfer);
@@ -1327,6 +1347,19 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   }
                 }}
               >
+                {isCanvasDragOver && (
+                  <div className={styles.canvasDropOverlay}>
+                    <div className={styles.canvasDropCard}>
+                      <div className={styles.canvasDropIconWrapper}>
+                        <UploadCloud size={24} />
+                      </div>
+                      <h3 className={styles.canvasDropTitle}>Drop Project Files</h3>
+                      <p className={styles.canvasDropSubtitle}>
+                        Release to import directories and source code into your workspace
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
                     <FolderPlus size={24} className={styles.emptyFolderIcon} />
