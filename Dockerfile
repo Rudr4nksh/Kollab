@@ -4,6 +4,7 @@
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
+ENV DATABASE_URL="file:./dev.db"
 
 # Install build tools needed for node-gyp and native packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -41,6 +42,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV DATABASE_URL="file:/app/prisma/prod.db"
 
 # Install compilers & runtimes for real execution of user code:
 # - build-essential (gcc, g++, make) for C and C++17
@@ -86,4 +88,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 4000) + '/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 # Ensure SQLite database is created/migrated, then start the server
-CMD ["sh", "-c", "npx prisma db push && node server/dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push --schema=./prisma/schema.prisma && node server/dist/index.js"]

@@ -13,10 +13,10 @@
     "setup": "npm install --prefix server && npm run db:push --prefix server && npm install --prefix client"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "prisma": "^6.19.3"
+    "concurrently": "^9.1.2"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3"
+    "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3"
   }
 }
