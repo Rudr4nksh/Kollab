@@ -43,7 +43,7 @@ export class RoomService {
 
     // Case-insensitive match fallback
     const all = await prisma.room.findMany();
-    return all.find((r) => r.roomId.toLowerCase() === clean.toLowerCase()) || null;
+    return all.find((r: any) => r.roomId.toLowerCase() === clean.toLowerCase()) || null;
   }
 
   /**
@@ -249,14 +249,14 @@ export class RoomService {
       take: limit,
     });
 
-    return activities.map((a) => ({
+    return activities.map((a: any) => ({
       id: a.id,
       roomId: a.roomId,
       type: a.type as any,
       userId: a.userId,
       userName: a.userName,
       details: a.details || undefined,
-      timestamp: a.timestamp.toISOString(),
+      timestamp: a.timestamp ? (typeof a.timestamp === 'string' ? a.timestamp : a.timestamp.toISOString()) : new Date().toISOString(),
     }));
   }
 

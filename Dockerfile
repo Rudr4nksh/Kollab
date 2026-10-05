@@ -26,8 +26,9 @@ RUN npm install --prefix client
 COPY server ./server
 COPY client ./client
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client for both root and server
+RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN cd server && npx prisma generate --schema=../prisma/schema.prisma
 
 # Build client and server
 RUN npm run build --prefix client
@@ -70,7 +71,8 @@ RUN npm install --omit=dev
 RUN npm install --prefix server --omit=dev
 
 # Generate Prisma Client for runner
-RUN npx prisma generate
+RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN cd server && npx prisma generate --schema=../prisma/schema.prisma
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/server/dist ./server/dist
