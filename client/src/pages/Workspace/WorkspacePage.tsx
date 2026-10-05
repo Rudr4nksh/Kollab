@@ -46,7 +46,9 @@ import {
   findFileByPath, 
   updateFileContentInTree, 
   getLanguageFromFilename,
-  findFirstFileNode
+  findFirstFileNode,
+  renameNodeInTree,
+  parseDroppedItems
 } from '../../services/fileUtils.ts';
 import { socketService } from '../../services/socket.ts';
 import styles from './WorkspacePage.module.css';
@@ -849,6 +851,59 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     }
   };
 
+  // In-place Rename node (file or directory)
+  const handleRenameNode = (oldPath: string, newName: string) => {
+    const targetPath = oldPath.trim();
+    if (!targetPath || !newName.trim()) return;
+
+    const { updatedNodes, newPath } = renameNodeInTree(files, targetPath, newName.trim());
+    onFilesChange(updatedNodes);
+
+    // Update open tabs
+    setOpenFiles((prev) =>
+      prev.map((f) => {
+        if (f.path === targetPath) {
+          return {
+            ...f,
+            name: newName.trim(),
+            path: newPath,
+            language: getLanguageFromFilename(newName.trim()),
+          };
+        }
+        if (f.path.startsWith(targetPath + '/')) {
+          const childNewPath = newPath + f.path.slice(targetPath.length);
+          return {
+            ...f,
+            path: childNewPath,
+          };
+        }
+        return f;
+      })
+    );
+
+    // Update activeFilePath
+    if (activeFilePath === targetPath) {
+      setActiveFilePath(newPath);
+    } else if (activeFilePath.startsWith(targetPath + '/')) {
+      setActiveFilePath(newPath + activeFilePath.slice(targetPath.length));
+    }
+
+    // Broadcast across peers
+    socketService.emitFilesTreeUpdate(
+      roomId,
+      updatedNodes,
+      userId,
+      `renamed to ${newName.trim()}`,
+      'file_created'
+    );
+
+    if (onRecordActivity) {
+      onRecordActivity('edit', `renamed ${targetPath.split('/').pop()} to ${newName.trim()}`);
+    }
+
+    onAddToast?.('success', `Renamed to "${newName.trim()}"`);
+  };
+
   // Helper to create root project folder (clean, empty folder without default files)
   const handleCreateProjectFolder = (folderName: string = 'project') => {
     const clean = folderName.trim().replace(/^\/+/, '') || 'project';
@@ -1182,6 +1237,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onCreateFile={handleCreateFile}
                 onCreateFolder={handleCreateFolder}
                 onDeleteNode={handleDeleteNode}
+                onRenameNode={handleRenameNode}
                 canUndo={fileUndoStack.length > 0}
                 canRedo={fileRedoStack.length > 0}
                 onUndo={handleUndoFileAction}
@@ -1243,7 +1299,34 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 currentUserId={userId}
               />
             ) : files.length === 0 ? (
-              <div className={styles.emptyEditorState}>
+              <div 
+                className={styles.emptyEditorState}
+                onDragOver={(e) => { e.preventDefault(); }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  if (e.dataTransfer) {
+                    try {
+                      const dropped = await parseDroppedItems(e.dataTransfer);
+                      if (dropped && dropped.length > 0) {
+                        const nextFiles = [...files, ...dropped];
+                        onFilesChange(nextFiles);
+                        socketService.emitFilesTreeUpdate(
+                          roomId,
+                          nextFiles,
+                          userId,
+                          'imported files from drag-and-drop',
+                          'folder_created'
+                        );
+                        const first = findFirstFileNode(dropped);
+                        if (first) handleSelectFile(first);
+                        onAddToast?.('success', `Imported ${dropped.length} item(s) from desktop`);
+                      }
+                    } catch (err) {
+                      console.error('Failed to import dropped items on canvas:', err);
+                    }
+                  }
+                }}
+              >
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
                     <FolderPlus size={24} className={styles.emptyFolderIcon} />

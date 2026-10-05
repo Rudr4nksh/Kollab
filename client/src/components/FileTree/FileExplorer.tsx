@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronRight, 
   ChevronDown, 
@@ -10,10 +10,16 @@ import {
   Trash2,
   FileCode,
   Undo2,
-  Redo2
+  Redo2,
+  Edit2
 } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
-import { getFileBadgeInfo, getLanguageFromFilename } from '../../services/fileUtils.ts';
+import { 
+  getFileBadgeInfo, 
+  getLanguageFromFilename, 
+  findFileByPath, 
+  parseDroppedItems 
+} from '../../services/fileUtils.ts';
 import styles from './FileExplorer.module.css';
 
 interface FileExplorerProps {
@@ -23,6 +29,7 @@ interface FileExplorerProps {
   onCreateFile: (name: string, parentPath?: string) => void;
   onCreateFolder: (name: string, parentPath?: string) => void;
   onDeleteNode: (path: string) => void;
+  onRenameNode?: (oldPath: string, newName: string) => void;
   onImportFolder: (importedFiles: FileNode[]) => void;
   isHost: boolean;
   canUndo?: boolean;
@@ -38,6 +45,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onCreateFile,
   onCreateFolder,
   onDeleteNode,
+  onRenameNode,
   onImportFolder,
   isHost: _isHost,
   canUndo = false,
@@ -54,7 +62,59 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [targetParentPath, setTargetParentPath] = useState<string | undefined>();
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // In-place renaming state
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingPath && renameInputRef.current) {
+      renameInputRef.current.focus();
+      const dotIdx = editingName.lastIndexOf('.');
+      if (dotIdx > 0) {
+        renameInputRef.current.setSelectionRange(0, dotIdx);
+      } else {
+        renameInputRef.current.select();
+      }
+    }
+  }, [editingPath]);
+
+  const handleStartRename = (node: FileNode, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingPath(node.path);
+    setEditingName(node.name);
+  };
+
+  const handleConfirmRename = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingPath) return;
+    const trimmed = editingName.trim();
+    if (trimmed && trimmed !== editingPath.split('/').pop()) {
+      onRenameNode?.(editingPath, trimmed);
+    }
+    setEditingPath(null);
+    setEditingName('');
+  };
+
+  // Keyboard shortcut listener for F2 rename
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        const targetPath = selectedPath || activeFilePath;
+        if (!targetPath) return;
+        const targetNode = findFileByPath(files, targetPath);
+        if (targetNode) {
+          e.preventDefault();
+          handleStartRename(targetNode);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPath, activeFilePath, files]);
 
   const toggleFolder = (path: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -222,6 +282,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 className={`${styles.treeItem} ${isActive ? styles.activeTreeItem : ''}`}
                 style={{ paddingLeft: `${depth * 14 + 10}px` }}
                 onClick={(e) => {
+                  setSelectedPath(node.path);
                   if (isFolder) {
                     toggleFolder(node.path, e);
                   } else {
@@ -252,7 +313,40 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   </span>
                 )}
 
-                <span className={styles.nodeName}>{node.name}</span>
+                {editingPath === node.path ? (
+                  <form
+                    onSubmit={handleConfirmRename}
+                    className={styles.inlineRenameForm}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      className={styles.inlineRenameInput}
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          e.stopPropagation();
+                          setEditingPath(null);
+                        }
+                      }}
+                      onBlur={() => handleConfirmRename()}
+                      autoFocus
+                    />
+                  </form>
+                ) : (
+                  <span
+                    className={styles.nodeName}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      handleStartRename(node);
+                    }}
+                    title="Double-click or press F2 to rename"
+                  >
+                    {node.name}
+                  </span>
+                )}
 
                 {/* Hover Actions */}
                 <div className={styles.hoverActions}>
@@ -280,6 +374,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                       </button>
                     </>
                   )}
+                  <button
+                    className={styles.actionBtn}
+                    onClick={(e) => handleStartRename(node, e)}
+                    title="Rename (F2)"
+                  >
+                    <Edit2 size={12} />
+                  </button>
                   <button
                     className={`${styles.actionBtn} ${styles.deleteBtn}`}
                     onClick={(e) => {
@@ -310,9 +411,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       className={`${styles.explorer} ${isDragOver ? styles.dragOver : ''}`}
       onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={(e) => {
+      onDrop={async (e) => {
         e.preventDefault();
         setIsDragOver(false);
+        if (e.dataTransfer) {
+          try {
+            const dropped = await parseDroppedItems(e.dataTransfer);
+            if (dropped && dropped.length > 0) {
+              onImportFolder([...files, ...dropped]);
+            }
+          } catch (err) {
+            console.error('Failed to import dropped files:', err);
+          }
+        }
       }}
     >
       {/* Top Header matching VS Code Explorer */}

@@ -20,10 +20,19 @@ export interface ChatMessageItem {
   content: string;
 }
 
+export interface AIAttachment {
+  name: string;
+  type: string;
+  dataUrl?: string;
+  content?: string;
+  size?: number;
+}
+
 export interface AIChatRequest {
   prompt: string;
   context?: AIChatContext;
   conversationHistory?: ChatMessageItem[];
+  attachments?: AIAttachment[];
   userId?: string;
   userName?: string;
   userApiKey?: string;
@@ -160,7 +169,7 @@ export class AIService {
   // ==========================================
   private async chatWithClaude(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const messages = this.sanitizeClaudeMessages(req.conversationHistory, req.prompt);
+    const messages = this.sanitizeClaudeMessages(req.conversationHistory, req.prompt, req.attachments);
 
     const candidates = [
       model,
@@ -233,32 +242,52 @@ export class AIService {
     });
   }
 
-  private sanitizeClaudeMessages(history: ChatMessageItem[] = [], prompt: string) {
-    const raw: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  private sanitizeClaudeMessages(history: ChatMessageItem[] = [], prompt: string, attachments: AIAttachment[] = []) {
+    const raw: Array<{ role: 'user' | 'assistant'; content: any }> = [];
     for (const m of history) {
       if (!m.content?.trim()) continue;
       const role = m.role === 'assistant' ? 'assistant' : 'user';
       raw.push({ role, content: m.content.trim() });
     }
-    raw.push({ role: 'user', content: prompt.trim() });
+
+    let userPromptText = prompt.trim();
+    const userBlocks: any[] = [];
+
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        if (att.dataUrl && att.type?.startsWith('image/')) {
+          const match = att.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            userBlocks.push({
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: match[1] || 'image/png',
+                data: match[2],
+              },
+            });
+          }
+        } else if (att.content) {
+          userPromptText += `\n\n[Attached File: ${att.name}]\n\`\`\`\n${att.content}\n\`\`\``;
+        }
+      }
+    }
+
+    if (userBlocks.length > 0) {
+      userBlocks.push({ type: 'text', text: userPromptText || '(attached file/image)' });
+      raw.push({ role: 'user', content: userBlocks });
+    } else {
+      raw.push({ role: 'user', content: userPromptText });
+    }
 
     while (raw.length > 0 && raw[0].role !== 'user') {
       raw.shift();
     }
     if (raw.length === 0) {
-      raw.push({ role: 'user', content: prompt.trim() });
+      raw.push({ role: 'user', content: userPromptText });
     }
 
-    const merged: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-    for (const item of raw) {
-      if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
-        merged[merged.length - 1].content += `\n\n${item.content}`;
-      } else {
-        merged.push({ role: item.role, content: item.content });
-      }
-    }
-
-    return merged;
+    return raw;
   }
 
   private async refactorWithClaude(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
@@ -292,7 +321,7 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
   // ==========================================
   private async chatWithGemini(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const contents = this.sanitizeGeminiContents(req.conversationHistory, req.prompt);
+    const contents = this.sanitizeGeminiContents(req.conversationHistory, req.prompt, req.attachments);
 
     // Build candidates pool, strictly filtering out discontinued 2.5
     const candidates: string[] = [
@@ -398,32 +427,46 @@ Provide the COMPLETE updated code inside a single markdown code block (\`\`\`${r
     });
   }
 
-  private sanitizeGeminiContents(history: ChatMessageItem[] = [], prompt: string) {
-    const raw: Array<{ role: 'user' | 'model'; text: string }> = [];
+  private sanitizeGeminiContents(history: ChatMessageItem[] = [], prompt: string, attachments: AIAttachment[] = []) {
+    const raw: Array<{ role: 'user' | 'model'; parts: any[] }> = [];
     for (const m of history) {
       if (!m.content?.trim()) continue;
       const role = m.role === 'assistant' ? 'model' : 'user';
-      raw.push({ role, text: m.content.trim() });
+      raw.push({ role, parts: [{ text: m.content.trim() }] });
     }
-    raw.push({ role: 'user', text: prompt.trim() });
+
+    let userText = prompt.trim();
+    const userParts: any[] = [];
+
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        if (att.dataUrl && att.type?.startsWith('image/')) {
+          const match = att.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            userParts.push({
+              inline_data: {
+                mime_type: match[1] || 'image/png',
+                data: match[2],
+              },
+            });
+          }
+        } else if (att.content) {
+          userText += `\n\n[Attached File: ${att.name}]\n\`\`\`\n${att.content}\n\`\`\``;
+        }
+      }
+    }
+
+    userParts.push({ text: userText || '(attached file/image)' });
+    raw.push({ role: 'user', parts: userParts });
 
     while (raw.length > 0 && raw[0].role !== 'user') {
       raw.shift();
     }
     if (raw.length === 0) {
-      raw.push({ role: 'user', text: prompt.trim() });
+      raw.push({ role: 'user', parts: [{ text: prompt.trim() }] });
     }
 
-    const merged: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-    for (const item of raw) {
-      if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
-        merged[merged.length - 1].parts[0].text += `\n\n${item.text}`;
-      } else {
-        merged.push({ role: item.role, parts: [{ text: item.text }] });
-      }
-    }
-
-    return merged;
+    return raw;
   }
 
   private async refactorWithGemini(req: AIRefactorRequest, apiKey: string, model: string): Promise<AIRefactorResponse> {
@@ -457,7 +500,7 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
   // ==========================================
   private async chatWithOpenAI(req: AIChatRequest, apiKey: string, model: string): Promise<AIChatResponse> {
     const systemPrompt = this.buildSystemPrompt(req.context);
-    const messages = this.sanitizeOpenAIMessages(systemPrompt, req.conversationHistory, req.prompt);
+    const messages = this.sanitizeOpenAIMessages(systemPrompt, req.conversationHistory, req.prompt, req.attachments);
 
     const candidates = [
       model,
@@ -528,8 +571,8 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
     });
   }
 
-  private sanitizeOpenAIMessages(systemPrompt: string, history: ChatMessageItem[] = [], prompt: string) {
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+  private sanitizeOpenAIMessages(systemPrompt: string, history: ChatMessageItem[] = [], prompt: string, attachments: AIAttachment[] = []) {
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: any }> = [
       { role: 'system', content: systemPrompt },
     ];
     for (const m of history) {
@@ -539,7 +582,30 @@ Return the COMPLETE refactored code block (\`\`\`${req.language}... \`\`\`), and
         content: m.content.trim(),
       });
     }
-    messages.push({ role: 'user', content: prompt.trim() });
+
+    let userText = prompt.trim();
+    const userParts: any[] = [];
+
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        if (att.dataUrl && att.type?.startsWith('image/')) {
+          userParts.push({
+            type: 'image_url',
+            image_url: { url: att.dataUrl },
+          });
+        } else if (att.content) {
+          userText += `\n\n[Attached File: ${att.name}]\n\`\`\`\n${att.content}\n\`\`\``;
+        }
+      }
+    }
+
+    if (userParts.length > 0) {
+      userParts.push({ type: 'text', text: userText || '(attached file/image)' });
+      messages.push({ role: 'user', content: userParts });
+    } else {
+      messages.push({ role: 'user', content: userText });
+    }
+
     return messages;
   }
 

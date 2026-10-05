@@ -106,6 +106,26 @@
   font-size: 11px;
 }
 
+.inlineRenameForm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin-right: 6px;
+}
+
+.inlineRenameInput {
+  width: 100%;
+  background: #0d0f15;
+  border: 1px solid #6366f1;
+  border-radius: 3px;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
 .createIcon {
   color: var(--accent-cyan);
   flex-shrink: 0;

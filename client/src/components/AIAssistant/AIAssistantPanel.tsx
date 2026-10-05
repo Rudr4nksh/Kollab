@@ -19,9 +19,10 @@ import {
   ChevronLeft,
   ShieldCheck,
   RotateCcw,
-  X
+  X,
+  Paperclip
 } from 'lucide-react';
-import { sendAIChat } from '../../services/api.ts';
+import { sendAIChat, AIAttachment } from '../../services/api.ts';
 import { 
   getStoredAIConfig, 
   saveAIConfig, 
@@ -38,6 +39,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  attachments?: AIAttachment[];
   codeBlock?: {
     code: string;
     language: string;
@@ -84,12 +86,65 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // File and Image Attachments state
+  const [attachments, setAttachments] = useState<AIAttachment[]>([]);
+  const [isAiDragOver, setIsAiDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const processFiles = async (filesToProcess: FileList | File[]) => {
+    const newAttachments: AIAttachment[] = [];
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
+      if (file.type.startsWith('image/')) {
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string) || '');
+          reader.readAsDataURL(file);
+        });
+        newAttachments.push({
+          name: file.name,
+          type: 'image',
+          dataUrl,
+          size: file.size,
+        });
+      } else {
+        const content = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string) || '');
+          reader.readAsText(file);
+        });
+        newAttachments.push({
+          name: file.name,
+          type: 'file',
+          content,
+          size: file.size,
+        });
+      }
+    }
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const filesToProcess: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) filesToProcess.push(file);
+      }
+    }
+    if (filesToProcess.length > 0) {
+      processFiles(filesToProcess);
+    }
+  };
 
   const handleSaveKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,22 +212,25 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
   const handleSendPrompt = async (promptText?: string) => {
     const text = (promptText || input).trim();
-    if (!text || isLoading) return;
+    if ((!text && attachments.length === 0) || isLoading) return;
 
     if (!config?.apiKey) {
       setIsConfiguringKey(true);
       return;
     }
 
+    const currentAttachments = [...attachments];
     const userMsg: Message = {
       id: 'msg_' + Date.now(),
       role: 'user',
-      content: text,
+      content: text || (currentAttachments.length > 0 ? '(Sent attachments)' : ''),
+      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setAttachments([]);
     setIsLoading(true);
 
     try {
@@ -181,7 +239,8 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         .map((m) => ({ role: m.role, content: m.content }));
 
       const res = await sendAIChat({
-        prompt: text,
+        prompt: text || 'Please inspect the attached files/images.',
+        attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
         context: activeFile
           ? {
               activeFile: activeFile.path,
@@ -477,7 +536,28 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         </div>
       ) : (
         /* 3. Sleek Chat & Pair Programming View */
-        <div className={styles.chatView}>
+        <div 
+          className={`${styles.chatView} ${isAiDragOver ? styles.chatViewDragOver : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsAiDragOver(true); }}
+          onDragLeave={() => setIsAiDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsAiDragOver(false);
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+              processFiles(e.dataTransfer.files);
+            }
+          }}
+        >
+          {isAiDragOver && (
+            <div className={styles.dropOverlay}>
+              <div className={styles.dropOverlayCard}>
+                <Paperclip size={24} className={styles.dropOverlayIcon} />
+                <p className={styles.dropOverlayText}>Drop images or code files here</p>
+                <span>Supports image vision and text file analysis</span>
+              </div>
+            </div>
+          )}
+
           {/* Active File Context */}
           {activeFile && (
             <div className={styles.contextBar} title={`Context: ${activeFile.path}`}>
@@ -536,6 +616,23 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
                 <div className={styles.msgBody}>
                   <p className={styles.msgText}>{m.content}</p>
 
+                  {m.attachments && m.attachments.length > 0 && (
+                    <div className={styles.msgAttachments}>
+                      {m.attachments.map((att, idx) => (
+                        <div key={idx} className={styles.msgAttachmentItem}>
+                          {att.type === 'image' && att.dataUrl ? (
+                            <img src={att.dataUrl} alt={att.name} className={styles.msgAttachmentImg} />
+                          ) : (
+                            <div className={styles.msgFileBadge}>
+                              <FileCode size={12} />
+                              <span>{att.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {m.codeBlock && (
                     <div className={styles.codeSnippet}>
                       <div className={styles.snippetHeader}>
@@ -593,20 +690,67 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
           {/* Clean Input Prompt */}
           <form onSubmit={(e) => { e.preventDefault(); handleSendPrompt(); }} className={styles.inputContainer}>
+            {attachments.length > 0 && (
+              <div className={styles.attachmentsStrip}>
+                {attachments.map((att, idx) => (
+                  <div key={idx} className={styles.attachmentChip}>
+                    {att.type === 'image' && att.dataUrl ? (
+                      <img src={att.dataUrl} alt={att.name} className={styles.attachmentImg} />
+                    ) : (
+                      <FileCode size={13} className={styles.attachmentFileIcon} />
+                    )}
+                    <span className={styles.attachmentName} title={att.name}>{att.name}</span>
+                    <button
+                      type="button"
+                      className={styles.removeAttachmentBtn}
+                      onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                      title="Remove attachment"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className={styles.inputPill}>
+              <button
+                type="button"
+                className={styles.attachBtn}
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach file or image"
+              >
+                <Paperclip size={13} />
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.js,.jsx,.ts,.tsx,.py,.html,.css,.json,.md,.txt,.cpp,.c,.java,.go,.rs,.sql"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    processFiles(e.target.files);
+                  }
+                  e.target.value = '';
+                }}
+              />
+
               <textarea
                 ref={inputRef}
                 rows={1}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={activeFile ? `Ask about ${activeFile.name}...` : 'Ask anything...'}
+                onPaste={handlePaste}
+                placeholder={activeFile ? `Ask about ${activeFile.name}...` : 'Ask anything or drop images/files...'}
                 className={styles.chatInput}
                 disabled={isLoading}
               />
               <button
                 type="submit"
-                disabled={!input.trim() || isLoading}
+                disabled={(!input.trim() && attachments.length === 0) || isLoading}
                 className={styles.sendBtn}
                 title="Send"
               >

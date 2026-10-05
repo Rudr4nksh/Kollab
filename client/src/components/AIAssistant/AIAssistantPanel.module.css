@@ -735,3 +735,183 @@
   color: #4b5563;
   cursor: not-allowed;
 }
+
+/* Attachments & Drag-and-drop */
+.chatView {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chatViewDragOver {
+  outline: 2px dashed #6366f1;
+  outline-offset: -2px;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 11, 16, 0.88);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.dropOverlayCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px dashed rgba(99, 102, 241, 0.4);
+  border-radius: 12px;
+  color: #e0e7ff;
+  text-align: center;
+}
+
+.dropOverlayIcon {
+  color: #818cf8;
+  animation: bounce 1s infinite alternate ease-in-out;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-6px); }
+}
+
+.dropOverlayText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.dropOverlayCard span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Attachments Preview Strip */
+.attachmentsStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #08090d;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.attachmentChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 3px 6px;
+  max-width: 180px;
+}
+
+.attachmentImg {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.attachmentFileIcon {
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.attachmentName {
+  font-size: 11px;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+  font-family: var(--font-mono, monospace);
+}
+
+.removeAttachmentBtn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 120ms ease;
+}
+
+.removeAttachmentBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.attachBtn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+
+.attachBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* User Message Attachment Badges */
+.msgAttachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.msgAttachmentItem {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.msgAttachmentImg {
+  max-width: 240px;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #000;
+  display: block;
+}
+
+.msgFileBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #e2e8f0;
+}
+

@@ -12,7 +12,7 @@ aiRouter.get('/status', (_req, res) => {
 // POST /api/ai/chat
 aiRouter.post('/chat', async (req, res) => {
   try {
-    const { prompt, context, conversationHistory, userId, userName } = req.body;
+    const { prompt, context, conversationHistory, attachments, userId, userName } = req.body;
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ error: 'Prompt is required' });
     }
@@ -21,12 +21,13 @@ aiRouter.post('/chat', async (req, res) => {
     const userProvider = ((req.headers['x-user-ai-provider'] as string) || req.body.userProvider) as any;
     const userModel = (req.headers['x-user-ai-model'] as string) || req.body.userModel;
 
-    console.log(`[AIRoutes] Incoming chat request: provider=${userProvider || 'auto'}, model=${userModel || 'default'}, prompt="${prompt.trim().slice(0, 40)}..."`);
+    console.log(`[AIRoutes] Incoming chat request: provider=${userProvider || 'auto'}, model=${userModel || 'default'}, prompt="${prompt.trim().slice(0, 40)}...", attachments=${attachments?.length || 0}`);
 
     const payload: AIChatRequest = {
       prompt: prompt.trim(),
       context,
       conversationHistory,
+      attachments,
       userId,
       userName,
       userApiKey,

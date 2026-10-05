@@ -98,6 +98,14 @@ export async function getAIStatus() {
   return res.json();
 }
 
+export interface AIAttachment {
+  name: string;
+  type: string;
+  dataUrl?: string;
+  content?: string;
+  size?: number;
+}
+
 export async function sendAIChat(payload: {
   prompt: string;
   context?: {
@@ -107,6 +115,7 @@ export async function sendAIChat(payload: {
     selection?: string;
   };
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  attachments?: AIAttachment[];
   userName?: string;
 }) {
   const userConfig = getStoredAIConfig();

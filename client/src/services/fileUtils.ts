@@ -329,3 +329,186 @@ export function findFirstFileNode(nodes: FileNode[]): FileNode | null {
   }
   return null;
 }
+
+/**
+ * Recursively rename a file or folder in the tree, updating all descendant paths
+ */
+export function renameNodeInTree(
+  nodes: FileNode[],
+  oldPath: string,
+  newName: string
+): { updatedNodes: FileNode[]; newPath: string } {
+  const lastSlashIndex = oldPath.lastIndexOf('/');
+  const parentPath = lastSlashIndex > 0 ? oldPath.substring(0, lastSlashIndex) : '';
+  const newPath = parentPath ? `${parentPath}/${newName}` : `/${newName}`;
+
+  const updateRecursive = (list: FileNode[]): FileNode[] => {
+    return list.map((node) => {
+      if (node.path === oldPath) {
+        if (node.type === 'file') {
+          return {
+            ...node,
+            name: newName,
+            path: newPath,
+            language: getLanguageFromFilename(newName),
+          };
+        } else {
+          const updateChildrenPaths = (
+            children: FileNode[],
+            prefixOld: string,
+            prefixNew: string
+          ): FileNode[] => {
+            return children.map((child) => {
+              const childNewPath = child.path.startsWith(prefixOld)
+                ? prefixNew + child.path.slice(prefixOld.length)
+                : child.path;
+              return {
+                ...child,
+                path: childNewPath,
+                children: child.children
+                  ? updateChildrenPaths(child.children, prefixOld, prefixNew)
+                  : undefined,
+              };
+            });
+          };
+
+          return {
+            ...node,
+            name: newName,
+            path: newPath,
+            children: node.children ? updateChildrenPaths(node.children, oldPath, newPath) : [],
+          };
+        }
+      }
+
+      if (node.children) {
+        return {
+          ...node,
+          children: updateRecursive(node.children),
+        };
+      }
+
+      return node;
+    });
+  };
+
+  const updatedNodes = updateRecursive(nodes);
+  return { updatedNodes, newPath };
+}
+
+/**
+ * Native drag-and-drop recursive file & directory parser
+ */
+export async function parseDroppedItems(dataTransfer: DataTransfer): Promise<FileNode[]> {
+  const items = dataTransfer.items;
+  const files = dataTransfer.files;
+
+  const readFileText = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      if (file.size > 5 * 1024 * 1024) {
+        resolve(`// File too large to load inline (${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => resolve((e.target?.result as string) || '');
+      reader.onerror = () => resolve('');
+      reader.readAsText(file);
+    });
+  };
+
+  const readEntry = async (entry: any, basePath: string): Promise<FileNode | null> => {
+    const fullPath = `${basePath}/${entry.name}`;
+    if (entry.isFile) {
+      return new Promise<FileNode>((resolve) => {
+        entry.file(
+          async (file: File) => {
+            const content = await readFileText(file);
+            resolve({
+              id: 'file_' + Math.random().toString(36).substring(2, 9),
+              name: entry.name,
+              path: fullPath,
+              type: 'file',
+              language: getLanguageFromFilename(entry.name),
+              content,
+            });
+          },
+          () => {
+            resolve({
+              id: 'file_' + Math.random().toString(36).substring(2, 9),
+              name: entry.name,
+              path: fullPath,
+              type: 'file',
+              language: getLanguageFromFilename(entry.name),
+              content: '',
+            });
+          }
+        );
+      });
+    } else if (entry.isDirectory) {
+      const dirReader = entry.createReader();
+      const readAllEntries = async (): Promise<any[]> => {
+        const entries: any[] = [];
+        let done = false;
+        while (!done) {
+          const batch = await new Promise<any[]>((res) => {
+            dirReader.readEntries((results: any[]) => res(results || []), () => res([]));
+          });
+          if (!batch || batch.length === 0) {
+            done = true;
+          } else {
+            entries.push(...batch);
+          }
+        }
+        return entries;
+      };
+
+      const childEntries = await readAllEntries();
+      const filtered = childEntries.filter(
+        (c) => c.name !== '.git' && c.name !== 'node_modules' && c.name !== '.DS_Store'
+      );
+      const children: FileNode[] = [];
+      for (const child of filtered) {
+        const childNode = await readEntry(child, fullPath);
+        if (childNode) children.push(childNode);
+      }
+
+      return {
+        id: 'folder_' + Math.random().toString(36).substring(2, 9),
+        name: entry.name,
+        path: fullPath,
+        type: 'folder',
+        isOpen: true,
+        children,
+      };
+    }
+    return null;
+  };
+
+  const results: FileNode[] = [];
+
+  if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function') {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const entry = item.webkitGetAsEntry();
+      if (entry) {
+        const node = await readEntry(entry, '');
+        if (node) results.push(node);
+      }
+    }
+  } else if (files && files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const content = await readFileText(file);
+      results.push({
+        id: 'file_' + Math.random().toString(36).substring(2, 9),
+        name: file.name,
+        path: `/${file.name}`,
+        type: 'file',
+        language: getLanguageFromFilename(file.name),
+        content,
+      });
+    }
+  }
+
+  return results;
+}
