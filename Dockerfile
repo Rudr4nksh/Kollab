@@ -90,5 +90,5 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 4000) + '/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Clean any residual .env from mounted volume, export DATABASE_URL, run prisma db push, and start server
-CMD ["sh", "-c", "rm -f /app/.env /app/prisma/.env /app/server/.env && export DATABASE_URL=\"${DATABASE_URL:-file:/app/prisma/prod.db}\" && npx prisma db push --schema=./prisma/schema.prisma && node server/dist/index.js"]
+# Clean any residual .env, sync SQLite schema, ensure client is generated in server's node_modules, and start server
+CMD ["sh", "-c", "rm -f /app/.env /app/prisma/.env /app/server/.env && export DATABASE_URL=\"${DATABASE_URL:-file:/app/prisma/prod.db}\" && npx prisma db push --schema=./prisma/schema.prisma && (cd /app/server && npx prisma generate --schema=../prisma/schema.prisma) && (cp -rf /app/node_modules/.prisma /app/server/node_modules/ 2>/dev/null || true) && node server/dist/index.js"]
