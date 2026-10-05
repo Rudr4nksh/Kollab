@@ -577,8 +577,27 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         >
           {isAiDragOver && (
             <div className={styles.dropOverlay}>
-              <UploadCloud size={20} className={styles.dropIcon} />
-              <span className={styles.dropText}>Drop files or images to attach</span>
+              <div className={styles.dropBorderFrame}>
+                <svg className={styles.dropSvgBorder}>
+                  <rect
+                    x="2"
+                    y="2"
+                    width="calc(100% - 4px)"
+                    height="calc(100% - 4px)"
+                    rx="8"
+                    className={styles.dropSvgRect}
+                  />
+                </svg>
+                <div className={styles.dropContent}>
+                  <div className={styles.dropIconContainer}>
+                    <UploadCloud size={22} className={styles.dropUploadIcon} />
+                  </div>
+                  <div className={styles.dropTextGroup}>
+                    <span className={styles.dropTitle}>Drop files to attach</span>
+                    <span className={styles.dropSubtitle}>Add images or code files to this prompt</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

@@ -11,7 +11,8 @@ import {
   FileCode,
   Undo2,
   Redo2,
-  Edit2
+  Edit2,
+  UploadCloud
 } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
 import { 
@@ -516,6 +517,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           onChange={handleFolderUpload}
         />
       </div>
+
+      {isDragOver && (
+        <div className={styles.explorerDropBanner}>
+          <div className={styles.explorerDropPill}>
+            <UploadCloud size={13} className={styles.dropPillIcon} />
+            <span>Drop to import into project</span>
+          </div>
+        </div>
+      )}
 
       {/* File Tree List */}
       <div className={styles.treeList}>
