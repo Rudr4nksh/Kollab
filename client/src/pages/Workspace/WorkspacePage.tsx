@@ -13,6 +13,7 @@ import {
   Folder,
   FilePlus,
   Upload,
+  UploadCloud,
   FileCode,
   MessageSquare,
   Terminal,
@@ -689,6 +690,70 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     };
   }, []);
 
+  const isFileDrag = (e: React.DragEvent) => {
+    if (!e.dataTransfer) return false;
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes('Files') || (e.dataTransfer.items && e.dataTransfer.items.length > 0);
+  };
+
+  const handleCanvasDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    canvasDragCounterRef.current++;
+    if (isFileDrag(e)) {
+      setIsCanvasDragOver(true);
+    }
+  };
+
+  const handleCanvasDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isCanvasDragOver && isFileDrag(e)) {
+      setIsCanvasDragOver(true);
+    }
+  };
+
+  const handleCanvasDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    canvasDragCounterRef.current--;
+    if (canvasDragCounterRef.current <= 0) {
+      canvasDragCounterRef.current = 0;
+      setIsCanvasDragOver(false);
+    }
+  };
+
+  const handleCanvasDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    canvasDragCounterRef.current = 0;
+    setIsCanvasDragOver(false);
+    if (e.dataTransfer) {
+      try {
+        const dropped = await parseDroppedItems(e.dataTransfer);
+        if (dropped && dropped.length > 0) {
+          const nextFiles = [...files, ...dropped];
+          onFilesChange(nextFiles);
+          socketService.emitFilesTreeUpdate(
+            roomId,
+            nextFiles,
+            userId,
+            'imported files from drag-and-drop',
+            'folder_created'
+          );
+          const first = findFirstFileNode(dropped);
+          if (first) handleSelectFile(first);
+          onAddToast?.('success', `Imported ${dropped.length} item(s) from desktop`);
+        }
+      } catch (err) {
+        console.error('Failed to import dropped items on canvas:', err);
+      }
+    }
+  };
+
   // Create new file
   const handleCreateFile = (name: string, parentPath?: string) => {
     const filePath = parentPath ? `${parentPath}/${name}` : `/${name}`;
@@ -1279,7 +1344,30 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             isRunning={isRunning}
           />
 
-          <div className={styles.editorArea}>
+          <div 
+            className={styles.editorArea}
+            onDragEnter={handleCanvasDragEnter}
+            onDragOver={handleCanvasDragOver}
+            onDragLeave={handleCanvasDragLeave}
+            onDrop={handleCanvasDrop}
+          >
+            {isCanvasDragOver && (
+              <div className={styles.canvasDropOverlay}>
+                <div className={styles.canvasDropCard}>
+                  <div className={styles.canvasDropIconRing}>
+                    <UploadCloud size={30} className={styles.canvasDropIcon} />
+                  </div>
+                  <div className={styles.canvasDropTextWrap}>
+                    <h3 className={styles.canvasDropTitle}>Drop files or folders to import</h3>
+                    <p className={styles.canvasDropSubtitle}>Add files directly into your workspace project</p>
+                  </div>
+                  <div className={styles.canvasDropBadge}>
+                    <span>Release to import</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeFile ? (
               <CodeEditor
                 value={activeFile.content || ''}
@@ -1301,51 +1389,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 currentUserId={userId}
               />
             ) : files.length === 0 ? (
-              <div 
-                className={`${styles.emptyEditorState} ${isCanvasDragOver ? styles.emptyEditorStateDragOver : ''}`}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  canvasDragCounterRef.current++;
-                  if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-                    setIsCanvasDragOver(true);
-                  }
-                }}
-                onDragOver={(e) => { e.preventDefault(); }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  canvasDragCounterRef.current--;
-                  if (canvasDragCounterRef.current <= 0) {
-                    canvasDragCounterRef.current = 0;
-                    setIsCanvasDragOver(false);
-                  }
-                }}
-                onDrop={async (e) => {
-                  e.preventDefault();
-                  canvasDragCounterRef.current = 0;
-                  setIsCanvasDragOver(false);
-                  if (e.dataTransfer) {
-                    try {
-                      const dropped = await parseDroppedItems(e.dataTransfer);
-                      if (dropped && dropped.length > 0) {
-                        const nextFiles = [...files, ...dropped];
-                        onFilesChange(nextFiles);
-                        socketService.emitFilesTreeUpdate(
-                          roomId,
-                          nextFiles,
-                          userId,
-                          'imported files from drag-and-drop',
-                          'folder_created'
-                        );
-                        const first = findFirstFileNode(dropped);
-                        if (first) handleSelectFile(first);
-                        onAddToast?.('success', `Imported ${dropped.length} item(s) from desktop`);
-                      }
-                    } catch (err) {
-                      console.error('Failed to import dropped items on canvas:', err);
-                    }
-                  }
-                }}
-              >
+              <div className={styles.emptyEditorState}>
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
                     <FolderPlus size={24} className={styles.emptyFolderIcon} />

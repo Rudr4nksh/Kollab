@@ -3,6 +3,7 @@
 /* ========================================================= */
 
 .container {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -10,6 +11,11 @@
   background-color: #0a0b10;
   user-select: none;
   overflow: hidden;
+}
+
+.containerDragOver {
+  outline: 2px dashed rgba(99, 102, 241, 0.6) !important;
+  outline-offset: -2px;
 }
 
 /* 1. Header Matching FileExplorer */

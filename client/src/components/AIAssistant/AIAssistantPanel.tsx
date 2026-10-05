@@ -96,20 +96,35 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const isFileDrag = (e: React.DragEvent) => {
+    if (!e.dataTransfer) return false;
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes('Files') || (e.dataTransfer.items && e.dataTransfer.items.length > 0);
+  };
+
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     dragCounterRef.current++;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+    if (isFileDrag(e)) {
       setIsAiDragOver(true);
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isAiDragOver && isFileDrag(e)) {
+      setIsAiDragOver(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     dragCounterRef.current--;
     if (dragCounterRef.current <= 0) {
       dragCounterRef.current = 0;
@@ -119,8 +134,12 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     dragCounterRef.current = 0;
     setIsAiDragOver(false);
+    if (isConfiguringKey) {
+      setIsConfiguringKey(false);
+    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFiles(e.dataTransfer.files);
     }
@@ -366,7 +385,31 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
     : 'OpenAI';
 
   return (
-    <div className={styles.container}>
+    <div 
+      className={`${styles.container} ${isAiDragOver ? styles.containerDragOver : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Sleek Discord/Linear-Inspired Floating Drop Card */}
+      {isAiDragOver && (
+        <div className={styles.dropOverlay}>
+          <div className={styles.dropCard}>
+            <div className={styles.dropIconContainer}>
+              <UploadCloud size={24} className={styles.dropUploadIcon} />
+            </div>
+            <div className={styles.dropTextGroup}>
+              <h4 className={styles.dropTitle}>Upload to AI Assistant</h4>
+              <p className={styles.dropSubtitle}>Drop images or code to attach to prompt</p>
+            </div>
+            <div className={styles.dropHintBadge}>
+              <span>Release to attach</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. Header Matching FileExplorer Header Design */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
@@ -568,29 +611,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
         </div>
       ) : (
         /* 3. Sleek Chat & Pair Programming View */
-        <div 
-          className={`${styles.chatView} ${isAiDragOver ? styles.chatViewDragOver : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {isAiDragOver && (
-            <div className={styles.dropOverlay}>
-              <div className={styles.dropCard}>
-                <div className={styles.dropIconContainer}>
-                  <UploadCloud size={24} className={styles.dropUploadIcon} />
-                </div>
-                <div className={styles.dropTextGroup}>
-                  <h4 className={styles.dropTitle}>Upload to AI Assistant</h4>
-                  <p className={styles.dropSubtitle}>Drop images or code to attach to prompt</p>
-                </div>
-                <div className={styles.dropHintBadge}>
-                  <span>Release to attach</span>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className={styles.chatView}>
 
           {/* Active File Context */}
           {activeFile && (
