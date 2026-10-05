@@ -8,6 +8,7 @@
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "build": "npm run build --prefix server && npm run build --prefix client",
+    "start": "node server/dist/index.js",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "setup": "npm install --prefix server && npm run db:push --prefix server && npm install --prefix client"
   },

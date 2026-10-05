@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: kollab
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        value: file:./prod.db
+    disk:
+      name: kollab-data
+      mountPath: /app/prisma
+      sizeGB: 1

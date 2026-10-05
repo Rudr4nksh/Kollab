@@ -83,5 +83,5 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 4000) + '/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Start the fullstack server (which serves API, WebSockets, and static client)
-CMD ["node", "server/dist/index.js"]
+# Ensure SQLite database is created/migrated, then start the server
+CMD ["sh", "-c", "npx prisma db push && node server/dist/index.js"]
