@@ -11,7 +11,6 @@ Multiplayer Code Editing • Live Interactive Terminal • Multi-Language Runner
 [![Monaco Editor](https://img.shields.io/badge/Monaco_Editor-1E1E1E?style=flat-square&logo=visualstudiocode&logoColor=007ACC)](https://microsoft.github.io/monaco-editor/)
 [![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=flat-square&logo=socketdotio&logoColor=white)](https://socket.io/)
 [![Docker](https://img.shields.io/badge/Docker_Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 [Live Demo](https://kollab-production.up.railway.app) • [Deploy Guide](HOSTING.md) • [Report Bug](https://github.com/Rudr4nksh/Kollab/issues)
 
@@ -154,12 +153,6 @@ Contributions, issues, and feature requests are welcome!
 3. Commit your Changes (`git commit -m 'add some amazing feature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
