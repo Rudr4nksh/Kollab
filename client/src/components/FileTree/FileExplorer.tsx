@@ -11,8 +11,7 @@ import {
   FileCode,
   Undo2,
   Redo2,
-  Edit2,
-  UploadCloud
+  Edit2
 } from 'lucide-react';
 import type { FileNode } from '../../types/index.ts';
 import { 
@@ -453,19 +452,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Sleek Professional Inset Drop Overlay */}
-      {isDragOver && (
-        <div className={styles.explorerDropOverlay}>
-          <div className={styles.explorerDropCard}>
-            <div className={styles.explorerDropIconWrapper}>
-              <UploadCloud size={18} />
-            </div>
-            <span className={styles.explorerDropTitle}>Drop to Import</span>
-            <span className={styles.explorerDropHint}>Release to import folders or files into workspace</span>
-          </div>
-        </div>
-      )}
-
       {/* Top Header matching VS Code Explorer */}
       <div className={styles.header}>
         <span className={styles.headerTitle}>EXPLORER</span>

@@ -16,8 +16,7 @@ import {
   FileCode,
   MessageSquare,
   Terminal,
-  Sparkles,
-  UploadCloud
+  Sparkles
 } from 'lucide-react';
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
@@ -1347,19 +1346,6 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   }
                 }}
               >
-                {isCanvasDragOver && (
-                  <div className={styles.canvasDropOverlay}>
-                    <div className={styles.canvasDropCard}>
-                      <div className={styles.canvasDropIconWrapper}>
-                        <UploadCloud size={24} />
-                      </div>
-                      <h3 className={styles.canvasDropTitle}>Drop Project Files</h3>
-                      <p className={styles.canvasDropSubtitle}>
-                        Release to import directories and source code into your workspace
-                      </p>
-                    </div>
-                  </div>
-                )}
                 <div className={styles.emptyCard}>
                   <div className={styles.emptyIconCircle}>
                     <FolderPlus size={24} className={styles.emptyFolderIcon} />

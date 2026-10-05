@@ -531,7 +531,6 @@
 
 /* Empty Editor Canvas - Transparent Obsidian */
 .emptyEditorState {
-  position: relative;
   flex: 1;
   height: 100%;
   width: 100%;
@@ -542,85 +541,13 @@
   background-color: #07090D;
   user-select: none;
   box-sizing: border-box;
+  transition: background-color 150ms ease, outline 150ms ease;
 }
 
 .emptyEditorStateDragOver {
-  box-shadow: inset 0 0 0 1.5px rgba(99, 102, 241, 0.8), inset 0 0 40px rgba(99, 102, 241, 0.12) !important;
-}
-
-.canvasDropOverlay {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 45%, rgba(13, 16, 26, 0.94) 0%, rgba(6, 8, 14, 0.98) 100%);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  pointer-events: none;
-  animation: dropFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.canvasDropCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 28px 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  border-radius: 14px;
-  box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  max-width: 340px;
-  width: 100%;
-  animation: dropCardScale 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.canvasDropIconWrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #0f111a;
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #818cf8;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.canvasDropTitle {
-  font-size: 15px;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.01em;
-}
-
-.canvasDropSubtitle {
-  font-size: 12px;
-  color: #94a3b8;
-  line-height: 1.45;
-  margin: 0;
-}
-
-@keyframes dropFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes dropCardScale {
-  from { 
-    opacity: 0;
-    transform: scale(0.95) translateY(4px);
-  }
-  to { 
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  outline: 1.5px dashed rgba(255, 255, 255, 0.25) !important;
+  outline-offset: -12px;
+  background-color: rgba(255, 255, 255, 0.02) !important;
 }
 
 .emptyCard {
