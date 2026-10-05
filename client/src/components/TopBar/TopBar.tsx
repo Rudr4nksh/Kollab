@@ -3,6 +3,7 @@ import { Copy, Check, Users, Settings, LogOut, Shield } from 'lucide-react';
 import { Badge } from '../UI/Badge.tsx';
 import { Button } from '../UI/Button.tsx';
 import type { ConnectionState } from '../../types/index.ts';
+import { copyToClipboard } from '../../services/clipboardUtils.ts';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {
@@ -30,10 +31,12 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleCopyRoomId = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyRoomId = async () => {
+    const success = await copyToClipboard(roomId);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const getStatusText = () => {

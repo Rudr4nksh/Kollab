@@ -4,6 +4,7 @@ import { Button } from '../UI/Button.tsx';
 import { Input } from '../UI/Input.tsx';
 import { Copy, Check, Shield, Share2, FolderGit2, Trash2 } from 'lucide-react';
 import { gitService, GitHubUser } from '../../services/gitService.ts';
+import { copyToClipboard } from '../../services/clipboardUtils.ts';
 import styles from './RoomSettingsModal.module.css';
 
 interface RoomSettingsModalProps {
@@ -47,16 +48,20 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
 
   const shareUrl = `${window.location.origin}/?room=${encodeURIComponent(roomId)}`;
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleCopyLink = async () => {
+    const success = await copyToClipboard(shareUrl);
+    if (success) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
   };
 
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
+  const handleCopyId = async () => {
+    const success = await copyToClipboard(roomId);
+    if (success) {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
   };
 
   const handleVerifyGitHub = async () => {

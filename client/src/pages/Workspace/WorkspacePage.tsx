@@ -52,6 +52,7 @@ import {
   parseDroppedItems
 } from '../../services/fileUtils.ts';
 import { socketService } from '../../services/socket.ts';
+import { copyToClipboard } from '../../services/clipboardUtils.ts';
 import styles from './WorkspacePage.module.css';
 
 interface WorkspacePageProps {
@@ -253,10 +254,13 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
 
   const [copiedRoom, setCopiedRoom] = useState(false);
 
-  const handleCopyRoom = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopiedRoom(true);
-    setTimeout(() => setCopiedRoom(false), 2000);
+  const handleCopyRoom = async () => {
+    const success = await copyToClipboard(roomId);
+    if (success) {
+      setCopiedRoom(true);
+      onAddToast?.('success', `Copied Room Code: ${roomId}`);
+      setTimeout(() => setCopiedRoom(false), 2000);
+    }
   };
 
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
