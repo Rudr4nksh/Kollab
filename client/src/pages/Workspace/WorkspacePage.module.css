@@ -545,9 +545,9 @@
 }
 
 .emptyEditorStateDragOver {
-  outline: 1.5px dashed rgba(255, 255, 255, 0.25) !important;
-  outline-offset: -12px;
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  outline: 2px dashed rgba(99, 102, 241, 0.5) !important;
+  outline-offset: -14px;
+  background-color: rgba(99, 102, 241, 0.03) !important;
 }
 
 .emptyCard {

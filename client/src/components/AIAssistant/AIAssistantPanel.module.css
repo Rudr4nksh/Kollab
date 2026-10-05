@@ -752,76 +752,61 @@
 
 .dropOverlay {
   position: absolute;
-  inset: 6px;
-  background: rgba(7, 9, 15, 0.88);
-  border-radius: 10px;
+  inset: 0;
+  background: rgba(7, 9, 15, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
   pointer-events: none;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  animation: dropFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: dropOverlayFade 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.dropBorderFrame {
-  position: relative;
+@keyframes dropOverlayFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dropCard {
   width: 100%;
-  height: 100%;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.dropSvgBorder {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.dropSvgRect {
-  fill: none;
-  stroke: rgba(99, 102, 241, 0.65);
-  stroke-width: 1.5;
-  stroke-dasharray: 6 5;
-  stroke-dashoffset: 0;
-  animation: marchingDashes 1.2s linear infinite;
-}
-
-@keyframes marchingDashes {
-  to {
-    stroke-dashoffset: -22;
-  }
-}
-
-.dropContent {
-  position: relative;
+  max-width: 270px;
+  background: #111420;
+  border: 2px dashed rgba(99, 102, 241, 0.6);
+  border-radius: 14px;
+  padding: 26px 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 20px;
   text-align: center;
-  animation: dropSpringUp 220ms cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  gap: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 24px rgba(99, 102, 241, 0.12);
+  animation: dropCardSpring 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dropCardSpring {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .dropIconContainer {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #a5b4fc;
-  animation: floatSubtle 2.6s ease-in-out infinite;
 }
 
 .dropUploadIcon {
@@ -831,40 +816,35 @@
 .dropTextGroup {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .dropTitle {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: #ffffff;
   letter-spacing: -0.01em;
+  margin: 0;
 }
 
 .dropSubtitle {
   font-size: 11.5px;
   color: #94a3b8;
+  line-height: 1.45;
+  margin: 0;
 }
 
-@keyframes dropFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes dropSpringUp {
-  from { 
-    opacity: 0; 
-    transform: scale(0.94) translateY(6px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: scale(1) translateY(0); 
-  }
-}
-
-@keyframes floatSubtle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+.dropHintBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #cbd5e1;
+  margin-top: 2px;
 }
 
 /* Attachments Preview Strip */
