@@ -76,9 +76,8 @@ RUN npm install --prefix server --omit=dev
 RUN npx prisma generate --schema=./prisma/schema.prisma
 RUN cd server && npx prisma generate --schema=../prisma/schema.prisma
 
-# Create fallback .env files for Prisma
-RUN echo 'DATABASE_URL="file:/app/prisma/prod.db"' > /app/.env
-RUN echo 'DATABASE_URL="file:/app/prisma/prod.db"' > /app/prisma/.env
+# Create single fallback .env file for Prisma (only in /app/.env to avoid conflict)
+RUN echo 'DATABASE_URL="file:/app/prisma/prod.db"' > /app/.env && rm -f /app/prisma/.env
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/server/dist ./server/dist
