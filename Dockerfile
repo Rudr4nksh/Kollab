@@ -76,6 +76,10 @@ RUN npm install --prefix server --omit=dev
 RUN npx prisma generate --schema=./prisma/schema.prisma
 RUN cd server && npx prisma generate --schema=../prisma/schema.prisma
 
+# Create fallback .env files for Prisma
+RUN echo 'DATABASE_URL="file:/app/prisma/prod.db"' > /app/.env
+RUN echo 'DATABASE_URL="file:/app/prisma/prod.db"' > /app/prisma/.env
+
 # Copy built artifacts from builder stage
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
@@ -88,4 +92,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + (process.env.PORT || 4000) + '/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 # Ensure SQLite database is created/migrated, then start the server
-CMD ["sh", "-c", "npx prisma db push --schema=./prisma/schema.prisma && node server/dist/index.js"]
+CMD ["sh", "-c", "export DATABASE_URL=\"${DATABASE_URL:-file:/app/prisma/prod.db}\" && npx prisma db push --schema=./prisma/schema.prisma && node server/dist/index.js"]
