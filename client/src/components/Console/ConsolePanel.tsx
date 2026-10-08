@@ -609,7 +609,8 @@ These are common Git commands:
             addOut(`Changes to be committed:\n  (use "git restore --staged <file>..." to unstage)`);
             st.staged.forEach((s) => {
               const label = s.status === 'A' ? 'new file:   ' : s.status === 'M' ? 'modified:   ' : 'deleted:    ';
-              addOut(`\t${label} ${s.path}`, 'success');
+              const cleanPath = s.path.replace(/^\/+/, '');
+              addOut(`\t${label} ${cleanPath}`, 'success');
             });
             addOut('');
           }
@@ -618,7 +619,8 @@ These are common Git commands:
             addOut(`Changes not staged for commit:\n  (use "git add <file>..." to update what will be committed)\n  (use "git restore <file>..." to discard changes in working directory)`);
             st.unstaged.forEach((u) => {
               const label = u.status === 'M' ? 'modified:   ' : 'deleted:    ';
-              addOut(`\t${label} ${u.path}`, 'stderr');
+              const cleanPath = u.path.replace(/^\/+/, '');
+              addOut(`\t${label} ${cleanPath}`, 'stderr');
             });
             addOut('');
           }
@@ -626,7 +628,8 @@ These are common Git commands:
           if (st.untracked.length > 0) {
             addOut(`Untracked files:\n  (use "git add <file>..." to include in what will be committed)`);
             st.untracked.forEach((u) => {
-              addOut(`\t${u}`, 'stderr');
+              const cleanPath = u.replace(/^\/+/, '');
+              addOut(`\t${cleanPath}`, 'stderr');
             });
             addOut('');
           }
@@ -635,15 +638,34 @@ These are common Git commands:
             addOut('nothing to commit, working tree clean', 'info');
           }
         } else if (sub === 'add') {
-          const target = args[1] || '.';
-          const res = gitService.add(target, files);
-          addOut(res, 'info');
+          const rawTargets = args.slice(1);
+          if (rawTargets.length === 0 || rawTargets.includes('.') || rawTargets.includes('-A') || rawTargets.includes('--all')) {
+            const res = gitService.add('.', files);
+            addOut(res, 'info');
+          } else {
+            for (const t of rawTargets) {
+              if (t.startsWith('-')) continue;
+              const res = gitService.add(t, files);
+              addOut(res, 'info');
+            }
+          }
         } else if (sub === 'commit') {
-          const mIdx = args.indexOf('-m');
+          const isAll = args.includes('-a') || args.some((a) => a.startsWith('-a') && a.includes('m'));
+          if (isAll) {
+            gitService.add('.', files);
+          }
+
           let msg = '';
+          const mIdx = args.findIndex((a) => a === '-m' || a === '-am' || a === '-ma');
           if (mIdx !== -1 && args[mIdx + 1]) {
             msg = args.slice(mIdx + 1).join(' ').replace(/^["']|["']$/g, '');
+          } else {
+            const attached = args.find((a) => (a.startsWith('-m') || a.startsWith('-am')) && a.length > 3);
+            if (attached) {
+              msg = attached.replace(/^-a?m["']?/, '').replace(/["']$/, '');
+            }
           }
+
           if (!msg) {
             addOut(`error: switch 'm' requires a value (e.g. git commit -m "commit message")`, 'stderr');
           } else {
@@ -652,18 +674,38 @@ These are common Git commands:
           }
         } else if (sub === 'log') {
           const isOneLine = args.includes('--oneline');
-          const logsList = gitService.getLog(isOneLine);
+          let limit = 20;
+          const nIdx = args.indexOf('-n');
+          if (nIdx !== -1 && args[nIdx + 1] && !isNaN(parseInt(args[nIdx + 1]))) {
+            limit = parseInt(args[nIdx + 1]);
+          } else {
+            const numArg = args.find((a) => /^-\d+$/.test(a));
+            if (numArg) limit = parseInt(numArg.replace('-', ''));
+          }
+          const logsList = gitService.getLog(isOneLine, limit);
           logsList.forEach((l) => addOut(l));
         } else if (sub === 'branch') {
-          if (args.length === 1) {
+          if (args.length === 1 || args[1] === '--list' || args[1] === '-a') {
             gitService.listBranches().forEach((b) => addOut(b));
           } else if (args[1] === '-d' || args[1] === '-D') {
             const bName = args[2];
             addOut(gitService.deleteBranch(bName), 'info');
           } else if (args[1] === '-M' || args[1] === '-m') {
-            const newName = args[2];
-            addOut(gitService.createBranch(newName), 'info');
-            setGitBranch(gitService.getBranch());
+            let oldName: string | undefined;
+            let newName: string | undefined;
+            if (args.length >= 4) {
+              oldName = args[2];
+              newName = args[3];
+            } else {
+              newName = args[2];
+            }
+            if (!newName) {
+              addOut(`fatal: branch name required for -m`, 'stderr');
+            } else {
+              const renRes = gitService.renameBranch(newName, oldName);
+              addOut(renRes.output, renRes.success ? 'success' : 'stderr');
+              setGitBranch(gitService.getBranch());
+            }
           } else {
             addOut(gitService.createBranch(args[1]), 'info');
           }
@@ -677,11 +719,14 @@ These are common Git commands:
               setGitBranch(gitService.getBranch());
             }
           } else {
-            const bName = args[1];
-            if (!bName) {
-              addOut(`fatal: you must specify a branch to checkout`, 'stderr');
-            } else {
-              const res = gitService.checkoutBranch(bName);
+            let target = args[1];
+            if (target === '--') {
+              target = args[2];
+            }
+            if (!target) {
+              addOut(`fatal: you must specify a branch or file to checkout`, 'stderr');
+            } else if (gitService.hasBranch(target)) {
+              const res = gitService.checkoutBranch(target);
               addOut(res.output, res.success ? 'success' : 'stderr');
               if (res.success) {
                 setGitBranch(gitService.getBranch());
@@ -689,15 +734,54 @@ These are common Git commands:
                   onFilesChange(res.files);
                 }
               }
+            } else {
+              // Not a branch - try restoring file from HEAD
+              const restRes = gitService.restoreFile(target, files);
+              if (restRes.success) {
+                addOut(restRes.output, 'success');
+                if (restRes.files && onFilesChange) {
+                  onFilesChange(restRes.files);
+                }
+              } else {
+                addOut(`error: pathspec '${target}' did not match any file(s) or branch known to git`, 'stderr');
+              }
             }
           }
         } else if (sub === 'diff') {
-          const targetFile = args[1];
-          const diffs = gitService.getDiff(targetFile, files);
-          diffs.forEach((d) => addOut(d, d.startsWith('+') ? 'success' : d.startsWith('-') ? 'stderr' : 'info'));
-        } else if (sub === 'reset' || sub === 'restore') {
-          const target = args.find((a) => a !== 'reset' && a !== 'restore' && a !== '--staged');
-          addOut(gitService.reset(target), 'info');
+          const stagedOnly = args.includes('--staged') || args.includes('--cached');
+          const targetFile = args.slice(1).find((a) => !a.startsWith('-'));
+          const diffs = gitService.getDiff(targetFile, files, stagedOnly);
+          diffs.forEach((d) => {
+            const isGreen = d.startsWith('+');
+            const isRed = d.startsWith('-');
+            const isCyan = d.startsWith('@@');
+            addOut(d, isGreen ? 'success' : isRed ? 'stderr' : isCyan ? 'info' : 'stdout');
+          });
+        } else if (sub === 'reset') {
+          if (args.includes('--hard')) {
+            const res = gitService.resetHard();
+            addOut(res.output, res.success ? 'success' : 'stderr');
+            if (res.success && res.files && onFilesChange) {
+              onFilesChange(res.files);
+            }
+          } else {
+            const target = args.slice(1).find((a) => !a.startsWith('-') && a !== 'HEAD');
+            addOut(gitService.reset(target), 'info');
+          }
+        } else if (sub === 'restore') {
+          const isStaged = args.includes('--staged');
+          const target = args.slice(1).find((a) => !a.startsWith('-'));
+          if (!target) {
+            addOut(`fatal: you must specify path(s) to restore`, 'stderr');
+          } else if (isStaged) {
+            addOut(gitService.reset(target === '.' ? undefined : target), 'info');
+          } else {
+            const res = gitService.restoreFile(target, files);
+            addOut(res.output, res.success ? 'success' : 'stderr');
+            if (res.success && res.files && onFilesChange) {
+              onFilesChange(res.files);
+            }
+          }
         } else if (sub === 'remote') {
           if (args[1] === 'add') {
             const rName = args[2] || 'origin';
@@ -717,7 +801,9 @@ These are common Git commands:
             if (!rName || !rUrl) addOut(`usage: git remote set-url <name> <url>`, 'stderr');
             else addOut(gitService.setRemote(rName, rUrl), 'success');
           } else {
-            gitService.getRemotes().forEach((r) => addOut(r));
+            const isVerbose = args.includes('-v') || args.includes('--verbose');
+            const remotes = gitService.getRemotes(isVerbose);
+            remotes.forEach((r) => addOut(r));
           }
         } else if (sub === 'config') {
           const cleanArgs = args.slice(1).filter((a) => a !== '--global');

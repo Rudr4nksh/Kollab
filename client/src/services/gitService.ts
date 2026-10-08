@@ -1,4 +1,5 @@
 import type { FileNode } from '../types/index.ts';
+import { getLanguageFromFilename, updateFileContentInTree } from './fileUtils.ts';
 
 export interface GitCommit {
   sha: string;
@@ -261,10 +262,104 @@ export class GitService {
   // --- GitHub URL Parsing ---
   public parseGitHubUrl(url: string): { owner: string; repo: string } | null {
     if (!url) return null;
-    const clean = url.trim().replace(/\.git$/i, '');
-    const match = clean.match(/github\.com[:/]([^/]+)\/([^/]+)$/i);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2] };
+    const clean = url.trim().replace(/\.git$/i, '').replace(/\/+$/, '');
+    const fullMatch = clean.match(/github\.com[:/]([^/]+)\/([^/]+)$/i);
+    if (fullMatch) {
+      return { owner: fullMatch[1], repo: fullMatch[2] };
+    }
+    const shortMatch = clean.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+    if (shortMatch) {
+      return { owner: shortMatch[1], repo: shortMatch[2] };
+    }
+    return null;
+  }
+
+  /**
+   * Reconstructs full nested FileNode[] hierarchy with folder nodes from flat path items.
+   */
+  public buildTreeFromPaths(
+    files: { path: string; content: string }[],
+    directories: string[] = []
+  ): FileNode[] {
+    const rootNodes: FileNode[] = [];
+    const folderMap = new Map<string, FileNode>();
+
+    const ensureFolder = (folderPath: string): FileNode => {
+      const clean = folderPath.replace(/^\/+/, '').replace(/\/+$/, '');
+      const fullPath = `/${clean}`;
+      if (folderMap.has(fullPath)) return folderMap.get(fullPath)!;
+
+      const segments = clean.split('/');
+      const folderName = segments.pop()!;
+      let parentChildren = rootNodes;
+
+      if (segments.length > 0) {
+        const parentPath = segments.join('/');
+        const parentNode = ensureFolder(parentPath);
+        parentChildren = parentNode.children!;
+      }
+
+      const newFolder: FileNode = {
+        id: 'folder_' + Math.random().toString(36).substring(2, 9),
+        name: folderName,
+        path: fullPath,
+        type: 'folder',
+        isOpen: true,
+        children: [],
+      };
+      folderMap.set(fullPath, newFolder);
+      parentChildren.push(newFolder);
+      return newFolder;
+    };
+
+    // Ensure all explicit directories exist
+    for (const dir of directories) {
+      if (dir && dir.trim()) {
+        ensureFolder(dir.trim());
+      }
+    }
+
+    // Insert all files into appropriate folder nodes
+    for (const f of files) {
+      const cleanPath = f.path.replace(/^\/+/, '');
+      if (!cleanPath) continue;
+      const segments = cleanPath.split('/');
+      const fileName = segments.pop()!;
+
+      let targetChildren = rootNodes;
+      if (segments.length > 0) {
+        const parentFolder = ensureFolder(segments.join('/'));
+        targetChildren = parentFolder.children!;
+      }
+
+      const filePath = segments.length > 0 ? `/${segments.join('/')}/${fileName}` : `/${fileName}`;
+      targetChildren.push({
+        id: 'file_' + Math.random().toString(36).substring(2, 9),
+        name: fileName,
+        path: filePath,
+        type: 'file',
+        language: getLanguageFromFilename(fileName),
+        content: f.content || '',
+      });
+    }
+
+    // Sort folders first, then files alphabetically
+    const sortNodes = (nodes: FileNode[]) => {
+      nodes.sort((a, b) => {
+        if (a.type !== b.type) {
+          return a.type === 'folder' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      for (const n of nodes) {
+        if (n.children && n.children.length > 0) {
+          sortNodes(n.children);
+        }
+      }
+    };
+
+    sortNodes(rootNodes);
+    return rootNodes;
   }
 
   // Generate SHA-1 like hash
@@ -377,34 +472,58 @@ export class GitService {
     const currentMap = this.flattenFiles(currentFiles);
 
     if (target === '.' || target === '-A' || target === '--all') {
-      // Stage all changes
+      let count = 0;
       currentMap.forEach((content, path) => {
         if (!headMap.has(path)) {
           this.staged.set(path, { path, status: 'A', content });
+          count++;
         } else if (headMap.get(path) !== content) {
           this.staged.set(path, { path, status: 'M', content });
+          count++;
         }
       });
 
       headMap.forEach((_, path) => {
         if (!currentMap.has(path)) {
           this.staged.set(path, { path, status: 'D' });
+          count++;
         }
       });
 
-      return `Staged all modified and untracked files.`;
+      return count > 0 ? `Staged all changes (${count} file(s)).` : 'Working tree clean, nothing to stage.';
     }
 
     const normPath = target.startsWith('/') ? target : `/${target}`;
-    if (currentMap.has(normPath)) {
-      const content = currentMap.get(normPath);
-      const status = headMap.has(normPath) ? 'M' : 'A';
-      this.staged.set(normPath, { path: normPath, status, content });
-      return `Staged '${normPath}'.`;
-    } else if (headMap.has(normPath)) {
-      this.staged.set(normPath, { path: normPath, status: 'D' });
-      return `Staged deletion of '${normPath}'.`;
+    if (currentMap.has(normPath) || headMap.has(normPath)) {
+      if (currentMap.has(normPath)) {
+        const content = currentMap.get(normPath);
+        const status = headMap.has(normPath) ? 'M' : 'A';
+        this.staged.set(normPath, { path: normPath, status, content });
+        return `Staged '${normPath.replace(/^\/+/, '')}'.`;
+      } else {
+        this.staged.set(normPath, { path: normPath, status: 'D' });
+        return `Staged deletion of '${normPath.replace(/^\/+/, '')}'.`;
+      }
     } else {
+      // Check if target is a directory path
+      const dirPrefix = normPath.endsWith('/') ? normPath : `${normPath}/`;
+      let count = 0;
+      currentMap.forEach((content, p) => {
+        if (p.startsWith(dirPrefix)) {
+          const status = headMap.has(p) ? 'M' : 'A';
+          this.staged.set(p, { path: p, status, content });
+          count++;
+        }
+      });
+      headMap.forEach((_, p) => {
+        if (p.startsWith(dirPrefix) && !currentMap.has(p)) {
+          this.staged.set(p, { path: p, status: 'D' });
+          count++;
+        }
+      });
+      if (count > 0) {
+        return `Staged ${count} file(s) in '${target}'.`;
+      }
       return `fatal: pathspec '${target}' did not match any files`;
     }
   }
@@ -445,11 +564,12 @@ export class GitService {
   }
 
   // Get commit logs
-  public getLog(oneline = false): string[] {
+  public getLog(oneline = false, limit = 20): string[] {
     const list: string[] = [];
     let curSha = this.headCommitSha;
+    let count = 0;
 
-    while (curSha && this.commits.has(curSha)) {
+    while (curSha && this.commits.has(curSha) && count < limit) {
       const c = this.commits.get(curSha)!;
       if (oneline) {
         list.push(`${c.shortSha} ${c.message}`);
@@ -459,18 +579,31 @@ export class GitService {
         );
       }
       curSha = c.parentSha;
+      count++;
     }
 
     return list.length > 0 ? list : ['fatal: your current branch does not have any commits yet'];
   }
 
-  // Get unified diff for a file
-  public getDiff(targetPath?: string, currentFiles: FileNode[] = []): string[] {
+  // Get unified diff for a file or all files
+  public getDiff(targetPath?: string, currentFiles: FileNode[] = [], stagedOnly = false): string[] {
     const headCommit = this.getHeadCommit();
     const headMap = headCommit ? this.flattenFiles(headCommit.snapshot) : new Map<string, string>();
     const currentMap = this.flattenFiles(currentFiles);
 
     const allDiffs: string[] = [];
+
+    if (stagedOnly) {
+      this.staged.forEach((stagedFile, path) => {
+        const oldContent = headMap.get(path) || '';
+        const newContent = stagedFile.content ?? currentMap.get(path) ?? '';
+        if (oldContent !== newContent) {
+          allDiffs.push(...generateUnifiedDiff(path, oldContent, newContent));
+        }
+      });
+      return allDiffs.length > 0 ? allDiffs : ['No staged changes to display.'];
+    }
+
     const checkFile = (path: string) => {
       const oldC = headMap.get(path) || '';
       const newC = currentMap.get(path) || '';
@@ -481,7 +614,15 @@ export class GitService {
 
     if (targetPath) {
       const norm = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
-      checkFile(norm);
+      if (currentMap.has(norm) || headMap.has(norm)) {
+        checkFile(norm);
+      } else {
+        const prefix = norm.endsWith('/') ? norm : `${norm}/`;
+        const matched = new Set<string>();
+        currentMap.forEach((_, p) => { if (p.startsWith(prefix)) matched.add(p); });
+        headMap.forEach((_, p) => { if (p.startsWith(prefix)) matched.add(p); });
+        matched.forEach((p) => checkFile(p));
+      }
     } else {
       currentMap.forEach((_, p) => checkFile(p));
       headMap.forEach((_, p) => {
@@ -495,15 +636,73 @@ export class GitService {
   // Reset / Unstage
   public reset(path?: string): string {
     if (!path) {
+      const count = this.staged.size;
       this.staged.clear();
-      return 'Unstaged all changes.';
+      return count > 0 ? `Unstaged ${count} change(s).` : 'No staged changes to unstage.';
     }
     const norm = path.startsWith('/') ? path : `/${path}`;
     if (this.staged.has(norm)) {
       this.staged.delete(norm);
-      return `Unstaged '${norm}'.`;
+      return `Unstaged '${norm.replace(/^\/+/, '')}'.`;
+    }
+    const dirPrefix = norm.endsWith('/') ? norm : `${norm}/`;
+    let count = 0;
+    Array.from(this.staged.keys()).forEach((k) => {
+      if (k.startsWith(dirPrefix)) {
+        this.staged.delete(k);
+        count++;
+      }
+    });
+    if (count > 0) {
+      return `Unstaged ${count} file(s) in '${path}'.`;
     }
     return `fatal: pathspec '${path}' did not match any files`;
+  }
+
+  // Restore file content from HEAD
+  public restoreFile(
+    filePath: string,
+    currentFiles: FileNode[]
+  ): { success: boolean; files?: FileNode[]; output: string } {
+    if (!filePath) return { success: false, output: 'fatal: file path required' };
+    const headCommit = this.getHeadCommit();
+    if (!headCommit) return { success: false, output: 'fatal: no commits in repository yet' };
+
+    const headMap = this.flattenFiles(headCommit.snapshot);
+    const norm = filePath.startsWith('/') ? filePath : `/${filePath}`;
+
+    if (!headMap.has(norm)) {
+      return { success: false, output: `error: pathspec '${filePath}' did not match any file known to git` };
+    }
+
+    const originalContent = headMap.get(norm)!;
+    const updated = updateFileContentInTree(currentFiles, norm, originalContent);
+    return {
+      success: true,
+      files: updated,
+      output: `Restored '${filePath.replace(/^\/+/, '')}' to HEAD state.`,
+    };
+  }
+
+  public hasBranch(branchName: string): boolean {
+    return this.branches.has(branchName);
+  }
+
+  public renameBranch(newName: string, oldName?: string): { success: boolean; output: string } {
+    const targetOld = oldName || this.currentBranch;
+    if (!this.branches.has(targetOld)) {
+      return { success: false, output: `error: branch '${targetOld}' not found` };
+    }
+    if (this.branches.has(newName) && newName !== targetOld) {
+      return { success: false, output: `fatal: A branch named '${newName}' already exists.` };
+    }
+    const sha = this.branches.get(targetOld)!;
+    this.branches.delete(targetOld);
+    this.branches.set(newName, sha);
+    if (this.currentBranch === targetOld) {
+      this.currentBranch = newName;
+    }
+    return { success: true, output: `Renamed branch '${targetOld}' to '${newName}'.` };
   }
 
   // Branch management
@@ -596,13 +795,35 @@ export class GitService {
     return `error: No such remote: '${name}'`;
   }
 
-  public getRemotes(): string[] {
+  // Hard reset workspace back to HEAD commit
+  public resetHard(): { success: boolean; files?: FileNode[]; output: string } {
+    this.staged.clear();
+    const headCommit = this.getHeadCommit();
+    if (!headCommit) {
+      return { success: true, output: 'HEAD is now at initial commit (no commits yet)' };
+    }
+    const targetFiles = this.cloneTree(headCommit.snapshot);
+    const shortSha = headCommit.shortSha;
+    return {
+      success: true,
+      files: targetFiles,
+      output: `HEAD is now at ${shortSha} ${headCommit.message}`,
+    };
+  }
+
+  public getRemotes(verbose = false): string[] {
     const list: string[] = [];
-    this.remotes.forEach((url, name) => {
-      list.push(`${name}\t${url} (fetch)`);
-      list.push(`${name}\t${url} (push)`);
-    });
-    return list.length > 0 ? list : ['No remotes configured. Use: git remote add origin <github-url>'];
+    if (verbose) {
+      this.remotes.forEach((url, name) => {
+        list.push(`${name}\t${url} (fetch)`);
+        list.push(`${name}\t${url} (push)`);
+      });
+    } else {
+      this.remotes.forEach((_, name) => {
+        list.push(name);
+      });
+    }
+    return list.length > 0 ? list : (verbose ? ['No remotes configured. Use: git remote add origin <github-url>'] : []);
   }
 
   // --- REAL GITHUB OPERATIONS ---
@@ -966,50 +1187,51 @@ export class GitService {
       }
 
       const treeData = await treeRes.json();
-      const treeItems: any[] = (treeData.tree || []).slice(0, 100);
+      const treeItems: any[] = (treeData.tree || []).slice(0, 300);
 
-      const newFiles: FileNode[] = [];
+      const rawDirectories: string[] = [];
+      const blobItems: any[] = [];
 
       for (const item of treeItems) {
-        if (item.type === 'blob') {
-          let content = '';
-          try {
-            // First attempt: GitHub Git Blobs API (supports private repos with token)
-            const blobRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
-              { headers }
-            );
-
-            if (blobRes.ok) {
-              const blobData = await blobRes.json();
-              if (blobData.encoding === 'base64') {
-                content = b64DecodeUnicode(blobData.content);
-              } else {
-                content = blobData.content || '';
-              }
-            } else {
-              // Fallback to raw usercontent
-              const rawRes = await fetch(
-                `https://raw.githubusercontent.com/${owner}/${repo}/${targetBranch}/${item.path}`
-              );
-              if (rawRes.ok) content = await rawRes.text();
-            }
-          } catch {
-            content = '// Could not load file content';
-          }
-
-          const pathParts = item.path.split('/');
-          const fileName = pathParts.pop();
-
-          newFiles.push({
-            id: 'git_' + Math.random().toString(36).substring(2, 9),
-            name: fileName,
-            path: `/${item.path}`,
-            type: 'file',
-            content,
-          });
+        if (item.type === 'tree') {
+          rawDirectories.push(item.path);
+        } else if (item.type === 'blob') {
+          blobItems.push(item);
         }
       }
+
+      const rawFiles: { path: string; content: string }[] = [];
+      const BATCH_SIZE = 8;
+
+      for (let i = 0; i < blobItems.length; i += BATCH_SIZE) {
+        const chunk = blobItems.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map(async (item) => {
+            let content = '';
+            try {
+              const blobRes = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
+                { headers }
+              );
+              if (blobRes.ok) {
+                const blobData = await blobRes.json();
+                content = blobData.encoding === 'base64' ? b64DecodeUnicode(blobData.content) : (blobData.content || '');
+              } else {
+                const rawRes = await fetch(
+                  `https://raw.githubusercontent.com/${owner}/${repo}/${targetBranch}/${item.path}`
+                );
+                if (rawRes.ok) content = await rawRes.text();
+              }
+            } catch {
+              content = '// Could not load file content';
+            }
+            rawFiles.push({ path: item.path, content });
+          })
+        );
+      }
+
+      // Reconstruct complete hierarchical FileNode[] tree
+      const newFiles = this.buildTreeFromPaths(rawFiles, rawDirectories);
 
       // Re-init git with pulled snapshot
       this.init(newFiles, owner);
@@ -1020,7 +1242,7 @@ export class GitService {
         lines: [
           `From https://github.com/${owner}/${repo}`,
           ` * branch            ${targetBranch}     -> FETCH_HEAD`,
-          `✓ Successfully pulled ${newFiles.length} file(s) from GitHub into workspace.`,
+          `✓ Successfully pulled ${rawFiles.length} file(s) across folders from GitHub into workspace.`,
         ],
       };
     } catch (err: any) {
@@ -1107,7 +1329,7 @@ export class GitService {
       if (!parsed) {
         return {
           success: false,
-          message: `fatal: repository '${repoUrl}' does not exist or invalid GitHub URL format. Use https://github.com/owner/repo`,
+          message: `fatal: repository '${repoUrl}' does not exist or invalid format. Use https://github.com/owner/repo or owner/repo`,
         };
       }
 
@@ -1142,53 +1364,62 @@ export class GitService {
         };
       }
       const treeData = await treeRes.json();
-      const treeItems: any[] = (treeData.tree || []).slice(0, 60);
+      const treeItems: any[] = (treeData.tree || []).slice(0, 300);
 
-      // Build file tree
-      const newFiles: FileNode[] = [];
+      const rawDirectories: string[] = [];
+      const blobItems: any[] = [];
 
       for (const item of treeItems) {
-        if (item.type === 'blob') {
-          let content = '';
-          try {
-            const blobRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
-              { headers }
-            );
-            if (blobRes.ok) {
-              const bData = await blobRes.json();
-              content = bData.encoding === 'base64' ? b64DecodeUnicode(bData.content) : bData.content;
-            } else {
-              const rawRes = await fetch(
-                `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
-              );
-              if (rawRes.ok) content = await rawRes.text();
-            }
-          } catch {
-            content = '// Could not load raw file content';
-          }
-
-          const pathParts = item.path.split('/');
-          const fileName = pathParts.pop();
-
-          newFiles.push({
-            id: 'git_' + Math.random().toString(36).substring(2, 9),
-            name: fileName,
-            path: `/${item.path}`,
-            type: 'file',
-            content,
-          });
+        if (item.type === 'tree') {
+          rawDirectories.push(item.path);
+        } else if (item.type === 'blob') {
+          blobItems.push(item);
         }
       }
 
+      const rawFiles: { path: string; content: string }[] = [];
+      const BATCH_SIZE = 8;
+
+      for (let i = 0; i < blobItems.length; i += BATCH_SIZE) {
+        const chunk = blobItems.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          chunk.map(async (item) => {
+            let content = '';
+            try {
+              const blobRes = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
+                { headers }
+              );
+              if (blobRes.ok) {
+                const bData = await blobRes.json();
+                content = bData.encoding === 'base64' ? b64DecodeUnicode(bData.content) : (bData.content || '');
+              } else {
+                const rawRes = await fetch(
+                  `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
+                );
+                if (rawRes.ok) content = await rawRes.text();
+              }
+            } catch {
+              content = '// Could not load raw file content';
+            }
+            rawFiles.push({ path: item.path, content });
+          })
+        );
+      }
+
+      // 3. Build a complete hierarchical FileNode[] tree containing all folders and files
+      const newFiles = this.buildTreeFromPaths(rawFiles, rawDirectories);
+
       // Initialize git with the cloned repo
       this.init(newFiles, owner);
+      this.currentBranch = defaultBranch;
+      this.branches.set(defaultBranch, this.headCommitSha);
       this.setRemote('origin', `https://github.com/${owner}/${repo}.git`);
 
       return {
         success: true,
         files: newFiles,
-        message: `Cloning into '${repo}'...\nremote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${treeItems.length}/${treeItems.length}), done.\n✓ Cloned repository into workspace and configured remote origin.`,
+        message: `Cloning into '${repo}'...\nremote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${rawFiles.length} files across ${rawDirectories.length} folders), done.\n✓ Cloned repository with folders into workspace and configured remote origin.`,
       };
     } catch (err: any) {
       return {
