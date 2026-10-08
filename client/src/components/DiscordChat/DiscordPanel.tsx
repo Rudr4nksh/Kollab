@@ -352,19 +352,28 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
                       {user.userName}
                       {isMe ? (
                         <span className={styles.youTag}>(you)</span>
-                      ) : isVoiceConnected ? (
-                        <span
-                          style={{
-                            fontSize: '9px',
-                            marginLeft: '5px',
-                            color: peerState?.connectionState === 'connected' ? '#2ECC71' : '#F1C40F',
-                            fontWeight: 500,
-                          }}
-                          title={`WebRTC: ${peerState?.connectionState || 'negotiating'}`}
-                        >
-                          {peerState?.connectionState === 'connected' ? '• linked' : '• connecting...'}
-                        </span>
-                      ) : null}
+                      ) : isVoiceConnected ? (() => {
+                        const isLinked = 
+                          peerState?.isPlaying || 
+                          peerState?.hasTrack || 
+                          peerState?.connectionState === 'connected' || 
+                          peerState?.iceState === 'connected' || 
+                          peerState?.iceState === 'completed';
+
+                        return (
+                          <span
+                            style={{
+                              fontSize: '9px',
+                              marginLeft: '5px',
+                              color: isLinked ? '#2ECC71' : '#F1C40F',
+                              fontWeight: 500,
+                            }}
+                            title={`WebRTC: ${isLinked ? (peerState?.hasTrack ? 'audio linked' : 'connected') : peerState?.connectionState || 'negotiating'}`}
+                          >
+                            {isLinked ? '• linked' : '• connecting...'}
+                          </span>
+                        );
+                      })() : null}
                     </span>
                   </div>
 

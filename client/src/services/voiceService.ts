@@ -18,6 +18,8 @@ export interface PeerVoiceState {
   userId: string;
   connectionState: RTCPeerConnectionState;
   iceState: RTCIceConnectionState;
+  hasTrack: boolean;
+  isPlaying: boolean;
 }
 
 interface PeerConnectionData {
@@ -26,6 +28,8 @@ interface PeerConnectionData {
   pendingCandidates: RTCIceCandidateInit[];
   gainNode?: GainNode;
   audioSource?: MediaStreamAudioSourceNode;
+  hasTrack: boolean;
+  isPlaying: boolean;
 }
 
 class VoiceService {
@@ -73,6 +77,8 @@ class VoiceService {
         userId,
         connectionState: peerData.pc.connectionState,
         iceState: peerData.pc.iceConnectionState,
+        hasTrack: !!peerData.hasTrack,
+        isPlaying: !!peerData.isPlaying,
       });
     });
     return states;
@@ -262,12 +268,26 @@ class VoiceService {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       this.audioContext.resume().catch(() => {});
     }
-    this.peers.forEach(({ audioEl }) => {
-      if (audioEl) {
-        audioEl.muted = this.isDeafened;
-        audioEl.play().catch(() => {});
+    this.peers.forEach((peer, peerId) => {
+      if (peer.audioEl) {
+        peer.audioEl.muted = this.isDeafened;
+        peer.audioEl.volume = 1.0;
+        peer.audioEl.play().catch(() => {});
+      }
+      if (peer.gainNode) {
+        peer.gainNode.gain.value = this.isDeafened ? 0 : 1.5;
+      }
+      if (peer.pc && !peer.gainNode) {
+        const receivers = peer.pc.getReceivers();
+        receivers.forEach((r) => {
+          if (r.track && r.track.kind === 'audio') {
+            const stream = new MediaStream([r.track]);
+            this.connectRemoteAudioOutput(peerId, stream, peer);
+          }
+        });
       }
     });
+    this.notifyStateChange();
   }
 
   public retryPeer(peerId: string) {
@@ -345,6 +365,8 @@ class VoiceService {
       pc,
       audioEl,
       pendingCandidates: [],
+      hasTrack: false,
+      isPlaying: false,
     };
 
     // Create a control data channel to guarantee instant ICE candidate gathering
@@ -412,6 +434,7 @@ class VoiceService {
     // When remote audio track arrives
     pc.ontrack = (event) => {
       console.log(`[VoiceService] Remote audio track received from ${peerId}:`, event.track);
+      peerData.hasTrack = true;
       try {
         socketService.getSocket().emit('voice-debug', {
           userId: this.currentUserId,
@@ -428,6 +451,8 @@ class VoiceService {
       audioEl.volume = 1.0;
 
       audioEl.onplaying = () => {
+        peerData.isPlaying = true;
+        this.notifyStateChange();
         try {
           socketService.getSocket().emit('voice-debug', {
             userId: this.currentUserId,
@@ -444,6 +469,8 @@ class VoiceService {
         playPromise
           .then(() => {
             console.log(`[VoiceService] Native audio playback started for ${peerId}`);
+            peerData.isPlaying = true;
+            this.notifyStateChange();
           })
           .catch((err) => {
             console.warn(`[VoiceService] Native play blocked by browser policy for ${peerId}, engaging Web Audio fallback:`, err);
@@ -451,8 +478,11 @@ class VoiceService {
             audioEl.muted = true;
             audioEl.play().catch(() => {});
             this.connectRemoteAudioOutput(peerId, stream, peerData);
+            peerData.isPlaying = true;
+            this.notifyStateChange();
           });
       }
+      this.notifyStateChange();
     };
 
     pc.onconnectionstatechange = () => {
