@@ -25,7 +25,7 @@ import {
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
 import { CodeEditor } from '../../components/Editor/CodeEditor.tsx';
-import { applyEditorTheme, THEMES_LIST } from '../../components/Editor/monacoTheme.ts';
+import { applyEditorTheme } from '../../components/Editor/monacoTheme.ts';
 import { ConsolePanel } from '../../components/Console/ConsolePanel.tsx';
 import { ParticipantList } from '../../components/Participants/ParticipantList.tsx';
 import { ActivityFeed } from '../../components/ActivityFeed/ActivityFeed.tsx';
@@ -164,29 +164,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     applyEditorTheme(themeId);
     document.documentElement.setAttribute('data-theme', themeId);
     document.body.setAttribute('data-theme', themeId);
-    socketService.emitRoomThemeUpdate(roomId, themeId, userId);
   };
 
-  // Sync room theme on mount and via socket from peers
+  // Apply local theme on mount and when theme changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
     document.body.setAttribute('data-theme', currentTheme);
     applyEditorTheme(currentTheme);
-
-    const unsub = socketService.onRoomThemeChanged(({ themeId }) => {
-      setCurrentTheme(themeId);
-      localStorage.setItem('kollab-editor-theme', themeId);
-      applyEditorTheme(themeId);
-      document.documentElement.setAttribute('data-theme', themeId);
-      document.body.setAttribute('data-theme', themeId);
-      const thName = THEMES_LIST.find((t) => t.id === themeId)?.name || themeId;
-      onAddToast?.('info', `Room theme set to ${thName}`);
-    });
-
-    return () => {
-      unsub();
-    };
-  }, [roomId, onAddToast]);
+  }, [currentTheme]);
 
   // Drag resizer handlers (VS Code sash style)
   const handleMouseDownAiResizer = (e: React.MouseEvent) => {

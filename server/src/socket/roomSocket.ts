@@ -341,21 +341,17 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
-    // Room-wide Theme synchronization
+    // Room theme update (kept local to each user; no broadcast to peers)
     socket.on('room-theme-update', (data: {
       roomId: string;
       userId: string;
       themeId: string;
     }) => {
-      const { roomId, userId, themeId } = data;
+      const { roomId, themeId } = data;
       const roomIdKey = norm(roomId);
       const session = activeRooms.get(roomIdKey);
       if (session) {
         session.theme = themeId;
-        socket.to(roomIdKey).emit('room-theme-changed', {
-          themeId,
-          userId,
-        });
       }
     });
 
