@@ -397,6 +397,46 @@ export function renameNodeInTree(
 }
 
 /**
+ * Updates a file's language and optional extension/name recursively in tree
+ */
+export function updateFileLanguageInTree(
+  nodes: FileNode[],
+  targetPath: string,
+  newLanguage: SupportedLanguage,
+  newName?: string
+): { updatedNodes: FileNode[]; newPath: string } {
+  let finalPath = targetPath;
+  const updateRec = (list: FileNode[]): FileNode[] => {
+    return list.map((node) => {
+      if (node.path === targetPath) {
+        let updatedName = node.name;
+        let updatedPath = node.path;
+        if (newName && newName !== node.name) {
+          updatedName = newName;
+          const lastSlash = node.path.lastIndexOf('/');
+          updatedPath = lastSlash !== -1 ? `${node.path.slice(0, lastSlash + 1)}${newName}` : `/${newName}`;
+          finalPath = updatedPath;
+        }
+        return {
+          ...node,
+          name: updatedName,
+          path: updatedPath,
+          language: newLanguage,
+        };
+      }
+      if (node.children) {
+        return {
+          ...node,
+          children: updateRec(node.children),
+        };
+      }
+      return node;
+    });
+  };
+  return { updatedNodes: updateRec(nodes), newPath: finalPath };
+}
+
+/**
  * Native drag-and-drop recursive file & directory parser
  */
 export async function parseDroppedItems(dataTransfer: DataTransfer): Promise<FileNode[]> {

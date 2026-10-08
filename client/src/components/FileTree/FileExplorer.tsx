@@ -21,6 +21,7 @@ import {
   findFileByPath, 
   parseDroppedItems 
 } from '../../services/fileUtils.ts';
+import { POPULAR_EXTENSIONS } from '../../services/languageExtensions.ts';
 import styles from './FileExplorer.module.css';
 
 interface FileExplorerProps {
@@ -316,6 +317,30 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             autoFocus
           />
         </form>
+        {creatingType === 'file' && (
+          <div className={styles.quickExtBar}>
+            <span className={styles.quickExtLabel}>Ext:</span>
+            {POPULAR_EXTENSIONS.map((item) => (
+              <button
+                key={item.ext}
+                type="button"
+                className={styles.quickExtChip}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  let base = newItemName.trim();
+                  const dotIdx = base.lastIndexOf('.');
+                  if (dotIdx !== -1) {
+                    base = base.substring(0, dotIdx);
+                  }
+                  setNewItemName(base ? `${base}${item.ext}` : `main${item.ext}`);
+                }}
+                title={`Use ${item.label} (${item.ext})`}
+              >
+                {item.ext}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   };

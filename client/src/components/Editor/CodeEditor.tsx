@@ -1,8 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { KOLLAB_THEME_NAME, kollabTheme } from './monacoTheme.ts';
+import { Palette, Code2, Search, Check } from 'lucide-react';
+import { KOLLAB_THEME_NAME, registerAllThemes, THEMES_LIST } from './monacoTheme.ts';
 import { registerLanguageCompletions } from './languageCompletions.ts';
+import {
+  LANGUAGE_METAS,
+  getLanguageMeta,
+  getMonacoLanguageId,
+} from '../../services/languageExtensions.ts';
 import type { SupportedLanguage, Participant } from '../../types/index.ts';
 import styles from './CodeEditor.module.css';
 
@@ -10,7 +16,7 @@ interface CodeEditorProps {
   value?: string;
   filePath?: string;
   language: SupportedLanguage;
-  onLanguageChange: (lang: SupportedLanguage) => void;
+  onLanguageChange: (lang: SupportedLanguage, newFilename?: string) => void;
   onContentChange?: (val: string) => void;
   onCursorChange?: (line: number, column: number) => void;
   onSelectionChange?: (range: {
@@ -46,8 +52,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   participants = [],
   currentUserId,
   readOnly = false,
-  onUndoFile,
-  onRedoFile,
 }) => {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -55,47 +59,60 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const widgetsMapRef = useRef<Map<string, RemoteWidgetEntry>>(new Map());
   const isApplyingRemoteRef = useRef<boolean>(false);
   const prevFilePathRef = useRef<string | undefined>(filePath);
-  const onUndoFileRef = useRef(onUndoFile);
-  const onRedoFileRef = useRef(onRedoFile);
 
-  useEffect(() => {
-    onUndoFileRef.current = onUndoFile;
-    onRedoFileRef.current = onRedoFile;
-  }, [onUndoFile, onRedoFile]);
+  // Per-file Monaco ITextModel cache to preserve undo/redo history, view state, and cursor across tabs
+  const modelsMapRef = useRef<Map<string, editor.ITextModel>>(new Map());
+
+  // Themes state
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
+    return localStorage.getItem('kollab-editor-theme') || KOLLAB_THEME_NAME;
+  });
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+
+  // Language & extension picker state
+  const [isLangPickerOpen, setIsLangPickerOpen] = useState(false);
+  const [langSearch, setLangSearch] = useState('');
 
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
   const [lineCount, setLineCount] = useState(1);
+
+  const currentLangMeta = getLanguageMeta(language);
 
   const handleEditorDidMount: OnMount = (ed, monaco) => {
     editorRef.current = ed;
     monacoRef.current = monaco;
 
-    // Define custom obsidian theme
-    monaco.editor.defineTheme(KOLLAB_THEME_NAME, kollabTheme);
-    monaco.editor.setTheme(KOLLAB_THEME_NAME);
+    // Register all custom themes
+    registerAllThemes(monaco);
+    monaco.editor.setTheme(currentTheme);
 
-    // Register rich language autocompletions & snippets for C++, Python, Java, Dart, HTML, CSS, JS, etc.
+    // Register rich language autocompletions & snippets for all supported languages
     registerLanguageCompletions(monaco);
 
-    // Initial stats
-    setLineCount(ed.getModel()?.getLineCount() || 1);
+    // Initial model setup for starting file
+    if (filePath) {
+      const monacoLang = getMonacoLanguageId(language);
+      const uri = monaco.Uri.parse(`inmemory://kollab/${encodeURIComponent(filePath)}`);
+      let model = monaco.editor.getModel(uri);
+      if (!model || model.isDisposed()) {
+        model = monaco.editor.createModel(value || '', monacoLang, uri);
+      }
+      modelsMapRef.current.set(filePath, model);
+      ed.setModel(model);
+      setLineCount(model.getLineCount());
+    }
 
     // Track cursor and selection changes
     ed.onDidChangeCursorPosition((e) => {
       setCursorPos({ line: e.position.lineNumber, column: e.position.column });
-      // When remote updates are being applied, do NOT broadcast internal cursor shifts back to peers!
-      if (isApplyingRemoteRef.current) {
-        return;
-      }
+      if (isApplyingRemoteRef.current) return;
       if (onCursorChange) {
         onCursorChange(e.position.lineNumber, e.position.column);
       }
     });
 
     ed.onDidChangeCursorSelection((e) => {
-      if (isApplyingRemoteRef.current) {
-        return;
-      }
+      if (isApplyingRemoteRef.current) return;
       if (onSelectionChange) {
         onSelectionChange({
           startLineNumber: e.selection.startLineNumber,
@@ -107,76 +124,23 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
 
     ed.onDidChangeModelContent(() => {
-      setLineCount(ed.getModel()?.getLineCount() || 1);
-      // If the content change was caused by a remote socket update, don't re-emit
-      if (isApplyingRemoteRef.current) {
-        return;
-      }
-      if (onContentChange) {
-        onContentChange(ed.getValue());
+      const model = ed.getModel();
+      setLineCount(model?.getLineCount() || 1);
+      if (isApplyingRemoteRef.current) return;
+      if (onContentChange && model) {
+        onContentChange(model.getValue());
       }
     });
 
-    // Check whether Monaco has pending text undo/redo actions
-    const monacoCanUndo = () => {
-      const model = ed.getModel() as any;
-      if (!model) return false;
-      return typeof model.canUndo === 'function' ? model.canUndo() : false;
-    };
-
-    const monacoCanRedo = () => {
-      const model = ed.getModel() as any;
-      if (!model) return false;
-      return typeof model.canRedo === 'function' ? model.canRedo() : false;
-    };
-
-    // 1. Monaco command layer (invoked when Monaco command service resolves shortcuts)
-    const handleMonacoUndo = () => {
-      if (monacoCanUndo()) {
-        ed.trigger('keyboard', 'undo', null);
-      } else if (onUndoFileRef.current) {
-        onUndoFileRef.current();
-      }
-    };
-
-    const handleMonacoRedo = () => {
-      if (monacoCanRedo()) {
-        ed.trigger('keyboard', 'redo', null);
-      } else if (onRedoFileRef.current) {
-        onRedoFileRef.current();
-      }
-    };
-
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, handleMonacoUndo);
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, handleMonacoRedo);
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, handleMonacoRedo);
-
-    // 2. Editor keydown event listener (intercepts before Monaco built-in commands swallow the keypress)
-    ed.onKeyDown((e) => {
-      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-      if (!isCtrlOrMeta) return;
-
-      const key = e.browserEvent?.key?.toLowerCase();
-      const isZ = e.keyCode === monaco.KeyCode.KeyZ || e.code === 'KeyZ' || key === 'z';
-      const isY = e.keyCode === monaco.KeyCode.KeyY || e.code === 'KeyY' || key === 'y';
-
-      if (isZ && !e.shiftKey) {
-        if (!monacoCanUndo() && onUndoFileRef.current) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.browserEvent?.preventDefault();
-          e.browserEvent?.stopPropagation();
-          onUndoFileRef.current();
-        }
-      } else if ((isZ && e.shiftKey) || isY) {
-        if (!monacoCanRedo() && onRedoFileRef.current) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.browserEvent?.preventDefault();
-          e.browserEvent?.stopPropagation();
-          onRedoFileRef.current();
-        }
-      }
+    // Native undo/redo commands in Monaco (isolated to editor content)
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
+      ed.trigger('keyboard', 'undo', null);
+    });
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, () => {
+      ed.trigger('keyboard', 'redo', null);
+    });
+    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, () => {
+      ed.trigger('keyboard', 'redo', null);
     });
 
     if (onEditorMount) {
@@ -184,52 +148,92 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  // Synchronize file path changes (switching tabs)
+  // Synchronize file path changes (switching tabs) without losing undo history
   useEffect(() => {
     const ed = editorRef.current;
-    if (!ed) return;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco || !filePath) return;
+
     if (prevFilePathRef.current !== filePath) {
       prevFilePathRef.current = filePath;
-      isApplyingRemoteRef.current = true;
-      ed.setValue(value || '');
-      ed.setPosition({ lineNumber: 1, column: 1 });
-      setTimeout(() => {
-        isApplyingRemoteRef.current = false;
-      }, 50);
-      setLineCount(ed.getModel()?.getLineCount() || 1);
+      const monacoLang = getMonacoLanguageId(language);
+      const uri = monaco.Uri.parse(`inmemory://kollab/${encodeURIComponent(filePath)}`);
+
+      let model = modelsMapRef.current.get(filePath);
+      if (!model || model.isDisposed()) {
+        const existing = monaco.editor.getModel(uri);
+        if (existing && !existing.isDisposed()) {
+          model = existing;
+        } else {
+          model = monaco.editor.createModel(value || '', monacoLang, uri);
+        }
+        modelsMapRef.current.set(filePath, model);
+      }
+
+      // Switch to file model
+      if (ed.getModel() !== model) {
+        isApplyingRemoteRef.current = true;
+        ed.setModel(model);
+        if (value !== undefined && model.getValue() !== value) {
+          model.setValue(value);
+        }
+        setTimeout(() => {
+          isApplyingRemoteRef.current = false;
+        }, 50);
+      }
+
+      setLineCount(model.getLineCount());
     }
-  }, [filePath, value]);
+  }, [filePath, value, language]);
+
+  // Synchronize language changes on the active Monaco model
+  useEffect(() => {
+    const ed = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!ed || !monaco) return;
+    const model = ed.getModel();
+    if (model) {
+      const monacoLang = getMonacoLanguageId(language);
+      if (model.getLanguageId() !== monacoLang) {
+        monaco.editor.setModelLanguage(model, monacoLang);
+      }
+    }
+  }, [language]);
 
   // Synchronize remote content updates cleanly without cursor resets or echo loops
   useEffect(() => {
     const ed = editorRef.current;
     if (!ed || value === undefined) return;
-    // Only apply if file paths match and content differs
-    if (prevFilePathRef.current === filePath && value !== ed.getValue()) {
+    if (prevFilePathRef.current === filePath) {
       const model = ed.getModel();
       if (!model) return;
 
-      const selections = ed.getSelections();
-      isApplyingRemoteRef.current = true;
+      if (value !== model.getValue()) {
+        const selections = ed.getSelections();
+        isApplyingRemoteRef.current = true;
 
-      ed.executeEdits('remote-sync', [
-        {
-          range: model.getFullModelRange(),
-          text: value,
-          forceMoveMarkers: false,
-        },
-      ]);
+        model.pushEditOperations(
+          [],
+          [
+            {
+              range: model.getFullModelRange(),
+              text: value,
+              forceMoveMarkers: true,
+            },
+          ],
+          () => null
+        );
 
-      if (selections && selections.length > 0) {
-        ed.setSelections(selections);
+        if (selections && selections.length > 0) {
+          ed.setSelections(selections);
+        }
+
+        setTimeout(() => {
+          isApplyingRemoteRef.current = false;
+        }, 60);
+
+        setLineCount(model.getLineCount());
       }
-
-      // Keep flag true long enough to discard Monaco's internal deferred cursor events
-      setTimeout(() => {
-        isApplyingRemoteRef.current = false;
-      }, 80);
-
-      setLineCount(model.getLineCount());
     }
   }, [value, filePath]);
 
@@ -242,130 +246,101 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     const activeParticipantIds = new Set<string>();
 
     participants.forEach((p) => {
-      // Don't render cursor for self
       if (p.id === currentUserId) return;
-
-      // Only show remote cursor if the peer is active on the same file
-      if (p.activeFilePath && filePath && p.activeFilePath !== filePath) {
-        return;
-      }
-
-      const targetLine = p.cursor?.line || p.currentLine;
-      const targetCol = p.cursor?.column || 1;
-
-      if (!targetLine || targetLine < 1) return;
-
-      activeParticipantIds.add(p.id);
-
-      // On line 1, display tag below the line (top: 22px) so it is never hidden behind the tab bar
-      const isFirstLine = targetLine <= 1;
-      const tagTop = isFirstLine ? '22px' : '-19px';
-      const tagRadius = isFirstLine ? '0 3px 3px 3px' : '3px 3px 3px 0';
-
-      const existing = widgetsMapRef.current.get(p.id);
-      if (existing) {
-        // Update widget position dynamically
-        existing.widget.getPosition = () => ({
-          position: { lineNumber: targetLine, column: targetCol },
-          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-        });
-        existing.tagNode.textContent = p.name;
-        existing.tagNode.style.backgroundColor = p.color;
-        existing.tagNode.style.top = tagTop;
-        existing.tagNode.style.borderRadius = tagRadius;
-        existing.caretNode.style.backgroundColor = p.color;
-        existing.caretNode.style.boxShadow = `0 0 6px ${p.color}`;
-
-        ed.layoutContentWidget(existing.widget);
-      } else {
-        // Build new ContentWidget DOM
-        const container = document.createElement('div');
-        container.className = 'remote-cursor-container';
-
-        const caret = document.createElement('div');
-        caret.className = 'remote-caret-bar';
-        caret.style.backgroundColor = p.color;
-        caret.style.boxShadow = `0 0 6px ${p.color}`;
-
-        const tag = document.createElement('div');
-        tag.className = 'remote-name-tag';
-        tag.textContent = p.name;
-        tag.style.backgroundColor = p.color;
-        tag.style.top = tagTop;
-        tag.style.borderRadius = tagRadius;
-
-        container.appendChild(caret);
-        container.appendChild(tag);
-
-        const widget: editor.IContentWidget = {
-          getId: () => `cursor_widget_${p.id}`,
-          getDomNode: () => container,
-          getPosition: () => ({
-            position: { lineNumber: targetLine, column: targetCol },
-            preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-          }),
-        };
-
-        ed.addContentWidget(widget);
-        widgetsMapRef.current.set(p.id, {
-          widget,
-          containerNode: container,
-          caretNode: caret,
-          tagNode: tag,
-        });
+      if (p.activeFilePath && filePath && p.activeFilePath !== filePath) return;
+      if (p.cursor) {
+        activeParticipantIds.add(p.id);
       }
     });
 
-    // Remove widgets for peers that disconnected or switched files
-    widgetsMapRef.current.forEach((entry, id) => {
-      if (!activeParticipantIds.has(id)) {
-        ed.removeContentWidget(entry.widget);
-        widgetsMapRef.current.delete(id);
-      }
-    });
-
-    // Model delta decorations for subtle active line highlight & multi-char selection
     const newDecorations: editor.IModelDeltaDecoration[] = [];
 
     participants.forEach((p) => {
       if (p.id === currentUserId) return;
       if (p.activeFilePath && filePath && p.activeFilePath !== filePath) return;
 
-      const targetLine = p.cursor?.line || p.currentLine;
-      if (targetLine && targetLine > 0) {
+      const userColor = p.color || '#7357E8';
+
+      if (p.currentLine && p.currentLine > 0) {
         newDecorations.push({
-          range: new monaco.Range(targetLine, 1, targetLine, 1),
+          range: new monaco.Range(p.currentLine, 1, p.currentLine, 1),
           options: {
             isWholeLine: true,
             className: 'remote-line-highlight',
-            overviewRuler: {
-              color: p.color,
-              position: monaco.editor.OverviewRulerLane.Left,
-            },
           },
         });
       }
 
-      if (
-        p.selection &&
-        (p.selection.startLineNumber !== p.selection.endLineNumber ||
-          p.selection.startColumn !== p.selection.endColumn)
-      ) {
-        newDecorations.push({
-          range: new monaco.Range(
-            p.selection.startLineNumber,
-            p.selection.startColumn,
-            p.selection.endLineNumber,
-            p.selection.endColumn
-          ),
-          options: {
-            className: 'remote-selection',
-          },
-        });
+      if (p.selection) {
+        const { startLineNumber, startColumn, endLineNumber, endColumn } = p.selection;
+        if (
+          startLineNumber !== endLineNumber ||
+          startColumn !== endColumn
+        ) {
+          newDecorations.push({
+            range: new monaco.Range(startLineNumber, startColumn, endLineNumber, endColumn),
+            options: {
+              className: 'remote-selection',
+              hoverMessage: { value: `**${p.name}** is selecting here` },
+            },
+          });
+        }
+      }
+
+      if (p.cursor) {
+        const { line, column } = p.cursor;
+        let entry = widgetsMapRef.current.get(p.id);
+
+        if (!entry) {
+          const container = document.createElement('div');
+          container.className = 'remote-cursor-container';
+
+          const caret = document.createElement('div');
+          caret.className = 'remote-caret-bar';
+          caret.style.backgroundColor = userColor;
+
+          const tag = document.createElement('div');
+          tag.className = 'remote-name-tag';
+          tag.style.backgroundColor = userColor;
+          tag.textContent = p.name;
+
+          container.appendChild(caret);
+          container.appendChild(tag);
+
+          const widget: editor.IContentWidget = {
+            getId: () => `remote.cursor.${p.id}`,
+            getDomNode: () => container,
+            getPosition: () => ({
+              position: { lineNumber: line, column },
+              preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+            }),
+          };
+
+          ed.addContentWidget(widget);
+          entry = { widget, containerNode: container, caretNode: caret, tagNode: tag };
+          widgetsMapRef.current.set(p.id, entry);
+        } else {
+          entry.caretNode.style.backgroundColor = userColor;
+          entry.tagNode.style.backgroundColor = userColor;
+          entry.tagNode.textContent = p.name;
+
+          entry.widget.getPosition = () => ({
+            position: { lineNumber: line, column },
+            preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+          });
+          ed.layoutContentWidget(entry.widget);
+        }
       }
     });
 
     decorationsRef.current = ed.deltaDecorations(decorationsRef.current, newDecorations);
+
+    widgetsMapRef.current.forEach((entry, peerId) => {
+      if (!activeParticipantIds.has(peerId)) {
+        ed.removeContentWidget(entry.widget);
+        widgetsMapRef.current.delete(peerId);
+      }
+    });
   }, [participants, currentUserId, filePath]);
 
   // Clean up all content widgets on unmount
@@ -376,57 +351,83 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         widgetsMapRef.current.forEach((entry) => {
           ed.removeContentWidget(entry.widget);
         });
-        widgetsMapRef.current.clear();
       }
+      widgetsMapRef.current.clear();
     };
   }, []);
+
+  const handleSelectTheme = (themeId: string) => {
+    setCurrentTheme(themeId);
+    localStorage.setItem('kollab-editor-theme', themeId);
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(themeId);
+    }
+    setIsThemePickerOpen(false);
+  };
+
+  const handleSelectLanguage = (meta: typeof LANGUAGE_METAS[0]) => {
+    setIsLangPickerOpen(false);
+    // If the file currently has an extension, propose updating the extension
+    let newFilename: string | undefined = undefined;
+    if (filePath) {
+      const parts = filePath.split('/');
+      const currentName = parts[parts.length - 1];
+      const dotIndex = currentName.lastIndexOf('.');
+      if (dotIndex !== -1) {
+        const base = currentName.substring(0, dotIndex);
+        newFilename = `${base}${meta.primaryExt}`;
+      }
+    }
+    onLanguageChange(meta.id, newFilename);
+  };
+
+  const filteredLanguages = LANGUAGE_METAS.filter(
+    (m) =>
+      m.name.toLowerCase().includes(langSearch.toLowerCase()) ||
+      m.id.toLowerCase().includes(langSearch.toLowerCase()) ||
+      m.extensions.some((ext) => ext.toLowerCase().includes(langSearch.toLowerCase()))
+  );
 
   return (
     <div className={styles.editorContainer}>
       <div className={styles.editorFrame}>
         <MonacoEditor
           height="100%"
-          language={language}
-          defaultValue={value}
-          theme={KOLLAB_THEME_NAME}
+          language={getMonacoLanguageId(language)}
+          theme={currentTheme}
           onMount={handleEditorDidMount}
           options={{
             readOnly,
-            fontSize: 13.5,
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', monospace",
+            fontSize: 13,
+            lineHeight: 20,
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
             fontLigatures: true,
-            lineHeight: 22,
+            tabSize: 2,
+            insertSpaces: true,
+            wordWrap: 'on',
             lineNumbers: 'on',
             lineNumbersMinChars: 3,
             glyphMargin: false,
             folding: true,
+            minimap: { enabled: false },
             scrollBeyondLastLine: false,
             smoothScrolling: true,
             cursorBlinking: 'smooth',
             cursorSmoothCaretAnimation: 'on',
-            renderLineHighlight: 'line',
-            renderWhitespace: 'selection',
-            minimap: {
-              enabled: false,
-            },
-            scrollbar: {
-              verticalScrollbarSize: 8,
-              horizontalScrollbarSize: 8,
-              useShadows: false,
-            },
-            tabSize: 2,
-            wordWrap: 'on',
+            renderLineHighlight: 'all',
             automaticLayout: true,
+            quickSuggestions: { other: true, comments: false, strings: true },
             suggestOnTriggerCharacters: true,
-            quickSuggestions: {
-              other: true,
-              comments: true,
-              strings: true,
-            },
-            acceptSuggestionOnCommitCharacter: true,
             acceptSuggestionOnEnter: 'on',
-            tabCompletion: 'on',
-            wordBasedSuggestions: 'allDocuments',
+            parameterHints: { enabled: true },
+            bracketPairColorization: { enabled: true },
+            matchBrackets: 'always',
+            contextmenu: true,
+            formatOnPaste: false,
+            formatOnType: false,
+            renderWhitespace: 'selection',
+            overviewRulerBorder: false,
+            hideCursorInOverviewRuler: true,
             suggest: {
               showWords: true,
               showSnippets: true,
@@ -446,55 +447,122 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               preview: true,
               insertMode: 'insert',
             },
-            padding: { top: 20, bottom: 14 },
+            padding: { top: 16, bottom: 14 },
           }}
         />
       </div>
 
-      {/* Micro status bar */}
+      {/* Popovers Backdrop */}
+      {(isThemePickerOpen || isLangPickerOpen) && (
+        <div
+          className={styles.popoverBackdrop}
+          onClick={() => {
+            setIsThemePickerOpen(false);
+            setIsLangPickerOpen(false);
+          }}
+        />
+      )}
+
+      {/* Theme Picker Popover */}
+      {isThemePickerOpen && (
+        <div className={`${styles.pickerPopover} ${styles.themePickerPopover}`}>
+          <div className={styles.pickerHeader}>
+            <Palette size={13} style={{ color: '#A78BFA' }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#F3F4F6' }}>Select Editor Theme</span>
+          </div>
+          <div className={styles.pickerList}>
+            {THEMES_LIST.map((th) => (
+              <button
+                key={th.id}
+                className={`${styles.pickerItem} ${currentTheme === th.id ? styles.selected : ''}`}
+                onClick={() => handleSelectTheme(th.id)}
+              >
+                <div className={styles.itemMain}>
+                  <span
+                    className={styles.themeSwatch}
+                    style={{ backgroundColor: th.previewColor, borderColor: th.accentColor }}
+                  />
+                  <span className={styles.itemLabel}>{th.name}</span>
+                </div>
+                {currentTheme === th.id && <Check size={13} style={{ color: th.accentColor }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Language & Extension Picker Popover */}
+      {isLangPickerOpen && (
+        <div className={styles.pickerPopover}>
+          <div className={styles.pickerHeader}>
+            <Search size={13} style={{ color: '#717888' }} />
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search coding language or extension (.py, .cpp, .rs)..."
+              value={langSearch}
+              onChange={(e) => setLangSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className={styles.pickerList}>
+            {filteredLanguages.map((meta) => {
+              const isSelected = language === meta.id;
+              return (
+                <button
+                  key={meta.id}
+                  className={`${styles.pickerItem} ${isSelected ? styles.selected : ''}`}
+                  onClick={() => handleSelectLanguage(meta)}
+                >
+                  <div className={styles.itemMain}>
+                    <Code2 size={13} style={{ color: isSelected ? '#A78BFA' : '#717888' }} />
+                    <span className={styles.itemLabel}>{meta.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={styles.itemExt}>{meta.primaryExt}</span>
+                    {isSelected && <Check size={12} style={{ color: '#A78BFA' }} />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Micro status bar with interactive Theme & Extension buttons */}
       <footer className={styles.statusBar}>
         <div className={styles.statusLeft}>
           <span className={styles.statusItem}>UTF-8</span>
           <span className={styles.statusDivider}>•</span>
-          {onLanguageChange ? (
-            <select
-              className={styles.statusLangSelect}
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value as SupportedLanguage)}
-              title="Change language mode"
-            >
-              <option value="javascript">JavaScript (JS / JSX)</option>
-              <option value="typescript">TypeScript (TS / TSX)</option>
-              <option value="html">HTML5</option>
-              <option value="css">CSS3</option>
-              <option value="scss">SCSS / SASS</option>
-              <option value="json">JSON</option>
-              <option value="yaml">YAML</option>
-              <option value="xml">XML / SVG</option>
-              <option value="php">PHP</option>
-              <option value="ruby">Ruby</option>
-              <option value="graphql">GraphQL</option>
-              <option value="c">C</option>
-              <option value="cpp">C++</option>
-              <option value="java">Java</option>
-              <option value="rust">Rust</option>
-              <option value="go">Go</option>
-              <option value="kotlin">Kotlin</option>
-              <option value="csharp">C# (.NET)</option>
-              <option value="swift">Swift</option>
-              <option value="dart">Dart (Flutter)</option>
-              <option value="python">Python (AI / ML / Data)</option>
-              <option value="r">R (Statistics / Data)</option>
-              <option value="julia">Julia (Scientific ML)</option>
-              <option value="sql">SQL</option>
-              <option value="shell">Shell / Bash</option>
-              <option value="markdown">Markdown</option>
-              <option value="dockerfile">Dockerfile</option>
-              <option value="plaintext">Plaintext</option>
-            </select>
-          ) : (
-            <span className={styles.statusLangBadge}>{language.toUpperCase()}</span>
-          )}
+
+          {/* Interactive Language & Extension Selector */}
+          <button
+            className={`${styles.statusInteractiveBtn} ${isLangPickerOpen ? styles.active : ''}`}
+            onClick={() => {
+              setIsLangPickerOpen(!isLangPickerOpen);
+              setIsThemePickerOpen(false);
+            }}
+            title="Click to select language mode or switch extension"
+          >
+            <Code2 size={11} style={{ color: '#A78BFA' }} />
+            <span>{currentLangMeta.name} ({currentLangMeta.primaryExt})</span>
+          </button>
+
+          <span className={styles.statusDivider}>•</span>
+
+          {/* Interactive Themes Selector */}
+          <button
+            className={`${styles.statusInteractiveBtn} ${isThemePickerOpen ? styles.active : ''}`}
+            onClick={() => {
+              setIsThemePickerOpen(!isThemePickerOpen);
+              setIsLangPickerOpen(false);
+            }}
+            title="Switch editor syntax color theme"
+          >
+            <Palette size={11} style={{ color: '#67E8F9' }} />
+            <span>{THEMES_LIST.find((t) => t.id === currentTheme)?.name || 'Theme'}</span>
+          </button>
+
           {readOnly && (
             <>
               <span className={styles.statusDivider}>•</span>
@@ -502,6 +570,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </>
           )}
         </div>
+
         <div className={styles.statusRight}>
           <span className={styles.statusItem}>
             Ln {cursorPos.line}, Col {cursorPos.column}

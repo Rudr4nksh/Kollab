@@ -49,6 +49,7 @@ import {
   getLanguageFromFilename,
   findFirstFileNode,
   renameNodeInTree,
+  updateFileLanguageInTree,
   parseDroppedItems
 } from '../../services/fileUtils.ts';
 import { socketService } from '../../services/socket.ts';
@@ -1377,12 +1378,38 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 value={activeFile.content || ''}
                 filePath={activeFilePath}
                 language={(activeFile.language || getLanguageFromFilename(activeFile.name)) as SupportedLanguage}
-                onLanguageChange={(lang) => {
-                  const updated = files.map((f) =>
-                    f.path === activeFilePath ? { ...f, language: lang } : f
+                onLanguageChange={(lang, newFilename) => {
+                  const { updatedNodes, newPath } = updateFileLanguageInTree(
+                    files,
+                    activeFilePath,
+                    lang,
+                    newFilename
                   );
-                  onFilesChange(updated);
-                  socketService.emitFilesTreeUpdate(roomId, updated, userId, `changed language to ${lang}`, 'file_created');
+                  onFilesChange(updatedNodes);
+                  if (newPath !== activeFilePath) {
+                    setActiveFilePath(newPath);
+                    setOpenFiles((prev) =>
+                      prev.map((f) =>
+                        f.path === activeFilePath
+                          ? { ...f, path: newPath, name: newFilename || f.name, language: lang }
+                          : f
+                      )
+                    );
+                  } else {
+                    setOpenFiles((prev) =>
+                      prev.map((f) =>
+                        f.path === activeFilePath ? { ...f, language: lang } : f
+                      )
+                    );
+                  }
+                  socketService.emitFilesTreeUpdate(
+                    roomId,
+                    updatedNodes,
+                    userId,
+                    `switched language to ${lang}`,
+                    'file_created'
+                  );
+                  onAddToast?.('info', `Language set to ${lang.toUpperCase()}${newFilename ? ` (${newFilename})` : ''}`);
                 }}
                 onContentChange={handleContentChange}
                 onCursorChange={handleLocalCursorChange}

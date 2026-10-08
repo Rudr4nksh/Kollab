@@ -5,12 +5,16 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 interface PeerConnectionData {
   pc: RTCPeerConnection;
   audioEl: HTMLAudioElement;
+  pendingCandidates: RTCIceCandidateInit[];
 }
 
 class VoiceService {
@@ -71,8 +75,27 @@ class VoiceService {
       this.isMuted = false;
       this.isDeafened = false;
 
+      // Attach audio tracks to any existing peer connections created before mic acquisition
+      this.peers.forEach(({ pc }) => {
+        const senders = pc.getSenders();
+        stream.getAudioTracks().forEach((track) => {
+          if (!senders.some((s) => s.track === track)) {
+            pc.addTrack(track, stream);
+          }
+        });
+      });
+
       // 2. Setup AudioContext level detector for Discord green speaking ring
       this.setupSpeakingDetector(stream);
+
+      // Resume AudioContext if suspended by browser autoplay policy
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        try {
+          await this.audioContext.resume();
+        } catch {
+          // ignore
+        }
+      }
 
       // 3. Notify socket server
       socketService.emitVoiceJoin(roomId, userId);
@@ -86,7 +109,6 @@ class VoiceService {
       return true;
     } catch (err) {
       console.warn('[VoiceService] Could not access microphone or connect:', err);
-      // Fallback: connect in deafened/silent mode if mic is denied
       this.isConnected = false;
       this.notifyStateChange();
       return false;
@@ -122,7 +144,7 @@ class VoiceService {
       this.localStream = null;
     }
 
-    // Close all peer connections
+    // Close all peer connections and remove audio elements
     this.peers.forEach(({ pc, audioEl }) => {
       try {
         pc.close();
@@ -233,7 +255,10 @@ class VoiceService {
     // Audio element for playing remote peer's sound
     const audioEl = document.createElement('audio');
     audioEl.autoplay = true;
+    audioEl.setAttribute('playsinline', 'true');
     audioEl.muted = this.isDeafened;
+    audioEl.volume = 1.0;
+    audioEl.setAttribute('data-kollab-peer', peerId);
     document.body.appendChild(audioEl);
 
     // Add local tracks to peer connection
@@ -247,25 +272,62 @@ class VoiceService {
     pc.onicecandidate = (event) => {
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
-          candidate: event.candidate,
+          candidate: event.candidate.toJSON(),
         });
       }
     };
 
     // When remote audio track arrives
     pc.ontrack = (event) => {
+      console.log(`[VoiceService] 🎙️ Remote audio track received from ${peerId}`);
       if (event.streams && event.streams[0]) {
         audioEl.srcObject = event.streams[0];
+      } else if (event.track) {
+        audioEl.srcObject = new MediaStream([event.track]);
+      }
+
+      // Explicitly trigger playback and handle browser autoplay restriction
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn(`[VoiceService] Audio playback waiting for user gesture for ${peerId}:`, err);
+          const resumeAudio = () => {
+            audioEl.play().catch(() => {});
+            window.removeEventListener('click', resumeAudio);
+            window.removeEventListener('keydown', resumeAudio);
+          };
+          window.addEventListener('click', resumeAudio, { once: true });
+          window.addEventListener('keydown', resumeAudio, { once: true });
+        });
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        this.peers.delete(peerId);
+      console.log(`[VoiceService] Connection state with ${peerId}:`, pc.connectionState);
+      if (pc.connectionState === 'failed') {
+        // Attempt ICE restart if supported
+        try {
+          pc.restartIce();
+        } catch {
+          // ignore
+        }
+      } else if (pc.connectionState === 'disconnected') {
+        // Don't delete immediately; wait for possible reconnection
+        setTimeout(() => {
+          if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+            this.peers.delete(peerId);
+            audioEl.remove();
+          }
+        }, 3000);
       }
     };
 
-    const peerData = { pc, audioEl };
+    const peerData: PeerConnectionData = {
+      pc,
+      audioEl,
+      pendingCandidates: [],
+    };
+
     this.peers.set(peerId, peerData);
     return peerData;
   }
@@ -273,7 +335,9 @@ class VoiceService {
   private async initiatePeerConnection(targetUserId: string) {
     const { pc } = this.createPeerConnection(targetUserId);
     try {
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+      });
       await pc.setLocalDescription(offer);
       if (this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, targetUserId, this.currentUserId, {
@@ -291,11 +355,25 @@ class VoiceService {
       peer = this.createPeerConnection(fromUserId);
     }
 
-    const { pc } = peer;
+    const { pc, pendingCandidates } = peer;
 
     try {
       if (signal.sdp) {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        const desc = new RTCSessionDescription(signal.sdp);
+        await pc.setRemoteDescription(desc);
+
+        // Drain any ICE candidates received before remote description was ready
+        while (pendingCandidates.length > 0) {
+          const queuedCand = pendingCandidates.shift();
+          if (queuedCand) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(queuedCand));
+            } catch (candErr) {
+              console.warn('[VoiceService] Error applying buffered ICE candidate:', candErr);
+            }
+          }
+        }
+
         if (signal.sdp.type === 'offer') {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
@@ -306,7 +384,12 @@ class VoiceService {
           }
         }
       } else if (signal.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else {
+          // Buffer candidate until setRemoteDescription completes
+          pendingCandidates.push(signal.candidate);
+        }
       }
     } catch (err) {
       console.warn(`[VoiceService] Error handling signal from ${fromUserId}:`, err);
