@@ -395,6 +395,7 @@ export function setupSocketIO(io: SocketIOServer) {
       const { roomId, userId } = data;
       const roomIdKey = norm(roomId);
       const session = activeRooms.get(roomIdKey);
+      console.log(`[RoomSocket] voice-join for room=${roomIdKey}, user=${userId}, socket=${socket.id}`);
       if (session) {
         const participant = session.participants.get(socket.id);
         const voiceUser: VoiceParticipant = {
@@ -418,6 +419,7 @@ export function setupSocketIO(io: SocketIOServer) {
       const { roomId, userId } = data;
       const roomIdKey = norm(roomId);
       const session = activeRooms.get(roomIdKey);
+      console.log(`[RoomSocket] voice-leave for room=${roomIdKey}, user=${userId}`);
       if (session) {
         session.voiceUsers.delete(userId);
         io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
@@ -435,9 +437,12 @@ export function setupSocketIO(io: SocketIOServer) {
       const roomIdKey = norm(roomId);
       const session = activeRooms.get(roomIdKey);
       if (session) {
-        const targetVoiceUser = session.voiceUsers.get(targetUserId);
         const targetParticipant = Array.from(session.participants.values()).find((p) => p.id === targetUserId);
-        const targetSocketId = targetVoiceUser?.socketId || targetParticipant?.socketId;
+        const targetVoiceUser = session.voiceUsers.get(targetUserId);
+        const targetSocketId = targetParticipant?.socketId || targetVoiceUser?.socketId;
+
+        const signalType = signal?.sdp?.type || (signal?.candidate ? 'candidate' : 'unknown');
+        console.log(`[RoomSocket] voice-signal [${signalType}] from ${fromUserId} -> ${targetUserId} (targetSocket=${targetSocketId})`);
 
         if (targetSocketId) {
           io.to(targetSocketId).emit('voice-signal', {
@@ -445,7 +450,11 @@ export function setupSocketIO(io: SocketIOServer) {
             fromSocketId: socket.id,
             signal,
           });
+        } else {
+          console.warn(`[RoomSocket] voice-signal dropped: targetSocketId not found for ${targetUserId}`);
         }
+      } else {
+        console.warn(`[RoomSocket] voice-signal dropped: session not found for room ${roomIdKey}`);
       }
     });
 

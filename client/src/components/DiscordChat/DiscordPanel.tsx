@@ -323,6 +323,8 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
               const isSpeaking = isMe ? isSpeakingLocally : user.isSpeaking;
               const userMuted = isMe ? isMuted : user.isMuted;
               const userDeafened = isMe ? isDeafened : user.isDeafened;
+              const peerStates = voiceService.getPeerStates();
+              const peerState = !isMe ? peerStates.get(user.userId) : null;
 
               return (
                 <div key={user.userId} className={styles.voiceMemberCard}>
@@ -347,7 +349,21 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
                     </div>
                     <span className={styles.memberName}>
                       {user.userName}
-                      {isMe && <span className={styles.youTag}>(you)</span>}
+                      {isMe ? (
+                        <span className={styles.youTag}>(you)</span>
+                      ) : isVoiceConnected ? (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            marginLeft: '5px',
+                            color: peerState?.connectionState === 'connected' ? '#2ECC71' : '#F1C40F',
+                            fontWeight: 500,
+                          }}
+                          title={`WebRTC: ${peerState?.connectionState || 'negotiating'}`}
+                        >
+                          {peerState?.connectionState === 'connected' ? '• linked' : '• connecting...'}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
 
@@ -366,6 +382,33 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
                 </div>
               );
             })}
+
+            {isVoiceConnected && voiceUsers.length > 1 && (
+              <button
+                type="button"
+                onClick={() => voiceService.resumeAllAudio()}
+                title="Click to force un-mute all incoming peer audio if browser blocked autoplay"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  width: '100%',
+                  height: '24px',
+                  marginTop: '4px',
+                  fontSize: '11px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '4px',
+                  color: 'var(--text-secondary, #8E9297)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Volume2 size={12} />
+                <span>Tap to Ensure Audio On</span>
+              </button>
+            )}
           </div>
         )}
       </div>

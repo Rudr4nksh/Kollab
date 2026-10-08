@@ -4,9 +4,15 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun2.l.google.com:19302' },
   ],
 };
+
+export interface PeerVoiceState {
+  userId: string;
+  connectionState: RTCPeerConnectionState;
+  iceState: RTCIceConnectionState;
+}
 
 interface PeerConnectionData {
   pc: RTCPeerConnection;
@@ -54,6 +60,18 @@ class VoiceService {
     this.onStateChangeListeners.forEach((l) => l());
   }
 
+  public getPeerStates(): Map<string, PeerVoiceState> {
+    const states = new Map<string, PeerVoiceState>();
+    this.peers.forEach((peerData, userId) => {
+      states.set(userId, {
+        userId,
+        connectionState: peerData.pc.connectionState,
+        iceState: peerData.pc.iceConnectionState,
+      });
+    });
+    return states;
+  }
+
   public async joinVoice(roomId: string, userId: string): Promise<boolean> {
     if (this.isConnected) return true;
 
@@ -61,7 +79,7 @@ class VoiceService {
       this.currentRoomId = roomId;
       this.currentUserId = userId;
 
-      // 1. Initialize and resume AudioContext in user gesture
+      // 1. Initialize and resume AudioContext immediately in user gesture
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         this.audioContext = new AudioCtx();
@@ -70,7 +88,7 @@ class VoiceService {
         }
       }
 
-      // 2. Request microphone access with echo cancellation & noise suppression
+      // 2. Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -206,11 +224,9 @@ class VoiceService {
 
     // When deafened, mute all remote incoming audio
     this.peers.forEach(({ audioEl, gainNode }) => {
+      audioEl.muted = this.isDeafened;
       if (gainNode) {
-        gainNode.gain.value = this.isDeafened ? 0 : 1;
-      }
-      if (!gainNode) {
-        audioEl.muted = this.isDeafened;
+        gainNode.gain.value = this.isDeafened ? 0 : 1.0;
       }
     });
 
@@ -230,6 +246,18 @@ class VoiceService {
 
     this.notifyStateChange();
     return this.isDeafened;
+  }
+
+  public resumeAllAudio() {
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+    this.peers.forEach(({ audioEl }) => {
+      if (audioEl) {
+        audioEl.muted = this.isDeafened;
+        audioEl.play().catch(() => {});
+      }
+    });
   }
 
   /**
@@ -266,6 +294,7 @@ class VoiceService {
         }
         this.peers.delete(peerId);
         console.log(`[VoiceService] Removed disconnected voice peer ${peerId}`);
+        this.notifyStateChange();
       }
     });
   }
@@ -273,13 +302,12 @@ class VoiceService {
   private createPeerConnection(peerId: string): PeerConnectionData {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Audio element: in Chromium, this acts as the "pump" element that triggers
-    // WebRTCAudioRenderer to pull audio packets continuously into Web Audio.
-    // Kept muted so Chromium never blocks it under autoplay policies.
+    // Audio element for playing remote peer audio directly
     const audioEl = document.createElement('audio');
     audioEl.autoplay = true;
-    audioEl.muted = true;
     audioEl.setAttribute('playsinline', 'true');
+    audioEl.muted = this.isDeafened;
+    audioEl.volume = 1.0;
     audioEl.setAttribute('data-kollab-peer', peerId);
     audioEl.style.display = 'none';
     document.body.appendChild(audioEl);
@@ -301,7 +329,12 @@ class VoiceService {
     pc.onicecandidate = (event) => {
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
-          candidate: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate,
+          candidate: {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            usernameFragment: event.candidate.usernameFragment,
+          },
         });
       }
     };
@@ -311,19 +344,31 @@ class VoiceService {
       console.log(`[VoiceService] Remote audio track received from ${peerId}:`, event.track);
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
 
-      // 1. Silent pump element starts the Chromium WebRTC audio pull loop
       audioEl.srcObject = stream;
-      audioEl.muted = true;
-      audioEl.play().catch((err) => {
-        console.warn(`[VoiceService] Pump audio play notice for ${peerId}:`, err);
-      });
+      audioEl.muted = this.isDeafened;
+      audioEl.volume = 1.0;
 
-      // 2. Route audio to Web Audio API speakers
-      this.connectRemoteAudioOutput(peerId, stream, peerData);
+      // Play through native HTMLAudioElement first
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log(`[VoiceService] Native audio playback started for ${peerId}`);
+          })
+          .catch((err) => {
+            console.warn(`[VoiceService] Native play blocked by browser policy for ${peerId}, engaging Web Audio fallback:`, err);
+            // Autoplay blocked: mute audioEl so Chromium still pulls data, then pipe through Web Audio
+            audioEl.muted = true;
+            audioEl.play().catch(() => {});
+            this.connectRemoteAudioOutput(peerId, stream, peerData);
+          });
+      }
     };
 
     pc.onconnectionstatechange = () => {
       console.log(`[VoiceService] Connection state with ${peerId}: ${pc.connectionState}`);
+      this.notifyStateChange();
+
       if (pc.connectionState === 'failed') {
         try {
           pc.restartIce();
@@ -335,6 +380,7 @@ class VoiceService {
           if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
             this.peers.delete(peerId);
             audioEl.remove();
+            this.notifyStateChange();
           }
         }, 4000);
       }
@@ -342,6 +388,7 @@ class VoiceService {
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[VoiceService] ICE state with ${peerId}: ${pc.iceConnectionState}`);
+      this.notifyStateChange();
     };
 
     this.peers.set(peerId, peerData);
@@ -349,7 +396,7 @@ class VoiceService {
   }
 
   /**
-   * Connects remote audio track to Web Audio API speakers, with HTMLAudioElement fallback
+   * Connects remote audio track to Web Audio API speakers
    */
   private connectRemoteAudioOutput(peerId: string, stream: MediaStream, peerData: PeerConnectionData) {
     try {
@@ -374,31 +421,15 @@ class VoiceService {
           peerData.gainNode = gainNode;
           console.log(`[VoiceService] WebAudio output attached and active for ${peerId}`);
         }
-      } else {
-        // Fallback: If Web Audio is not available, unmute HTML audio element
-        peerData.audioEl.muted = this.isDeafened;
-        peerData.audioEl.play().catch(() => {});
       }
     } catch (err) {
-      console.warn(`[VoiceService] WebAudio output error, falling back to audio tag for ${peerId}:`, err);
-      peerData.audioEl.muted = this.isDeafened;
-      peerData.audioEl.play().catch(() => {});
+      console.warn(`[VoiceService] WebAudio fallback notice for ${peerId}:`, err);
     }
   }
 
   private setupAutoResume() {
     const resume = () => {
-      if (this.audioContext && this.audioContext.state === 'suspended') {
-        this.audioContext.resume().catch(() => {});
-      }
-      this.peers.forEach(({ audioEl, gainNode }) => {
-        if (audioEl && audioEl.paused) {
-          audioEl.play().catch(() => {});
-        }
-        if (gainNode) {
-          gainNode.gain.value = this.isDeafened ? 0 : 1.0;
-        }
-      });
+      this.resumeAllAudio();
     };
 
     window.addEventListener('click', resume, { passive: true });
@@ -434,9 +465,12 @@ class VoiceService {
 
       await pc.setLocalDescription(offer);
 
-      if (this.currentRoomId && this.currentUserId) {
+      if (this.currentRoomId && this.currentUserId && pc.localDescription) {
         socketService.emitVoiceSignal(this.currentRoomId, targetUserId, this.currentUserId, {
-          sdp: pc.localDescription,
+          sdp: {
+            type: pc.localDescription.type,
+            sdp: pc.localDescription.sdp,
+          },
         });
       }
     } catch (err) {
@@ -454,7 +488,10 @@ class VoiceService {
 
     try {
       if (signal.sdp) {
-        const desc = new RTCSessionDescription(signal.sdp);
+        const desc = new RTCSessionDescription({
+          type: signal.sdp.type,
+          sdp: signal.sdp.sdp,
+        });
 
         // Handle offer collisions cleanly
         if (desc.type === 'offer' && pc.signalingState !== 'stable') {
@@ -471,7 +508,7 @@ class VoiceService {
         // Drain any buffered ICE candidates received before remote description
         while (pendingCandidates.length > 0) {
           const queuedCand = pendingCandidates.shift();
-          if (queuedCand && (queuedCand.candidate || typeof queuedCand === 'string')) {
+          if (queuedCand && queuedCand.candidate) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(queuedCand));
             } catch (candErr) {
@@ -496,13 +533,16 @@ class VoiceService {
           });
           await pc.setLocalDescription(answer);
 
-          if (this.currentRoomId && this.currentUserId) {
+          if (this.currentRoomId && this.currentUserId && pc.localDescription) {
             socketService.emitVoiceSignal(this.currentRoomId, fromUserId, this.currentUserId, {
-              sdp: pc.localDescription,
+              sdp: {
+                type: pc.localDescription.type,
+                sdp: pc.localDescription.sdp,
+              },
             });
           }
         }
-      } else if (signal.candidate && (signal.candidate.candidate || typeof signal.candidate === 'string')) {
+      } else if (signal.candidate && signal.candidate.candidate) {
         if (pc.remoteDescription && pc.remoteDescription.type) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
