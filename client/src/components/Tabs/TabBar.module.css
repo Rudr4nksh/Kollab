@@ -9,6 +9,8 @@
   user-select: none;
   flex-shrink: 0;
   gap: 12px;
+  position: relative;
+  z-index: 30;
 }
 
 .tabsContainer {
@@ -99,12 +101,58 @@
   background-color: rgba(244, 63, 94, 0.25);
 }
 
-/* Right Actions: White Pill Run & Glass Copy */
+/* Right Actions Toolbar */
 .rightActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Toolbar Action Buttons (Theme, Language, Copy, Run) */
+.toolbarActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  color: #D1D5DB;
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all 150ms ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toolbarActionBtn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
+.toolbarActionBtn.active {
+  background-color: rgba(115, 87, 232, 0.2);
+  border-color: rgba(115, 87, 232, 0.45);
+  color: #C084FC;
+}
+
+.toolbarBtnLabel {
+  font-family: inherit;
+  font-size: 11.5px;
+}
+
+.toolbarBadge {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #A78BFA;
 }
 
 .runBtn {
@@ -173,4 +221,124 @@
   color: #10B981;
   border-color: rgba(16, 185, 129, 0.35);
   background-color: rgba(16, 185, 129, 0.08);
+}
+
+/* Floating Dropdown Popovers */
+.dropdownBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+.dropdownPopover {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  width: 290px;
+  max-height: 400px;
+  background: #0E121B;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  z-index: 101;
+  overflow: hidden;
+  animation: dropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.themeDropdown {
+  width: 240px;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdownHeader {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dropdownSearchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: #FFFFFF;
+}
+
+.dropdownSearchInput::placeholder {
+  color: #555F72;
+}
+
+.dropdownList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px;
+  max-height: 320px;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #D1D5DB;
+  font-size: 12px;
+  text-align: left;
+  transition: all 0.1s ease;
+  font-family: inherit;
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #FFFFFF;
+}
+
+.dropdownItem.selected {
+  background: rgba(115, 87, 232, 0.2);
+  color: #FFFFFF;
+}
+
+.dropdownItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.themeSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.extBadge {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: #717888;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
