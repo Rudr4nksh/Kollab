@@ -548,7 +548,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             }}
             title="Click to select language mode or switch extension"
           >
-            <Code2 size={11} style={{ color: '#A78BFA' }} />
+            <Code2 size={11} style={{ color: 'var(--accent-theme)' }} />
             <span>{currentLangMeta.name} ({currentLangMeta.primaryExt})</span>
           </button>
 
@@ -563,7 +563,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             }}
             title="Switch editor syntax color theme"
           >
-            <Palette size={11} style={{ color: '#67E8F9' }} />
+            <Palette size={11} style={{ color: 'var(--accent-theme)' }} />
             <span>{THEMES_LIST.find((t) => t.id === currentTheme)?.name || 'Theme'}</span>
           </button>
 
