@@ -121,10 +121,10 @@ export const App: React.FC = () => {
       socketService.onHostTransferred((data) => {
         if (data.newHostId === userId) {
           setIsHost(true);
-          addToast('success', '👑 You are now the room Host!');
+          addToast('success', 'You are now the workspace Host.');
         } else {
           setIsHost(false);
-          addToast('info', `👑 ${data.newHostName} is now the room Host.`);
+          addToast('info', `${data.newHostName} is now the workspace Host.`);
         }
       }),
 
@@ -132,16 +132,16 @@ export const App: React.FC = () => {
         if (data.userId === userId) {
           if (data.newRole === 'host') {
             setIsHost(true);
-            addToast('success', '👑 You are now the room Host!');
+            addToast('success', 'You are now the workspace Host.');
           } else {
             setIsHost(false);
-            addToast('info', `🛡️ Your role was updated to ${data.newRole.toUpperCase()} by ${data.updatedByName}`);
+            addToast('info', `Your role was updated to ${data.newRole.toUpperCase()} by ${data.updatedByName}.`);
           }
         }
       }),
 
       socketService.onUserKicked((data) => {
-        addToast('error', `🚫 You were removed from the room: ${data.reason}`);
+        addToast('error', `You were removed from the workspace: ${data.reason}`);
         sessionStorage.removeItem('kollab_active_session');
         setActiveRoomId(null);
         setFiles([]);

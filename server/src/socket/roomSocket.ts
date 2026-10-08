@@ -513,7 +513,7 @@ export function setupSocketIO(io: SocketIOServer) {
           userId: 'system',
           userName: 'System',
           userColor: '#8a4baf',
-          text: `👑 ${actor.name} transferred Host ownership to ${target.name}.`,
+          text: `${actor.name} transferred Host ownership to ${target.name}.`,
           timestamp: Date.now(),
         };
         session.messages.push(chatMsg);
@@ -536,7 +536,7 @@ export function setupSocketIO(io: SocketIOServer) {
           userId: 'system',
           userName: 'System',
           userColor: '#8a4baf',
-          text: `🛡️ ${actor.name} changed ${target.name}'s role to ${newRole.toUpperCase()}.`,
+          text: `${actor.name} changed ${target.name}'s role to ${newRole.toUpperCase()}.`,
           timestamp: Date.now(),
         };
         session.messages.push(chatMsg);
@@ -599,7 +599,7 @@ export function setupSocketIO(io: SocketIOServer) {
         userId: 'system',
         userName: 'System',
         userColor: '#8a4baf',
-        text: `🚫 ${target.name} was removed from the room by ${actor.name}.`,
+        text: `${target.name} was removed from the workspace by ${actor.name}.`,
         timestamp: Date.now(),
       };
       session.messages.push(chatMsg);
@@ -684,7 +684,7 @@ export function setupSocketIO(io: SocketIOServer) {
                 userId: 'system',
                 userName: 'System',
                 userColor: '#8a4baf',
-                text: `👑 ${nextHost.name} is now the room Host.`,
+                text: `${nextHost.name} is now the workspace Host.`,
                 timestamp: Date.now(),
               };
               session.messages.push(chatMsg);

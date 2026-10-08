@@ -1,14 +1,15 @@
 .container {
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  padding: 0 2px;
 }
 
 .titleRow {
@@ -21,69 +22,51 @@
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
 }
 
 .count {
-  font-size: 10.5px;
+  font-size: 10px;
   font-family: var(--font-mono);
   color: #A78BFA;
   background-color: rgba(138, 75, 255, 0.1);
-  padding: 1px 7px;
-  border-radius: var(--radius-pill);
+  padding: 1px 6px;
+  border-radius: 10px;
   border: 1px solid rgba(138, 75, 255, 0.2);
-}
-
-.yourRoleBanner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  margin-bottom: 12px;
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 11.5px;
-}
-
-.yourRoleLabel {
-  color: var(--text-secondary);
-  font-size: 11px;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border-radius: 6px;
-  transition: all 150ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease;
   border: 1px solid transparent;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: transparent;
 }
 
 .item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .isMe {
-  background-color: rgba(138, 75, 255, 0.05);
-  border-color: rgba(138, 75, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
@@ -104,7 +87,7 @@
 }
 
 .name {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -112,11 +95,11 @@
 }
 
 .youTag {
-  font-size: 10px;
-  color: #A78BFA;
-  background: rgba(138, 75, 255, 0.15);
+  font-size: 9.5px;
+  color: #a78bfa;
+  background: rgba(138, 75, 255, 0.12);
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: 3px;
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -124,53 +107,58 @@
 .roleBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: 3px;
+  font-size: 9.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 1px 6px;
-  border-radius: 12px;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
   border: 1px solid transparent;
   flex-shrink: 0;
   white-space: nowrap;
 }
 
+.roleIcon {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 .roleHost {
-  color: #fbbf24;
-  background-color: rgba(251, 191, 36, 0.12);
-  border-color: rgba(251, 191, 36, 0.35);
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .roleCoHost {
   color: #38bdf8;
-  background-color: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.35);
+  background-color: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
 }
 
 .roleAdmin {
   color: #c084fc;
-  background-color: rgba(192, 132, 252, 0.12);
-  border-color: rgba(192, 132, 252, 0.35);
+  background-color: rgba(192, 132, 252, 0.1);
+  border-color: rgba(192, 132, 252, 0.25);
 }
 
 .roleEditor {
   color: #4ade80;
-  background-color: rgba(74, 222, 128, 0.12);
-  border-color: rgba(74, 222, 128, 0.35);
+  background-color: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.25);
 }
 
 .roleViewer {
   color: #94a3b8;
-  background-color: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.35);
+  background-color: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
 }
 
 .statusRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .statusTyping {
@@ -182,8 +170,8 @@
 }
 
 .typingDot {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background-color: var(--accent-muted);
   animation: typingPulse 0.8s infinite alternate ease-in-out;
@@ -197,12 +185,12 @@
 .statusEditing {
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .statusActive {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .actionsWrap {
@@ -216,22 +204,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.6;
   transition: all 120ms ease;
 }
 
 .actionBtn:hover, .actionBtnActive {
   opacity: 1;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .dropdownBackdrop {
@@ -249,20 +237,20 @@
   right: 0;
   margin-top: 4px;
   z-index: 100;
-  width: 190px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  padding: 6px;
+  width: 170px;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  padding: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
 .dropdownHeader {
-  padding: 4px 8px;
-  font-size: 10px;
+  padding: 4px 6px;
+  font-size: 9.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -274,20 +262,19 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 6px 8px;
-  font-size: 12px;
-  font-weight: 400;
+  padding: 5px 6px;
+  font-size: 11.5px;
   color: var(--text-primary);
   background: transparent;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color 100ms ease;
   text-align: left;
 }
 
 .dropdownItem:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .dropdownItemActive {
@@ -301,7 +288,7 @@
 }
 
 .dropdownItemDanger:hover {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
 }
 
@@ -313,19 +300,19 @@
 
 .divider {
   height: 1px;
-  background-color: var(--border-color);
-  margin: 4px 0;
+  background-color: var(--border-color, rgba(255, 255, 255, 0.08));
+  margin: 3px 0;
 }
 
 .emptyState {
-  padding: 24px 8px;
+  padding: 20px 8px;
   text-align: center;
 }
 
 .emptyTitle {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .emptySubtitle {

@@ -7,6 +7,10 @@ import {
   LogOut, 
   Share2, 
   Shield,
+  ShieldCheck,
+  Crown,
+  Code2,
+  Eye,
   Copy,
   Check,
   FolderPlus,
@@ -1235,10 +1239,18 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               backgroundColor: getRoleBadgeInfo(currentUserRole).bg,
               borderColor: getRoleBadgeInfo(currentUserRole).border,
               color: getRoleBadgeInfo(currentUserRole).color,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
             title={getRoleBadgeInfo(currentUserRole).description}
           >
-            {getRoleBadgeInfo(currentUserRole).badge}
+            {currentUserRole === 'host' && <Crown size={11} />}
+            {currentUserRole === 'co-host' && <ShieldCheck size={11} />}
+            {currentUserRole === 'admin' && <Shield size={11} />}
+            {currentUserRole === 'viewer' && <Eye size={11} />}
+            {(currentUserRole === 'editor' || currentUserRole === 'participant') && <Code2 size={11} />}
+            {getRoleBadgeInfo(currentUserRole).label.toUpperCase()}
           </span>
 
           <button
@@ -1733,6 +1745,15 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         roomId={roomId}
         isHost={currentUserRole === 'host' || currentUserRole === 'co-host'}
         hasPasscode={hasPasscode}
+        currentUserRole={currentUserRole}
+        currentUserId={userId}
+        participants={participants}
+        onUpdateRole={(targetUserId, newRole) => {
+          socketService.emitUpdateUserRole(roomId, targetUserId, newRole, userId);
+        }}
+        onKickUser={(targetUserId) => {
+          socketService.emitKickUser(roomId, targetUserId, userId);
+        }}
       />
 
       {/* Collision-Free AI Diff & Review Modal */}

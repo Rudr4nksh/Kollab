@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { MoreVertical, UserX, Check } from 'lucide-react';
+import { 
+  MoreVertical, 
+  UserX, 
+  Check, 
+  Crown, 
+  ShieldCheck, 
+  Shield, 
+  Code2, 
+  Eye 
+} from 'lucide-react';
 import { Avatar } from '../UI/Avatar.tsx';
+import { ConfirmModal } from '../UI/ConfirmModal.tsx';
 import type { Participant, UserRole } from '../../types/index.ts';
 import {
-  getRoleBadgeInfo,
   canChangeTargetRole,
   canKickUser,
   getAssignableRoles,
@@ -17,6 +26,13 @@ interface ParticipantListProps {
   onKickUser?: (targetUserId: string) => void;
 }
 
+interface ConfirmState {
+  isOpen: boolean;
+  type: 'transfer' | 'kick';
+  targetUser?: Participant;
+  newRole?: UserRole;
+}
+
 export const ParticipantList: React.FC<ParticipantListProps> = ({
   participants,
   currentUserId,
@@ -24,10 +40,13 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
   onKickUser,
 }) => {
   const [openMenuUserId, setOpenMenuUserId] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmState>({
+    isOpen: false,
+    type: 'kick',
+  });
 
   const currentUser = participants.find((p) => p.id === currentUserId);
   const currentUserRole: UserRole = currentUser?.role || 'editor';
-  const myRoleInfo = getRoleBadgeInfo(currentUserRole);
 
   const getRoleStyle = (role: UserRole) => {
     switch (role) {
@@ -46,30 +65,76 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
     }
   };
 
+  const renderRoleIcon = (role: UserRole) => {
+    switch (role) {
+      case 'host':
+        return <Crown size={11} className={styles.roleIcon} />;
+      case 'co-host':
+        return <ShieldCheck size={11} className={styles.roleIcon} />;
+      case 'admin':
+        return <Shield size={11} className={styles.roleIcon} />;
+      case 'viewer':
+        return <Eye size={11} className={styles.roleIcon} />;
+      case 'editor':
+      case 'participant':
+      default:
+        return <Code2 size={11} className={styles.roleIcon} />;
+    }
+  };
+
+  const getRoleDisplayName = (role: UserRole) => {
+    switch (role) {
+      case 'host':
+        return 'Host';
+      case 'co-host':
+        return 'Co-Host';
+      case 'admin':
+        return 'Admin';
+      case 'viewer':
+        return 'Viewer';
+      case 'editor':
+      case 'participant':
+      default:
+        return 'Editor';
+    }
+  };
+
   const handleRoleSelect = (targetUser: Participant, newRole: UserRole) => {
     setOpenMenuUserId(null);
     if (!onUpdateRole) return;
 
     if (newRole === 'host') {
-      const confirmTransfer = window.confirm(
-        `Are you sure you want to transfer Host ownership to ${targetUser.name}?\nYou will become a Co-Host.`
-      );
-      if (!confirmTransfer) return;
+      // Open in-app website modal for transfer confirmation
+      setConfirmModal({
+        isOpen: true,
+        type: 'transfer',
+        targetUser,
+        newRole: 'host',
+      });
+      return;
     }
 
     onUpdateRole(targetUser.id, newRole);
   };
 
-  const handleKick = (targetUser: Participant) => {
+  const handleKickClick = (targetUser: Participant) => {
     setOpenMenuUserId(null);
     if (!onKickUser) return;
 
-    const confirmKick = window.confirm(
-      `Are you sure you want to remove ${targetUser.name} from the workspace?`
-    );
-    if (!confirmKick) return;
+    // Open in-app website modal for kick confirmation
+    setConfirmModal({
+      isOpen: true,
+      type: 'kick',
+      targetUser,
+    });
+  };
 
-    onKickUser(targetUser.id);
+  const handleConfirmAction = () => {
+    if (confirmModal.type === 'transfer' && confirmModal.targetUser && confirmModal.newRole) {
+      onUpdateRole?.(confirmModal.targetUser.id, confirmModal.newRole);
+    } else if (confirmModal.type === 'kick' && confirmModal.targetUser) {
+      onKickUser?.(confirmModal.targetUser.id);
+    }
   };
 
   return (
@@ -81,25 +146,16 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
         </div>
       </div>
 
-      {/* Current User's Role Banner */}
-      <div className={styles.yourRoleBanner}>
-        <span className={styles.yourRoleLabel}>Your Authority:</span>
-        <span className={`${styles.roleBadge} ${getRoleStyle(currentUserRole)}`} title={myRoleInfo.description}>
-          {myRoleInfo.badge}
-        </span>
-      </div>
-
       <div className={styles.list}>
         {participants.length === 0 ? (
           <div className={styles.emptyState}>
-            <p className={styles.emptyTitle}>No one else is here.</p>
-            <p className={styles.emptySubtitle}>Share the room ID to collaborate.</p>
+            <p className={styles.emptyTitle}>No participants</p>
+            <p className={styles.emptySubtitle}>Share the workspace ID to invite others.</p>
           </div>
         ) : (
           participants.map((user) => {
             const isMe = user.id === currentUserId;
             const isTyping = user.status === 'typing';
-            const roleInfo = getRoleBadgeInfo(user.role);
             const userRole = user.role || 'editor';
 
             const assignable = getAssignableRoles(currentUserRole).filter((r) =>
@@ -135,9 +191,10 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
 
                     <span
                       className={`${styles.roleBadge} ${getRoleStyle(userRole)}`}
-                      title={roleInfo.description}
+                      title={`${getRoleDisplayName(userRole)} role`}
                     >
-                      {roleInfo.badge}
+                      {renderRoleIcon(userRole)}
+                      {getRoleDisplayName(userRole)}
                     </span>
                   </div>
 
@@ -165,9 +222,9 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
                     <button
                       className={`${styles.actionBtn} ${isMenuOpen ? styles.actionBtnActive : ''}`}
                       onClick={() => setOpenMenuUserId(isMenuOpen ? null : user.id)}
-                      title="Manage participant permissions"
+                      title="Manage participant"
                     >
-                      <MoreVertical size={14} />
+                      <MoreVertical size={13} />
                     </button>
 
                     {isMenuOpen && (
@@ -190,8 +247,11 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
                                     }`}
                                     onClick={() => handleRoleSelect(user, opt.role)}
                                   >
-                                    <span className={styles.itemLabel}>{opt.label}</span>
-                                    {isActive && <Check size={12} />}
+                                    <span className={styles.itemLabel}>
+                                      {renderRoleIcon(opt.role)}
+                                      {opt.label}
+                                    </span>
+                                    {isActive && <Check size={11} />}
                                   </button>
                                 );
                               })}
@@ -203,10 +263,10 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
                               {assignable.length > 0 && <div className={styles.divider} />}
                               <button
                                 className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
-                                onClick={() => handleKick(user)}
+                                onClick={() => handleKickClick(user)}
                               >
                                 <span className={styles.itemLabel}>
-                                  <UserX size={13} />
+                                  <UserX size={12} />
                                   Remove from room
                                 </span>
                               </button>
@@ -222,6 +282,30 @@ export const ParticipantList: React.FC<ParticipantListProps> = ({
           })
         )}
       </div>
+
+      {/* In-app website confirmation modal (no browser popup) */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={handleConfirmAction}
+        title={
+          confirmModal.type === 'transfer'
+            ? 'Transfer Workspace Host'
+            : 'Remove Participant'
+        }
+        description={
+          confirmModal.type === 'transfer'
+            ? `Are you sure you want to transfer Host ownership to ${confirmModal.targetUser?.name}? You will step down to Co-Host.`
+            : `Are you sure you want to remove ${confirmModal.targetUser?.name} from this workspace? They will be disconnected immediately.`
+        }
+        confirmText={
+          confirmModal.type === 'transfer' ? 'Transfer Host' : 'Remove'
+        }
+        confirmVariant={
+          confirmModal.type === 'transfer' ? 'warning' : 'danger'
+        }
+        icon={confirmModal.type === 'transfer' ? 'transfer' : 'kick'}
+      />
     </div>
   );
 };

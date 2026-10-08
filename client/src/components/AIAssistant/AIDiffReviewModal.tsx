@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, Copy, Sparkles, FileCode, ArrowRight } from 'lucide-react';
+import { Check, X, Copy, Sparkles, FileCode, ArrowRight, ShieldCheck } from 'lucide-react';
 import type { AIProposal } from '../../types/index.ts';
 import styles from './AIDiffReviewModal.module.css';
 
@@ -88,9 +88,10 @@ export const AIDiffReviewModal: React.FC<AIDiffReviewModalProps> = ({
 
         {/* Footer Actions */}
         <div className={styles.footer}>
-          <div className={styles.safetyNote}>
-            <span>🛡️ Changes merge safely into multiplayer session upon applying.</span>
-          </div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <ShieldCheck size={13} />
+              Changes merge safely into multiplayer session upon applying.
+            </span>
 
           <div className={styles.actionButtons}>
             <button type="button" className={styles.copyBtn} onClick={handleCopy}>

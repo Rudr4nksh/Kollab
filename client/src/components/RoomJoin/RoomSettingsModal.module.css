@@ -4,6 +4,52 @@
   gap: 16px;
 }
 
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 4px;
+}
+
+.tabBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary, #94a3b8);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.tabBtn:hover {
+  color: var(--text-primary, #ffffff);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.tabBtnActive {
+  color: #f1f5f9;
+  background-color: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -37,15 +83,15 @@
 .infoBox {
   display: flex;
   gap: 12px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  background-color: var(--bg-surface, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
   padding: 12px;
   align-items: flex-start;
 }
 
 .infoIcon {
-  color: var(--accent-muted);
+  color: var(--accent-muted, #a78bfa);
   margin-top: 1px;
 }
 
@@ -56,33 +102,252 @@
 }
 
 .infoTitle {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .infoDesc {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-muted);
   line-height: 1.4;
 }
 
-.hostNotice {
-  background-color: rgba(109, 74, 255, 0.08);
-  border: 1px solid rgba(109, 74, 255, 0.2);
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  font-size: 11.5px;
-  color: #C3B4FD;
+/* Redesigned clean role status card */
+.roleCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.02);
+  transition: all 120ms ease;
 }
 
+.roleCardHost {
+  border-color: rgba(245, 158, 11, 0.3);
+  background-color: rgba(245, 158, 11, 0.04);
+}
+
+.roleCardCoHost {
+  border-color: rgba(56, 189, 248, 0.3);
+  background-color: rgba(56, 189, 248, 0.04);
+}
+
+.roleCardAdmin {
+  border-color: rgba(168, 85, 247, 0.3);
+  background-color: rgba(168, 85, 247, 0.04);
+}
+
+.roleCardEditor {
+  border-color: rgba(34, 197, 94, 0.3);
+  background-color: rgba(34, 197, 94, 0.04);
+}
+
+.roleCardViewer {
+  border-color: rgba(148, 163, 184, 0.3);
+  background-color: rgba(148, 163, 184, 0.04);
+}
+
+.roleIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.roleContent {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.roleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.roleTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rolePill {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.roleDesc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Permissions Matrix */
+.matrixGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.matrixCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.matrixCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.matrixTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.matrixDesc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.capsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.capBadge {
+  font-size: 9.5px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.capBadgeGranted {
+  background-color: rgba(34, 197, 94, 0.08);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.capBadgeDenied {
+  background-color: rgba(239, 68, 68, 0.05);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.15);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Participant management table in Settings */
+.participantManageList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.participantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.participantLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.participantName {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.participantActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.roleSelect {
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background-color: var(--bg-surface, #1e1e2e);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  cursor: pointer;
+}
+
+.roleSelect:focus {
+  outline: none;
+  border-color: var(--accent-primary, #8a4baf);
+}
+
+.kickBtnSmall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.kickBtnSmall:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* GitHub Card */
 .githubCard {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background-color: #12131A;
+  background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 8px);
   padding: 12px;
 }
 
@@ -96,15 +361,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: #E2E8F0;
 }
 
 .githubBadge {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -127,9 +392,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #181922;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
   padding: 8px 10px;
 }
 
@@ -140,46 +405,43 @@
 }
 
 .githubAvatar {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.githubDetails {
+.githubUserDetails {
   display: flex;
   flex-direction: column;
 }
 
-.githubLogin {
-  font-size: 12px;
+.githubUserName {
+  font-size: 11.5px;
   font-weight: 600;
-  color: #F8FAFC;
+  color: #E2E8F0;
 }
 
-.githubSub {
+.githubUserLogin {
   font-size: 10.5px;
-  color: #94A3B8;
-}
-
-.githubHelp {
-  font-size: 11px;
-  color: #94A3B8;
-  line-height: 1.4;
-}
-
-.githubHelp a {
-  color: #6D4AFF;
-  text-decoration: underline;
+  color: #717888;
+  font-family: var(--font-mono);
 }
 
 .errorMsg {
   font-size: 11px;
   color: #F87171;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
 }
 
 .successMsg {
   font-size: 11px;
   color: #4ADE80;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
 }
-
