@@ -1,11 +1,17 @@
 import { socketService } from './socket.ts';
 
+const isLocalhost = 
+  typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-  ],
+  iceServers: isLocalhost
+    ? [] // On localhost, direct loopback host candidates avoid STUN UDP port blocking
+    : [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+      ],
 };
 
 export interface PeerVoiceState {
@@ -113,7 +119,11 @@ class VoiceService {
       // 4. Setup auto-resume handler for background tabs & autoplay policy
       this.setupAutoResume();
 
-      // 5. Setup WebRTC signal listener
+      // 5. Setup WebRTC signal listener (cleanly unsubscribe any previous)
+      if (this.unsubSignal) {
+        this.unsubSignal();
+        this.unsubSignal = null;
+      }
       this.unsubSignal = socketService.onVoiceSignal(async ({ fromUserId, signal }) => {
         await this.handleIncomingSignal(fromUserId, signal);
       });
@@ -315,14 +325,20 @@ class VoiceService {
   private createPeerConnection(peerId: string): PeerConnectionData {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Audio element for playing remote peer audio directly
+    // Audio element: attach to body with opacity 0 to prevent Chrome background tab display:none throttling
     const audioEl = document.createElement('audio');
     audioEl.autoplay = true;
     audioEl.setAttribute('playsinline', 'true');
     audioEl.muted = this.isDeafened;
     audioEl.volume = 1.0;
     audioEl.setAttribute('data-kollab-peer', peerId);
-    audioEl.style.display = 'none';
+    audioEl.style.position = 'fixed';
+    audioEl.style.bottom = '0';
+    audioEl.style.right = '0';
+    audioEl.style.width = '1px';
+    audioEl.style.height = '1px';
+    audioEl.style.opacity = '0.01';
+    audioEl.style.pointerEvents = 'none';
     document.body.appendChild(audioEl);
 
     const peerData: PeerConnectionData = {
@@ -347,7 +363,6 @@ class VoiceService {
 
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
-      console.log(`[VoiceService] onicecandidate for ${peerId}:`, event.candidate ? event.candidate.candidate.substring(0, 40) + '...' : '(null - end)');
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
           candidate: {
@@ -427,7 +442,7 @@ class VoiceService {
   /**
    * Waits up to maxMs for ICE gathering to finish, ensuring candidates are baked into SDP (Vanilla ICE)
    */
-  private waitForIceGathering(pc: RTCPeerConnection, maxMs: number = 600): Promise<void> {
+  private waitForIceGathering(pc: RTCPeerConnection, maxMs: number = 500): Promise<void> {
     if (pc.iceGatheringState === 'complete') return Promise.resolve();
     return new Promise((resolve) => {
       let timer: any = null;
@@ -522,7 +537,7 @@ class VoiceService {
       await pc.setLocalDescription(offer);
 
       // Wait for local candidates to be gathered into SDP (Vanilla ICE gathering window)
-      await this.waitForIceGathering(pc, 600);
+      await this.waitForIceGathering(pc, 500);
 
       if (this.currentRoomId && this.currentUserId && pc.localDescription) {
         socketService.emitVoiceSignal(this.currentRoomId, targetUserId, this.currentUserId, {
@@ -551,6 +566,17 @@ class VoiceService {
           type: signal.sdp.type,
           sdp: signal.sdp.sdp,
         });
+
+        // Guard against duplicate offers / answers
+        if (desc.type === 'answer' && pc.signalingState !== 'have-local-offer') {
+          console.log(`[VoiceService] Ignoring duplicate or untimely answer from ${fromUserId} (signalingState=${pc.signalingState})`);
+          return;
+        }
+
+        if (desc.type === 'offer' && pc.signalingState === 'have-remote-offer') {
+          console.log(`[VoiceService] Already processing offer from ${fromUserId}, ignoring duplicate`);
+          return;
+        }
 
         // Handle offer collisions cleanly
         if (desc.type === 'offer' && pc.signalingState !== 'stable') {
@@ -593,7 +619,7 @@ class VoiceService {
           await pc.setLocalDescription(answer);
 
           // Wait for local candidates to be gathered into SDP (Vanilla ICE gathering window)
-          await this.waitForIceGathering(pc, 600);
+          await this.waitForIceGathering(pc, 500);
 
           if (this.currentRoomId && this.currentUserId && pc.localDescription) {
             socketService.emitVoiceSignal(this.currentRoomId, fromUserId, this.currentUserId, {

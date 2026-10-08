@@ -151,6 +151,7 @@ class SocketService {
     callback: (data: { fromUserId: string; fromSocketId: string; signal: any }) => void
   ): () => void {
     const s = this.getSocket();
+    s.off('voice-signal');
     s.on('voice-signal', callback);
     return () => {
       s.off('voice-signal', callback);
