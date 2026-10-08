@@ -1,7 +1,7 @@
 .consolePanel {
   display: flex;
   flex-direction: column;
-  background-color: #07090D;
+  background-color: var(--bg-editor, #07090D);
   overflow: hidden;
   user-select: none;
   flex-shrink: 0;
@@ -9,19 +9,20 @@
   z-index: 10;
   height: 100%;
   width: 100%;
+  transition: background-color 200ms ease;
 }
 
 
 .collapsedBar {
   height: 28px;
-  background-color: #07090D;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: var(--bg-tab-bar, #07090D);
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
   cursor: pointer;
-  color: #9CA3AF;
+  color: var(--text-secondary, #9CA3AF);
   font-size: 11px;
   font-family: var(--font-mono, monospace);
   user-select: none;
@@ -29,8 +30,8 @@
 }
 
 .collapsedBar:hover {
-  background-color: #0B0E14;
-  color: #FFFFFF;
+  background-color: var(--bg-surface-hover, #0B0E14);
+  color: var(--text-primary, #FFFFFF);
 }
 
 .collapsedLeft {
@@ -40,9 +41,9 @@
 }
 
 .logCount {
-  background-color: rgba(167, 139, 250, 0.15);
-  color: #A78BFA;
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background-color: var(--bg-surface-hover, rgba(167, 139, 250, 0.15));
+  color: var(--accent-theme, #A78BFA);
+  border: 1px solid var(--accent-theme-glow, rgba(167, 139, 250, 0.3));
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 10px;
@@ -51,7 +52,7 @@
 .expandBtn {
   display: flex;
   align-items: center;
-  color: #6B7280;
+  color: var(--text-muted, #6B7280);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -61,12 +62,13 @@
 .header {
   height: 34px;
   min-height: 34px;
-  background-color: #050608;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background-color: var(--bg-tab-bar, #050608);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.07));
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
 
 .tabsGroup {
@@ -83,7 +85,7 @@
   font-size: 11px;
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.03em;
-  color: #8E9297;
+  color: var(--text-secondary, #8E9297);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -92,11 +94,11 @@
 }
 
 .tabBtn:hover {
-  color: #FFFFFF;
+  color: var(--text-primary, #FFFFFF);
 }
 
 .activeTab {
-  color: #FFFFFF !important;
+  color: var(--text-primary, #FFFFFF) !important;
   font-weight: 600;
 }
 
@@ -107,7 +109,7 @@
   left: 8px;
   right: 8px;
   height: 2px;
-  background-color: #5865F2;
+  background-color: var(--accent-theme, #5865F2);
   border-radius: 1px;
 }
 

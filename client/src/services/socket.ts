@@ -180,6 +180,7 @@ class SocketService {
     messages?: ChatMessage[];
     files: FileNode[];
     yourParticipant: Participant;
+    theme?: string;
   }) => void): () => void {
     const s = this.getSocket();
     s.on('room-joined', callback);
@@ -249,6 +250,20 @@ class SocketService {
     s.on('activity-event', callback);
     return () => {
       s.off('activity-event', callback);
+    };
+  }
+
+  // --- Room Theme Synchronization ---
+  public emitRoomThemeUpdate(roomId: string, themeId: string, userId: string) {
+    const s = this.getSocket();
+    s.emit('room-theme-update', { roomId, themeId, userId });
+  }
+
+  public onRoomThemeChanged(callback: (data: { themeId: string; userId?: string }) => void): () => void {
+    const s = this.getSocket();
+    s.on('room-theme-changed', callback);
+    return () => {
+      s.off('room-theme-changed', callback);
     };
   }
 

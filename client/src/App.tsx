@@ -104,6 +104,10 @@ export const App: React.FC = () => {
         if (data.voiceUsers && data.voiceUsers.length > 0) {
           setVoiceUsers(data.voiceUsers);
         }
+        if (data.theme) {
+          localStorage.setItem('kollab-editor-theme', data.theme);
+          document.documentElement.setAttribute('data-theme', data.theme);
+        }
       }),
 
       socketService.onParticipantsUpdated((updatedList) => {

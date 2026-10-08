@@ -38,6 +38,7 @@ function getParticipantColor(id: string): string {
 
 interface RoomSession {
   roomId: string;
+  theme?: string;
   participants: Map<string, Participant>; // socketId -> Participant
   voiceUsers: Map<string, VoiceParticipant>; // userId -> VoiceParticipant
   messages: ChatMessage[];
@@ -152,6 +153,7 @@ export function setupSocketIO(io: SocketIOServer) {
         messages: session.messages,
         files: session.files,
         yourParticipant: participant,
+        theme: session.theme || 'kollab-obsidian',
       });
 
       // Broadcast updated participants list to everyone in room
@@ -319,6 +321,24 @@ export function setupSocketIO(io: SocketIOServer) {
           userId,
           filePath,
           selection,
+        });
+      }
+    });
+
+    // Room-wide Theme synchronization
+    socket.on('room-theme-update', (data: {
+      roomId: string;
+      userId: string;
+      themeId: string;
+    }) => {
+      const { roomId, userId, themeId } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (session) {
+        session.theme = themeId;
+        socket.to(roomIdKey).emit('room-theme-changed', {
+          themeId,
+          userId,
         });
       }
     });

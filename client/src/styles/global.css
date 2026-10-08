@@ -1,8 +1,10 @@
 :root {
-  /* Kollab Luxury Dark Obsidian Palette */
+  /* Kollab Luxury Dark Obsidian Palette (Default) */
+  --bg-header: #050608;
   --bg-activity-bar: #050608;
   --bg-sidebar: #090B10;
   --bg-editor: #07090D;
+  --bg-tab-bar: #050608;
   --bg-tab-active: #0E1219;
   --bg-tab-inactive: #05070B;
   --bg-surface-elevated: #11151F;
@@ -18,7 +20,11 @@
   --text-secondary: #9CA3AF;
   --text-muted: #4B5563;
 
-  /* Kollab Curated Accents */
+  /* Theme Primary Accent */
+  --accent-theme: #A78BFA;
+  --accent-theme-glow: rgba(167, 139, 250, 0.25);
+
+  /* Curated Accents */
   --accent-purple: #8A4BFF;
   --accent-purple-glow: rgba(138, 75, 255, 0.25);
   --accent-cyan: #38BDF8;
@@ -46,6 +52,238 @@
   --topbar-height: 48px;
 }
 
+/* 1. Kollab Obsidian Theme */
+:root[data-theme="kollab-obsidian"] {
+  color-scheme: dark;
+  --bg-header: #050608;
+  --bg-activity-bar: #050608;
+  --bg-sidebar: #090B10;
+  --bg-editor: #07090D;
+  --bg-tab-bar: #050608;
+  --bg-tab-active: #0E1219;
+  --bg-tab-inactive: #05070B;
+  --bg-surface-elevated: #11151F;
+  --bg-surface-hover: #171D2A;
+  --bg-selection: #232D42;
+  --bg-active-pill: #1B2232;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-muted: rgba(255, 255, 255, 0.05);
+  --border-active: #8A4BFF;
+  --text-primary: #F3F4F6;
+  --text-secondary: #9CA3AF;
+  --text-muted: #4B5563;
+  --accent-theme: #A78BFA;
+  --accent-theme-glow: rgba(167, 139, 250, 0.25);
+}
+
+/* 2. VS Code Dark+ Theme */
+:root[data-theme="vs-dark"] {
+  color-scheme: dark;
+  --bg-header: #323233;
+  --bg-activity-bar: #333333;
+  --bg-sidebar: #252526;
+  --bg-editor: #1E1E1E;
+  --bg-tab-bar: #252526;
+  --bg-tab-active: #1E1E1E;
+  --bg-tab-inactive: #2D2D2D;
+  --bg-surface-elevated: #2D2D30;
+  --bg-surface-hover: #37373D;
+  --bg-selection: #264F78;
+  --bg-active-pill: #37373D;
+  --border-subtle: #3E3E42;
+  --border-muted: #2D2D30;
+  --border-active: #007ACC;
+  --text-primary: #D4D4D4;
+  --text-secondary: #CCCCCC;
+  --text-muted: #858585;
+  --accent-theme: #007ACC;
+  --accent-theme-glow: rgba(0, 122, 204, 0.25);
+}
+
+/* 3. One Dark Pro Theme */
+:root[data-theme="one-dark-pro"] {
+  color-scheme: dark;
+  --bg-header: #21252B;
+  --bg-activity-bar: #21252B;
+  --bg-sidebar: #21252B;
+  --bg-editor: #282C34;
+  --bg-tab-bar: #21252B;
+  --bg-tab-active: #282C34;
+  --bg-tab-inactive: #1E2227;
+  --bg-surface-elevated: #2C313A;
+  --bg-surface-hover: #353B45;
+  --bg-selection: #3E4451;
+  --bg-active-pill: #353B45;
+  --border-subtle: #181A1F;
+  --border-muted: #1B1D23;
+  --border-active: #61AFEF;
+  --text-primary: #ABB2BF;
+  --text-secondary: #9DA5B4;
+  --text-muted: #5C6370;
+  --accent-theme: #61AFEF;
+  --accent-theme-glow: rgba(97, 175, 239, 0.25);
+}
+
+/* 4. Dracula Theme */
+:root[data-theme="dracula"] {
+  color-scheme: dark;
+  --bg-header: #1E1F29;
+  --bg-activity-bar: #1E1F29;
+  --bg-sidebar: #21222C;
+  --bg-editor: #282A36;
+  --bg-tab-bar: #191A21;
+  --bg-tab-active: #282A36;
+  --bg-tab-inactive: #21222C;
+  --bg-surface-elevated: #343746;
+  --bg-surface-hover: #44475A;
+  --bg-selection: #44475A;
+  --bg-active-pill: #44475A;
+  --border-subtle: #44475A;
+  --border-muted: #282A36;
+  --border-active: #BD93F9;
+  --text-primary: #F8F8F2;
+  --text-secondary: #BD93F9;
+  --text-muted: #6272A4;
+  --accent-theme: #BD93F9;
+  --accent-theme-glow: rgba(189, 147, 249, 0.25);
+}
+
+/* 5. Monokai Pro Theme */
+:root[data-theme="monokai-pro"] {
+  color-scheme: dark;
+  --bg-header: #1E1F1C;
+  --bg-activity-bar: #191919;
+  --bg-sidebar: #1E1F1C;
+  --bg-editor: #272822;
+  --bg-tab-bar: #1E1F1C;
+  --bg-tab-active: #272822;
+  --bg-tab-inactive: #191919;
+  --bg-surface-elevated: #34352F;
+  --bg-surface-hover: #3E3D32;
+  --bg-selection: #49483E;
+  --bg-active-pill: #3E3D32;
+  --border-subtle: #3E3D32;
+  --border-muted: #2D2A2E;
+  --border-active: #A6E22E;
+  --text-primary: #F8F8F2;
+  --text-secondary: #FD971F;
+  --text-muted: #75715E;
+  --accent-theme: #A6E22E;
+  --accent-theme-glow: rgba(166, 226, 46, 0.25);
+}
+
+/* 6. Nord Arctic Theme */
+:root[data-theme="nord"] {
+  color-scheme: dark;
+  --bg-header: #242933;
+  --bg-activity-bar: #242933;
+  --bg-sidebar: #292E39;
+  --bg-editor: #2E3440;
+  --bg-tab-bar: #242933;
+  --bg-tab-active: #2E3440;
+  --bg-tab-inactive: #242933;
+  --bg-surface-elevated: #3B4252;
+  --bg-surface-hover: #434C5E;
+  --bg-selection: #4C566A;
+  --bg-active-pill: #434C5E;
+  --border-subtle: #3B4252;
+  --border-muted: #2E3440;
+  --border-active: #88C0D0;
+  --text-primary: #ECEFF4;
+  --text-secondary: #D8DEE9;
+  --text-muted: #7B88A1;
+  --accent-theme: #88C0D0;
+  --accent-theme-glow: rgba(136, 192, 208, 0.25);
+}
+
+/* 7. GitHub Dark Theme */
+:root[data-theme="github-dark"] {
+  color-scheme: dark;
+  --bg-header: #010409;
+  --bg-activity-bar: #010409;
+  --bg-sidebar: #0D1117;
+  --bg-editor: #0D1117;
+  --bg-tab-bar: #010409;
+  --bg-tab-active: #0D1117;
+  --bg-tab-inactive: #010409;
+  --bg-surface-elevated: #161B22;
+  --bg-surface-hover: #21262D;
+  --bg-selection: #264F78;
+  --bg-active-pill: #21262D;
+  --border-subtle: #30363D;
+  --border-muted: #21262D;
+  --border-active: #58A6FF;
+  --text-primary: #E6EDF3;
+  --text-secondary: #7D8590;
+  --text-muted: #6E7681;
+  --accent-theme: #58A6FF;
+  --accent-theme-glow: rgba(88, 166, 255, 0.25);
+}
+
+/* 8. GitHub Light Theme */
+:root[data-theme="github-light"] {
+  color-scheme: light;
+  --bg-header: #F6F8FA;
+  --bg-activity-bar: #EAEEF2;
+  --bg-sidebar: #F6F8FA;
+  --bg-editor: #FFFFFF;
+  --bg-tab-bar: #EAEEF2;
+  --bg-tab-active: #FFFFFF;
+  --bg-tab-inactive: #E1E4E8;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-surface-hover: #EAEFF5;
+  --bg-selection: #B6E3FF;
+  --bg-active-pill: #E2E8F0;
+  --border-subtle: #D0D7DE;
+  --border-muted: #E1E4E8;
+  --border-active: #0969DA;
+  --text-primary: #1F2328;
+  --text-secondary: #57606A;
+  --text-muted: #656D76;
+  --accent-theme: #0969DA;
+  --accent-theme-glow: rgba(9, 105, 218, 0.25);
+  --accent-purple: #8250DF;
+  --accent-cyan: #059669;
+}
+
+:root[data-theme="github-light"] ::-webkit-scrollbar-track {
+  background: #F6F8FA;
+}
+:root[data-theme="github-light"] ::-webkit-scrollbar-thumb {
+  background: #D0D7DE;
+}
+:root[data-theme="github-light"] ::-webkit-scrollbar-thumb:hover {
+  background: #AFB8C1;
+}
+:root[data-theme="github-light"] ::selection {
+  background: rgba(9, 105, 218, 0.2);
+  color: #1F2328;
+}
+
+/* 9. SynthWave '84 Theme */
+:root[data-theme="synthwave-84"] {
+  color-scheme: dark;
+  --bg-header: #1B1724;
+  --bg-activity-bar: #1B1724;
+  --bg-sidebar: #221D30;
+  --bg-editor: #262335;
+  --bg-tab-bar: #1B1724;
+  --bg-tab-active: #262335;
+  --bg-tab-inactive: #1B1724;
+  --bg-surface-elevated: #322A45;
+  --bg-surface-hover: #3E3456;
+  --bg-selection: #614D85;
+  --bg-active-pill: #3E3456;
+  --border-subtle: #41375B;
+  --border-muted: #2E2741;
+  --border-active: #FF7EDB;
+  --text-primary: #FFFFFF;
+  --text-secondary: #FEDE5D;
+  --text-muted: #848BB2;
+  --accent-theme: #FF7EDB;
+  --accent-theme-glow: rgba(255, 126, 219, 0.25);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -64,6 +302,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   overflow-y: auto;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 #root {
@@ -84,7 +323,7 @@ button {
   background: none;
 }
 
-/* Scrollbars matching Ceditor slate aesthetic */
+/* Scrollbars matching theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -100,10 +339,10 @@ button {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #343E4D;
+  background: var(--text-muted);
 }
 
 ::selection {
-  background: rgba(56, 189, 248, 0.28);
-  color: #FFFFFF;
+  background: var(--accent-theme-glow, rgba(56, 189, 248, 0.28));
+  color: var(--text-primary);
 }
