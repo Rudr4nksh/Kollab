@@ -1334,6 +1334,50 @@ export class GitService {
       }
 
       const { owner, repo } = parsed;
+
+      // 1. First attempt: Server-side archive stream (zero rate limit, handles entire folders instantly)
+      try {
+        const serverRes = await fetch('/api/git/clone-repo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner,
+            repo,
+            token: this.githubToken || undefined,
+          }),
+        });
+
+        if (serverRes.ok) {
+          const sData = await serverRes.json();
+          if (sData.success && Array.isArray(sData.files)) {
+            const newFiles = this.buildTreeFromPaths(sData.files, sData.directories || []);
+            const branch = sData.defaultBranch || 'main';
+
+            this.init(newFiles, owner);
+            this.currentBranch = branch;
+            this.branches.set(branch, this.headCommitSha);
+            this.setRemote('origin', `https://github.com/${owner}/${repo}.git`);
+
+            return {
+              success: true,
+              files: newFiles,
+              message: `remote: Enumerating objects: ${sData.files.length}, done.\nremote: Total ${sData.files.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${sData.files.length} files across ${(sData.directories || []).length} folders), done.\n✓ Successfully cloned ${owner}/${repo} with folder tree into workspace!`,
+            };
+          }
+        } else {
+          const errData = await serverRes.json().catch(() => ({}));
+          if (errData.message && (serverRes.status === 404 || serverRes.status === 401 || serverRes.status === 403)) {
+            return {
+              success: false,
+              message: errData.message,
+            };
+          }
+        }
+      } catch {
+        // Fallback to direct client-side fetch if server endpoint is unreachable
+      }
+
+      // 2. Client-side fallback via GitHub API
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3+json',
       };
@@ -1341,26 +1385,34 @@ export class GitService {
         headers['Authorization'] = `Bearer ${this.githubToken}`;
       }
 
-      // 1. Fetch repo info (default branch)
+      // Fetch repo info (default branch)
       const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
       if (!repoRes.ok) {
+        const errJson = await repoRes.json().catch(() => ({}));
+        if (repoRes.status === 403 && (errJson.message?.includes('rate limit') || repoRes.headers.get('x-ratelimit-remaining') === '0')) {
+          return {
+            success: false,
+            message: `fatal: GitHub API rate limit exceeded (403).\nTo clone or bypass limits, authenticate using:\n  gh auth login <YOUR_GITHUB_TOKEN>\n  or: git config github.token <YOUR_GITHUB_TOKEN>`,
+          };
+        }
         return {
           success: false,
-          message: `fatal: could not access GitHub repository ${owner}/${repo} (${repoRes.statusText})`,
+          message: `fatal: could not access GitHub repository ${owner}/${repo} (${repoRes.status}: ${errJson.message || repoRes.statusText || 'Access Denied'})`,
         };
       }
       const repoData = await repoRes.json();
       const defaultBranch = repoData.default_branch || 'main';
 
-      // 2. Fetch git tree recursively
+      // Fetch git tree recursively
       const treeRes = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`,
         { headers }
       );
       if (!treeRes.ok) {
+        const errJson = await treeRes.json().catch(() => ({}));
         return {
           success: false,
-          message: `fatal: failed to fetch repository file tree from GitHub (${treeRes.statusText})`,
+          message: `fatal: failed to fetch repository file tree from GitHub (${treeRes.status}: ${errJson.message || treeRes.statusText || 'Error'})`,
         };
       }
       const treeData = await treeRes.json();
@@ -1386,18 +1438,20 @@ export class GitService {
           chunk.map(async (item) => {
             let content = '';
             try {
-              const blobRes = await fetch(
-                `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
-                { headers }
+              const rawRes = await fetch(
+                `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
               );
-              if (blobRes.ok) {
-                const bData = await blobRes.json();
-                content = bData.encoding === 'base64' ? b64DecodeUnicode(bData.content) : (bData.content || '');
-              } else {
-                const rawRes = await fetch(
-                  `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`
+              if (rawRes.ok) {
+                content = await rawRes.text();
+              } else if (this.githubToken) {
+                const blobRes = await fetch(
+                  `https://api.github.com/repos/${owner}/${repo}/git/blobs/${item.sha}`,
+                  { headers }
                 );
-                if (rawRes.ok) content = await rawRes.text();
+                if (blobRes.ok) {
+                  const bData = await blobRes.json();
+                  content = bData.encoding === 'base64' ? b64DecodeUnicode(bData.content) : (bData.content || '');
+                }
               }
             } catch {
               content = '// Could not load raw file content';
@@ -1407,7 +1461,7 @@ export class GitService {
         );
       }
 
-      // 3. Build a complete hierarchical FileNode[] tree containing all folders and files
+      // Reconstruct complete hierarchical FileNode[] tree containing all folders and files
       const newFiles = this.buildTreeFromPaths(rawFiles, rawDirectories);
 
       // Initialize git with the cloned repo
@@ -1419,7 +1473,7 @@ export class GitService {
       return {
         success: true,
         files: newFiles,
-        message: `Cloning into '${repo}'...\nremote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${rawFiles.length} files across ${rawDirectories.length} folders), done.\n✓ Cloned repository with folders into workspace and configured remote origin.`,
+        message: `remote: Enumerating objects: ${treeItems.length}, done.\nremote: Total ${treeItems.length} (delta 0), reused 0 (delta 0)\nReceiving objects: 100% (${rawFiles.length} files across ${rawDirectories.length} folders), done.\n✓ Cloned repository with folders into workspace and configured remote origin.`,
       };
     } catch (err: any) {
       return {
