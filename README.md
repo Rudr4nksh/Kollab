@@ -12,7 +12,7 @@ Multiplayer Code Editing • Live Interactive Terminal • Multi-Language Runner
 [![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=flat-square&logo=socketdotio&logoColor=white)](https://socket.io/)
 [![Docker](https://img.shields.io/badge/Docker_Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 
-[Live Demo](https://kollab-production.up.railway.app) • [Deploy Guide](HOSTING.md) • [Report Bug](https://github.com/Rudr4nksh/Kollab/issues)
+[Live Demo](https://kollab-production-c028.up.railway.app) • [Deploy Guide](HOSTING.md) • [Report Bug](https://github.com/Rudr4nksh/Kollab/issues)
 
 </div>
 
