@@ -1,27 +1,28 @@
+# --- Stage 1: Build both server and client ---
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy root, server, and client package definitions
+# Copy package manifests across root, server, and client
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 COPY client/package.json client/
 COPY prisma prisma/
 
-# Install dependencies across all workspaces
-RUN npm install
-RUN npm install --prefix server
-RUN npm install --prefix client
+# Install all dependencies without triggering lifecycle scripts
+RUN npm install --ignore-scripts
+RUN npm install --prefix server --ignore-scripts
+RUN npm install --prefix client --ignore-scripts
 
-# Copy application source
+# Copy full source tree
 COPY . .
 
-# Generate Prisma client and compile TypeScript for server and client
+# Generate Prisma client and compile TypeScript
 RUN npx prisma generate --schema=prisma/schema.prisma
 RUN npm run build --prefix server
 RUN npm run build --prefix client
 
-# --- Production Runner Stage ---
+# --- Stage 2: Minimal Production Runner ---
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -29,22 +30,23 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4000
 
-# Copy manifests and Prisma schema
+# Copy package manifests and schema
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
+COPY client/package.json client/
 COPY prisma prisma/
 
-# Install production dependencies only
-RUN npm install --omit=dev
-RUN npm install --prefix server --omit=dev
+# Install only production dependencies
+RUN npm install --omit=dev --ignore-scripts
+RUN npm install --prefix server --omit=dev --ignore-scripts
 RUN npx prisma generate --schema=prisma/schema.prisma
 
-# Copy built server and client from builder stage
+# Copy built server and client assets from builder
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
 
 # Expose server port
 EXPOSE 4000
 
-# Push DB schema (ensures SQLite / DB tables exist) and start Kollab server
+# Push DB migrations if needed and run the server
 CMD ["sh", "-c", "npx prisma db push --schema=prisma/schema.prisma && node server/dist/index.js"]
