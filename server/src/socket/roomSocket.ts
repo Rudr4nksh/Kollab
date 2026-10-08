@@ -168,6 +168,13 @@ export function setupSocketIO(io: SocketIOServer) {
       // Broadcast updated participants list to everyone in room
       io.to(roomIdKey).emit('participants-updated', Array.from(session.participants.values()));
 
+      // Update voice user socket ID if user was already in voice
+      if (session.voiceUsers.has(userId)) {
+        const vUser = session.voiceUsers.get(userId)!;
+        vUser.socketId = socket.id;
+        io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+      }
+
       // Broadcast join activity
       const joinActivity: ActivityEvent = {
         id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -429,8 +436,11 @@ export function setupSocketIO(io: SocketIOServer) {
       const session = activeRooms.get(roomIdKey);
       if (session) {
         const targetVoiceUser = session.voiceUsers.get(targetUserId);
-        if (targetVoiceUser) {
-          io.to(targetVoiceUser.socketId).emit('voice-signal', {
+        const targetParticipant = Array.from(session.participants.values()).find((p) => p.id === targetUserId);
+        const targetSocketId = targetVoiceUser?.socketId || targetParticipant?.socketId;
+
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('voice-signal', {
             fromUserId,
             fromSocketId: socket.id,
             signal,

@@ -5,8 +5,10 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
     { urls: 'stun:stun.cloudflare.com:3478' },
-    { urls: 'stun:stun.services.mozilla.com' },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -15,6 +17,8 @@ interface PeerConnectionData {
   pc: RTCPeerConnection;
   audioEl: HTMLAudioElement;
   pendingCandidates: RTCIceCandidateInit[];
+  gainNode?: GainNode;
+  audioSource?: MediaStreamAudioSourceNode;
 }
 
 class VoiceService {
@@ -61,12 +65,22 @@ class VoiceService {
       this.currentRoomId = roomId;
       this.currentUserId = userId;
 
-      // 1. Request microphone access with echo cancellation & noise suppression
+      // 1. Initialize and resume AudioContext in this user gesture callstack
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        this.audioContext = new AudioCtx();
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+      }
+
+      // 2. Request microphone access with echo cancellation & noise suppression
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1,
         },
       });
 
@@ -75,37 +89,24 @@ class VoiceService {
       this.isMuted = false;
       this.isDeafened = false;
 
-      // Attach audio tracks to any existing peer connections created before mic acquisition
-      this.peers.forEach(({ pc }) => {
-        const senders = pc.getSenders();
-        stream.getAudioTracks().forEach((track) => {
-          if (!senders.some((s) => s.track === track)) {
-            pc.addTrack(track, stream);
-          }
-        });
+      // Ensure all audio tracks are active
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
       });
 
-      // 2. Setup AudioContext level detector for Discord green speaking ring
+      // 3. Setup volume level speaking detector
       this.setupSpeakingDetector(stream);
-
-      // Resume AudioContext if suspended by browser autoplay policy
-      if (this.audioContext && this.audioContext.state === 'suspended') {
-        try {
-          await this.audioContext.resume();
-        } catch {
-          // ignore
-        }
-      }
-
-      // 3. Notify socket server
-      socketService.emitVoiceJoin(roomId, userId);
 
       // 4. Setup WebRTC signal listener
       this.unsubSignal = socketService.onVoiceSignal(async ({ fromUserId, signal }) => {
         await this.handleIncomingSignal(fromUserId, signal);
       });
 
+      // 5. Notify socket server
+      socketService.emitVoiceJoin(roomId, userId);
+
       this.notifyStateChange();
+      console.log(`[VoiceService] Successfully joined voice channel for room ${roomId}`);
       return true;
     } catch (err) {
       console.warn('[VoiceService] Could not access microphone or connect:', err);
@@ -145,8 +146,12 @@ class VoiceService {
     }
 
     // Close all peer connections and remove audio elements
-    this.peers.forEach(({ pc, audioEl }) => {
+    this.peers.forEach(({ pc, audioEl, gainNode, audioSource }) => {
       try {
+        if (gainNode && audioSource) {
+          audioSource.disconnect();
+          gainNode.disconnect();
+        }
         pc.close();
         audioEl.srcObject = null;
         audioEl.remove();
@@ -169,6 +174,7 @@ class VoiceService {
     this.currentUserId = null;
 
     this.notifyStateChange();
+    console.log('[VoiceService] Left voice channel');
   }
 
   public toggleMute(): boolean {
@@ -182,6 +188,7 @@ class VoiceService {
     if (this.currentRoomId && this.currentUserId) {
       socketService.emitVoiceState(this.currentRoomId, this.currentUserId, {
         isMuted: this.isMuted,
+        isSpeaking: this.isMuted ? false : this.isSpeaking,
       });
     }
 
@@ -195,11 +202,14 @@ class VoiceService {
     this.isDeafened = !this.isDeafened;
 
     // When deafened, mute all remote incoming audio
-    this.peers.forEach(({ audioEl }) => {
+    this.peers.forEach(({ audioEl, gainNode }) => {
       audioEl.muted = this.isDeafened;
+      if (gainNode) {
+        gainNode.gain.value = this.isDeafened ? 0 : 1;
+      }
     });
 
-    // Discord also mutes your mic when deafened
+    // Discord behavior: mutes mic when deafened
     if (this.isDeafened && !this.isMuted) {
       this.toggleMute();
     } else if (!this.isDeafened && this.isMuted) {
@@ -218,7 +228,7 @@ class VoiceService {
   }
 
   /**
-   * Called when peer list updates from server: initiates connection to new peers
+   * Called when voice member list changes: connects to any new peers
    */
   public syncPeers(voiceUserIds: string[]) {
     if (!this.isConnected || !this.currentUserId) return;
@@ -228,16 +238,21 @@ class VoiceService {
       if (targetUserId !== this.currentUserId && !this.peers.has(targetUserId)) {
         // Deterministic initiator check: smaller string initiates offer
         if (this.currentUserId! < targetUserId) {
+          console.log(`[VoiceService] Initiating WebRTC connection to peer ${targetUserId}`);
           this.initiatePeerConnection(targetUserId);
         }
       }
     });
 
-    // Remove peers that left
+    // Clean up peers that left
     const currentSet = new Set(voiceUserIds);
-    this.peers.forEach(({ pc, audioEl }, peerId) => {
+    this.peers.forEach(({ pc, audioEl, gainNode, audioSource }, peerId) => {
       if (!currentSet.has(peerId)) {
         try {
+          if (gainNode && audioSource) {
+            audioSource.disconnect();
+            gainNode.disconnect();
+          }
           pc.close();
           audioEl.srcObject = null;
           audioEl.remove();
@@ -245,6 +260,7 @@ class VoiceService {
           // ignore
         }
         this.peers.delete(peerId);
+        console.log(`[VoiceService] Removed disconnected voice peer ${peerId}`);
       }
     });
   }
@@ -261,7 +277,13 @@ class VoiceService {
     audioEl.setAttribute('data-kollab-peer', peerId);
     document.body.appendChild(audioEl);
 
-    // Add local tracks to peer connection
+    const peerData: PeerConnectionData = {
+      pc,
+      audioEl,
+      pendingCandidates: [],
+    };
+
+    // Add local tracks to peer connection immediately
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach((track) => {
         pc.addTrack(track, this.localStream!);
@@ -272,47 +294,55 @@ class VoiceService {
     pc.onicecandidate = (event) => {
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
-          candidate: event.candidate.toJSON(),
+          candidate: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate,
         });
       }
     };
 
     // When remote audio track arrives
     pc.ontrack = (event) => {
-      console.log(`[VoiceService] 🎙️ Remote audio track received from ${peerId}`);
-      if (event.streams && event.streams[0]) {
-        audioEl.srcObject = event.streams[0];
-      } else if (event.track) {
-        audioEl.srcObject = new MediaStream([event.track]);
-      }
+      console.log(`[VoiceService] Remote audio track received from ${peerId}`);
+      const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
 
-      // Explicitly trigger playback and handle browser autoplay restriction
+      // 1. Play through HTML audio element
+      audioEl.srcObject = stream;
+      audioEl.muted = this.isDeafened;
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
-          console.warn(`[VoiceService] Audio playback waiting for user gesture for ${peerId}:`, err);
-          const resumeAudio = () => {
-            audioEl.play().catch(() => {});
-            window.removeEventListener('click', resumeAudio);
-            window.removeEventListener('keydown', resumeAudio);
-          };
-          window.addEventListener('click', resumeAudio, { once: true });
-          window.addEventListener('keydown', resumeAudio, { once: true });
+          console.warn(`[VoiceService] Audio playback autoplay blocked for ${peerId}:`, err);
         });
+      }
+
+      // 2. ALSO route through active AudioContext (immune to browser autoplay policies!)
+      if (this.audioContext && this.audioContext.state === 'running') {
+        try {
+          if (!peerData.gainNode) {
+            const remoteSource = this.audioContext.createMediaStreamSource(stream);
+            const gainNode = this.audioContext.createGain();
+            gainNode.gain.value = this.isDeafened ? 0 : 1;
+            remoteSource.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+
+            peerData.audioSource = remoteSource;
+            peerData.gainNode = gainNode;
+            console.log(`[VoiceService] WebAudio speaker output connected for ${peerId}`);
+          }
+        } catch (webaudioErr) {
+          console.warn('[VoiceService] WebAudio routing fallback note:', webaudioErr);
+        }
       }
     };
 
     pc.onconnectionstatechange = () => {
       console.log(`[VoiceService] Connection state with ${peerId}:`, pc.connectionState);
       if (pc.connectionState === 'failed') {
-        // Attempt ICE restart if supported
         try {
           pc.restartIce();
         } catch {
           // ignore
         }
       } else if (pc.connectionState === 'disconnected') {
-        // Don't delete immediately; wait for possible reconnection
         setTimeout(() => {
           if (pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
             this.peers.delete(peerId);
@@ -322,23 +352,34 @@ class VoiceService {
       }
     };
 
-    const peerData: PeerConnectionData = {
-      pc,
-      audioEl,
-      pendingCandidates: [],
-    };
-
     this.peers.set(peerId, peerData);
     return peerData;
   }
 
   private async initiatePeerConnection(targetUserId: string) {
-    const { pc } = this.createPeerConnection(targetUserId);
+    let peer = this.peers.get(targetUserId);
+    if (!peer) {
+      peer = this.createPeerConnection(targetUserId);
+    }
+    const { pc } = peer;
+
     try {
+      // Ensure local tracks are attached to sender
+      if (this.localStream) {
+        const senders = pc.getSenders();
+        this.localStream.getAudioTracks().forEach((track) => {
+          if (!senders.some((s) => s.track === track)) {
+            pc.addTrack(track, this.localStream!);
+          }
+        });
+      }
+
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
       });
+
       await pc.setLocalDescription(offer);
+
       if (this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, targetUserId, this.currentUserId, {
           sdp: pc.localDescription,
@@ -360,23 +401,45 @@ class VoiceService {
     try {
       if (signal.sdp) {
         const desc = new RTCSessionDescription(signal.sdp);
+
+        // Handle offer collisions cleanly
+        if (desc.type === 'offer' && pc.signalingState !== 'stable') {
+          console.log(`[VoiceService] Offer collision with ${fromUserId}, signaling state: ${pc.signalingState}`);
+          try {
+            await pc.setLocalDescription({ type: 'rollback' } as any);
+          } catch {
+            // ignore rollback failure
+          }
+        }
+
         await pc.setRemoteDescription(desc);
 
-        // Drain any ICE candidates received before remote description was ready
+        // Drain any buffered ICE candidates received before remote description
         while (pendingCandidates.length > 0) {
           const queuedCand = pendingCandidates.shift();
           if (queuedCand) {
             try {
-              await pc.addIceCandidate(new RTCIceCandidate(queuedCand));
+              await pc.addIceCandidate(queuedCand);
             } catch (candErr) {
               console.warn('[VoiceService] Error applying buffered ICE candidate:', candErr);
             }
           }
         }
 
-        if (signal.sdp.type === 'offer') {
+        if (desc.type === 'offer') {
+          // Attach local tracks before creating answer
+          if (this.localStream) {
+            const senders = pc.getSenders();
+            this.localStream.getAudioTracks().forEach((track) => {
+              if (!senders.some((s) => s.track === track)) {
+                pc.addTrack(track, this.localStream!);
+              }
+            });
+          }
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+
           if (this.currentRoomId && this.currentUserId) {
             socketService.emitVoiceSignal(this.currentRoomId, fromUserId, this.currentUserId, {
               sdp: pc.localDescription,
@@ -385,9 +448,12 @@ class VoiceService {
         }
       } else if (signal.candidate) {
         if (pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          try {
+            await pc.addIceCandidate(signal.candidate);
+          } catch (err) {
+            console.warn('[VoiceService] Error adding incoming candidate:', err);
+          }
         } else {
-          // Buffer candidate until setRemoteDescription completes
           pendingCandidates.push(signal.candidate);
         }
       }
@@ -397,24 +463,26 @@ class VoiceService {
   }
 
   /**
-   * Discord-style voice activity level detection using Web Audio API
+   * Voice activity level detection using Web Audio API
    */
   private setupSpeakingDetector(stream: MediaStream) {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      if (!this.audioContext) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) this.audioContext = new AudioCtx();
+      }
+      if (!this.audioContext) return;
 
-      this.audioContext = new AudioCtx();
       const source = this.audioContext.createMediaStreamSource(stream);
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 512;
-      this.analyser.smoothingTimeConstant = 0.4;
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = 0.3;
       source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
-      let speakingCounter = 0;
+      let hangoverCount = 0;
 
       this.speakingInterval = setInterval(() => {
         if (!this.analyser || this.isMuted || !this.isConnected) {
@@ -426,24 +494,24 @@ class VoiceService {
 
         this.analyser.getByteFrequencyData(dataArray);
 
-        // Calculate average volume energy
         let sum = 0;
         for (let i = 0; i < bufferLength; i++) {
           sum += dataArray[i];
         }
         const avg = sum / bufferLength;
 
-        // Threshold for human speech vs background hiss
-        const THRESHOLD = 14;
+        // Threshold for speaking activity
+        const THRESHOLD = 8;
 
         if (avg > THRESHOLD) {
-          speakingCounter = Math.min(speakingCounter + 1, 5);
-          if (speakingCounter >= 2 && !this.isSpeaking) {
+          hangoverCount = 4; // 400ms hangover
+          if (!this.isSpeaking) {
             this.setSpeaking(true);
           }
         } else {
-          speakingCounter = Math.max(speakingCounter - 1, 0);
-          if (speakingCounter === 0 && this.isSpeaking) {
+          if (hangoverCount > 0) {
+            hangoverCount--;
+          } else if (this.isSpeaking) {
             this.setSpeaking(false);
           }
         }
@@ -454,6 +522,7 @@ class VoiceService {
   }
 
   private setSpeaking(val: boolean) {
+    if (this.isSpeaking === val) return;
     this.isSpeaking = val;
     this.onSpeakingListeners.forEach((l) => l(val));
     if (this.currentRoomId && this.currentUserId) {
