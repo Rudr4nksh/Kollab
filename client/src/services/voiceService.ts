@@ -4,7 +4,7 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
   ],
 };
 
@@ -260,6 +260,19 @@ class VoiceService {
     });
   }
 
+  public retryPeer(peerId: string) {
+    console.log(`[VoiceService] Manually retrying peer connection to ${peerId}`);
+    const existing = this.peers.get(peerId);
+    if (existing) {
+      try {
+        existing.pc.close();
+        existing.audioEl.remove();
+      } catch {}
+      this.peers.delete(peerId);
+    }
+    this.initiatePeerConnection(peerId);
+  }
+
   /**
    * Called when voice member list changes: connects to any new peers
    */
@@ -318,6 +331,13 @@ class VoiceService {
       pendingCandidates: [],
     };
 
+    // Create a control data channel to guarantee instant ICE candidate gathering
+    try {
+      pc.createDataChannel('kollab-voice-ping', { negotiated: true, id: 0 });
+    } catch {
+      // ignore
+    }
+
     // Add local tracks to peer connection immediately
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach((track) => {
@@ -327,6 +347,7 @@ class VoiceService {
 
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
+      console.log(`[VoiceService] onicecandidate for ${peerId}:`, event.candidate ? event.candidate.candidate.substring(0, 40) + '...' : '(null - end)');
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
           candidate: {
@@ -337,6 +358,14 @@ class VoiceService {
           },
         });
       }
+    };
+
+    pc.onicecandidateerror = (event: any) => {
+      console.warn(`[VoiceService] ICE Candidate Error for ${peerId}:`, event.errorCode, event.errorText);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log(`[VoiceService] ICE gathering state for ${peerId}: ${pc.iceGatheringState}`);
     };
 
     // When remote audio track arrives
@@ -396,6 +425,28 @@ class VoiceService {
   }
 
   /**
+   * Waits up to maxMs for ICE gathering to finish, ensuring candidates are baked into SDP (Vanilla ICE)
+   */
+  private waitForIceGathering(pc: RTCPeerConnection, maxMs: number = 600): Promise<void> {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      let timer: any = null;
+      const onState = () => {
+        if (pc.iceGatheringState === 'complete') {
+          pc.removeEventListener('icegatheringstatechange', onState);
+          clearTimeout(timer);
+          resolve();
+        }
+      };
+      pc.addEventListener('icegatheringstatechange', onState);
+      timer = setTimeout(() => {
+        pc.removeEventListener('icegatheringstatechange', onState);
+        resolve();
+      }, maxMs);
+    });
+  }
+
+  /**
    * Connects remote audio track to Web Audio API speakers
    */
   private connectRemoteAudioOutput(peerId: string, stream: MediaStream, peerData: PeerConnectionData) {
@@ -448,6 +499,11 @@ class VoiceService {
     }
     const { pc } = peer;
 
+    if (pc.signalingState !== 'stable') {
+      console.log(`[VoiceService] Peer ${targetUserId} connection already in progress (${pc.signalingState}), skipping duplicate offer`);
+      return;
+    }
+
     try {
       // Ensure local tracks are attached to sender
       if (this.localStream) {
@@ -464,6 +520,9 @@ class VoiceService {
       });
 
       await pc.setLocalDescription(offer);
+
+      // Wait for local candidates to be gathered into SDP (Vanilla ICE gathering window)
+      await this.waitForIceGathering(pc, 600);
 
       if (this.currentRoomId && this.currentUserId && pc.localDescription) {
         socketService.emitVoiceSignal(this.currentRoomId, targetUserId, this.currentUserId, {
@@ -532,6 +591,9 @@ class VoiceService {
             offerToReceiveAudio: true,
           });
           await pc.setLocalDescription(answer);
+
+          // Wait for local candidates to be gathered into SDP (Vanilla ICE gathering window)
+          await this.waitForIceGathering(pc, 600);
 
           if (this.currentRoomId && this.currentUserId && pc.localDescription) {
             socketService.emitVoiceSignal(this.currentRoomId, fromUserId, this.currentUserId, {
