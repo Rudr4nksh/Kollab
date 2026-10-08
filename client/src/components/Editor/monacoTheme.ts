@@ -273,14 +273,26 @@ export const synthwaveTheme: editor.IStandaloneThemeData = {
   },
 };
 
-export function registerAllThemes(monaco: typeof import('monaco-editor')) {
-  monaco.editor.defineTheme('kollab-obsidian', kollabTheme);
-  monaco.editor.defineTheme('ceditor-slate', kollabTheme); // backwards compatibility
-  monaco.editor.defineTheme('one-dark-pro', oneDarkProTheme);
-  monaco.editor.defineTheme('dracula', draculaTheme);
-  monaco.editor.defineTheme('monokai-pro', monokaiTheme);
-  monaco.editor.defineTheme('nord', nordTheme);
-  monaco.editor.defineTheme('github-dark', githubDarkTheme);
-  monaco.editor.defineTheme('github-light', githubLightTheme);
-  monaco.editor.defineTheme('synthwave-84', synthwaveTheme);
+export function registerAllThemes(m: typeof import('monaco-editor')) {
+  m.editor.defineTheme('kollab-obsidian', kollabTheme);
+  m.editor.defineTheme('ceditor-slate', kollabTheme); // backwards compatibility
+  m.editor.defineTheme('one-dark-pro', oneDarkProTheme);
+  m.editor.defineTheme('dracula', draculaTheme);
+  m.editor.defineTheme('monokai-pro', monokaiTheme);
+  m.editor.defineTheme('nord', nordTheme);
+  m.editor.defineTheme('github-dark', githubDarkTheme);
+  m.editor.defineTheme('github-light', githubLightTheme);
+  m.editor.defineTheme('synthwave-84', synthwaveTheme);
+}
+
+// Auto-register on import with monaco-editor
+import * as monaco from 'monaco-editor';
+registerAllThemes(monaco);
+
+export function applyEditorTheme(themeId: string) {
+  try {
+    monaco.editor.setTheme(themeId);
+  } catch (err) {
+    console.warn('Failed to apply editor theme:', err);
+  }
 }

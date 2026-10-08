@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import MonacoEditor, { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Palette, Code2, Search, Check } from 'lucide-react';
-import { KOLLAB_THEME_NAME, registerAllThemes, THEMES_LIST } from './monacoTheme.ts';
+import { KOLLAB_THEME_NAME, registerAllThemes, THEMES_LIST, applyEditorTheme } from './monacoTheme.ts';
 import { registerLanguageCompletions } from './languageCompletions.ts';
 import {
   LANGUAGE_METAS,
@@ -17,6 +17,8 @@ interface CodeEditorProps {
   filePath?: string;
   language: SupportedLanguage;
   onLanguageChange: (lang: SupportedLanguage, newFilename?: string) => void;
+  theme?: string;
+  onThemeChange?: (themeId: string) => void;
   onContentChange?: (val: string) => void;
   onCursorChange?: (line: number, column: number) => void;
   onSelectionChange?: (range: {
@@ -45,6 +47,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   filePath,
   language,
   onLanguageChange,
+  theme,
+  onThemeChange,
   onContentChange,
   onCursorChange,
   onSelectionChange,
@@ -65,9 +69,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // Themes state
   const [currentTheme, setCurrentTheme] = useState<string>(() => {
-    return localStorage.getItem('kollab-editor-theme') || KOLLAB_THEME_NAME;
+    return theme || localStorage.getItem('kollab-editor-theme') || KOLLAB_THEME_NAME;
   });
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+
+  // Sync theme changes from parent or prop
+  useEffect(() => {
+    if (theme && theme !== currentTheme) {
+      setCurrentTheme(theme);
+      applyEditorTheme(theme);
+      if (monacoRef.current) {
+        monacoRef.current.editor.setTheme(theme);
+      }
+    }
+  }, [theme, currentTheme]);
 
   // Language & extension picker state
   const [isLangPickerOpen, setIsLangPickerOpen] = useState(false);
@@ -359,9 +374,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const handleSelectTheme = (themeId: string) => {
     setCurrentTheme(themeId);
     localStorage.setItem('kollab-editor-theme', themeId);
+    applyEditorTheme(themeId);
     if (monacoRef.current) {
       monacoRef.current.editor.setTheme(themeId);
     }
+    onThemeChange?.(themeId);
     setIsThemePickerOpen(false);
   };
 

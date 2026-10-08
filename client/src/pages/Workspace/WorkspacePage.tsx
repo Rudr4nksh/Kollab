@@ -11,7 +11,6 @@ import {
   Check,
   FolderPlus,
   Folder,
-  FilePlus,
   Upload,
   UploadCloud,
   FileCode,
@@ -22,6 +21,7 @@ import {
 import { FileExplorer } from '../../components/FileTree/FileExplorer.tsx';
 import { TabBar } from '../../components/Tabs/TabBar.tsx';
 import { CodeEditor } from '../../components/Editor/CodeEditor.tsx';
+import { applyEditorTheme } from '../../components/Editor/monacoTheme.ts';
 import { ConsolePanel } from '../../components/Console/ConsolePanel.tsx';
 import { ParticipantList } from '../../components/Participants/ParticipantList.tsx';
 import { ActivityFeed } from '../../components/ActivityFeed/ActivityFeed.tsx';
@@ -147,10 +147,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const handleWorkspaceThemeChange = (themeId: string) => {
     setCurrentTheme(themeId);
     localStorage.setItem('kollab-editor-theme', themeId);
-    const monaco = (window as any).monaco;
-    if (monaco) {
-      monaco.editor.setTheme(themeId);
-    }
+    applyEditorTheme(themeId);
   };
 
   // Drag resizer handlers (VS Code sash style)
@@ -1431,6 +1428,8 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 value={activeFile.content || ''}
                 filePath={activeFilePath}
                 language={(activeFile.language || getLanguageFromFilename(activeFile.name)) as SupportedLanguage}
+                theme={currentTheme}
+                onThemeChange={handleWorkspaceThemeChange}
                 onLanguageChange={(lang, newFilename) => {
                   const { updatedNodes, newPath } = updateFileLanguageInTree(
                     files,
@@ -1502,71 +1501,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                     </div>
                   </form>
 
-                  <div className={styles.emptyQuickLinks} style={{ flexWrap: 'wrap', gap: 6, maxWidth: 440 }}>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.py')}
-                      title="Create Python file"
-                    >
-                      <FilePlus size={12} style={{ color: '#38BDF8' }} />
-                      <span>Python (.py)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.cpp')}
-                      title="Create C++ file"
-                    >
-                      <FilePlus size={12} style={{ color: '#60A5FA' }} />
-                      <span>C++ (.cpp)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('index.ts')}
-                      title="Create TypeScript file"
-                    >
-                      <FilePlus size={12} style={{ color: '#38BDF8' }} />
-                      <span>TypeScript (.ts)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.js')}
-                      title="Create JavaScript file"
-                    >
-                      <FilePlus size={12} style={{ color: '#FBBF24' }} />
-                      <span>JavaScript (.js)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('Main.java')}
-                      title="Create Java file"
-                    >
-                      <FilePlus size={12} style={{ color: '#F87171' }} />
-                      <span>Java (.java)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.rs')}
-                      title="Create Rust file"
-                    >
-                      <FilePlus size={12} style={{ color: '#F97316' }} />
-                      <span>Rust (.rs)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.go')}
-                      title="Create Go file"
-                    >
-                      <FilePlus size={12} style={{ color: '#00ADD8' }} />
-                      <span>Go (.go)</span>
-                    </button>
-                    <span className={styles.linkDot}>•</span>
+                  <div className={styles.emptyQuickLinks}>
                     <button
                       type="button"
                       className={styles.ghostLinkBtn}
@@ -1589,7 +1524,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   </div>
                   <h3 className={styles.emptyTitle}>No file open</h3>
                   <p className={styles.emptySubtitle}>
-                    Select a file from the explorer on the left or click a language template below.
+                    Select a file from the explorer on the left or enter a filename above.
                   </p>
                   <form onSubmit={handleCenterCreateFileSubmit} className={styles.emptyForm}>
                     <div className={styles.unifiedInputPill}>
@@ -1609,71 +1544,6 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                       </button>
                     </div>
                   </form>
-                  <div className={styles.emptyQuickLinks} style={{ flexWrap: 'wrap', gap: 6, maxWidth: 440 }}>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.py')}
-                      title="Create Python file"
-                    >
-                      <FilePlus size={12} style={{ color: '#38BDF8' }} />
-                      <span>Python (.py)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.cpp')}
-                      title="Create C++ file"
-                    >
-                      <FilePlus size={12} style={{ color: '#60A5FA' }} />
-                      <span>C++ (.cpp)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('index.ts')}
-                      title="Create TypeScript file"
-                    >
-                      <FilePlus size={12} style={{ color: '#38BDF8' }} />
-                      <span>TypeScript (.ts)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.js')}
-                      title="Create JavaScript file"
-                    >
-                      <FilePlus size={12} style={{ color: '#FBBF24' }} />
-                      <span>JavaScript (.js)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('Main.java')}
-                      title="Create Java file"
-                    >
-                      <FilePlus size={12} style={{ color: '#F87171' }} />
-                      <span>Java (.java)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.rs')}
-                      title="Create Rust file"
-                    >
-                      <FilePlus size={12} style={{ color: '#F97316' }} />
-                      <span>Rust (.rs)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.ghostLinkBtn}
-                      onClick={() => handleCreateFile('main.go')}
-                      title="Create Go file"
-                    >
-                      <FilePlus size={12} style={{ color: '#00ADD8' }} />
-                      <span>Go (.go)</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
