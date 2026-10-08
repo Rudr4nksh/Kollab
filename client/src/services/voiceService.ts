@@ -363,6 +363,16 @@ class VoiceService {
 
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
+      console.log(`[VoiceService] onicecandidate for ${peerId}:`, event.candidate?.candidate || '(null)');
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: 'ICE_CANDIDATE',
+          iceState: event.candidate ? event.candidate.candidate.substring(0, 40) : '(null-complete)',
+        });
+      } catch {}
+
       if (event.candidate && this.currentRoomId && this.currentUserId) {
         socketService.emitVoiceSignal(this.currentRoomId, peerId, this.currentUserId, {
           candidate: {
@@ -377,20 +387,56 @@ class VoiceService {
 
     pc.onicecandidateerror = (event: any) => {
       console.warn(`[VoiceService] ICE Candidate Error for ${peerId}:`, event.errorCode, event.errorText);
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: 'ICE_ERROR',
+          iceState: `${event.errorCode}: ${event.errorText}`,
+        });
+      } catch {}
     };
 
     pc.onicegatheringstatechange = () => {
       console.log(`[VoiceService] ICE gathering state for ${peerId}: ${pc.iceGatheringState}`);
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: 'GATHERING_STATE',
+          iceState: pc.iceGatheringState,
+        });
+      } catch {}
     };
 
     // When remote audio track arrives
     pc.ontrack = (event) => {
       console.log(`[VoiceService] Remote audio track received from ${peerId}:`, event.track);
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: 'TRACK_RECEIVED',
+          iceState: pc.iceConnectionState,
+        });
+      } catch {}
+
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
 
       audioEl.srcObject = stream;
       audioEl.muted = this.isDeafened;
       audioEl.volume = 1.0;
+
+      audioEl.onplaying = () => {
+        try {
+          socketService.getSocket().emit('voice-debug', {
+            userId: this.currentUserId,
+            peerId,
+            connectionState: 'AUDIO_PLAYING',
+            iceState: pc.iceConnectionState,
+          });
+        } catch {}
+      };
 
       // Play through native HTMLAudioElement first
       const playPromise = audioEl.play();
@@ -411,6 +457,14 @@ class VoiceService {
 
     pc.onconnectionstatechange = () => {
       console.log(`[VoiceService] Connection state with ${peerId}: ${pc.connectionState}`);
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: pc.connectionState,
+          iceState: pc.iceConnectionState,
+        });
+      } catch {}
       this.notifyStateChange();
 
       if (pc.connectionState === 'failed') {
@@ -432,6 +486,14 @@ class VoiceService {
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[VoiceService] ICE state with ${peerId}: ${pc.iceConnectionState}`);
+      try {
+        socketService.getSocket().emit('voice-debug', {
+          userId: this.currentUserId,
+          peerId,
+          connectionState: pc.connectionState,
+          iceState: pc.iceConnectionState,
+        });
+      } catch {}
       this.notifyStateChange();
     };
 

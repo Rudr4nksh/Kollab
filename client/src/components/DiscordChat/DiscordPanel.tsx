@@ -45,6 +45,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
   const [isMuted, setIsMuted] = useState(voiceService.isMuted);
   const [isDeafened, setIsDeafened] = useState(voiceService.isDeafened);
   const [isSpeakingLocally, setIsSpeakingLocally] = useState(voiceService.isSpeaking);
+  const [peerStates, setPeerStates] = useState<Map<string, any>>(() => new Map(voiceService.getPeerStates()));
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -56,6 +57,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
       setIsMuted(voiceService.isMuted);
       setIsDeafened(voiceService.isDeafened);
       setIsSpeakingLocally(voiceService.isSpeaking);
+      setPeerStates(new Map(voiceService.getPeerStates()));
     });
 
     const unsubSpeaking = voiceService.onSpeaking((speaking) => {
@@ -323,7 +325,6 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
               const isSpeaking = isMe ? isSpeakingLocally : user.isSpeaking;
               const userMuted = isMe ? isMuted : user.isMuted;
               const userDeafened = isMe ? isDeafened : user.isDeafened;
-              const peerStates = voiceService.getPeerStates();
               const peerState = !isMe ? peerStates.get(user.userId) : null;
 
               return (

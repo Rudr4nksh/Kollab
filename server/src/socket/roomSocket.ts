@@ -481,6 +481,10 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
+    socket.on('voice-debug', (data: { userId: string; peerId: string; connectionState: string; iceState: string }) => {
+      console.log(`[RoomSocket] [VOICE-DEBUG] User ${data.userId} -> Peer ${data.peerId} | connState=${data.connectionState} | iceState=${data.iceState}`);
+    });
+
     // Update user role (Host / Co-Host permission control)
     socket.on('update-user-role', (data: {
       roomId: string;
