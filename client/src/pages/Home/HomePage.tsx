@@ -370,6 +370,23 @@ export const HomePage: React.FC<HomePageProps> = ({
     }
   };
 
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    playThockSound('click');
+    const element = document.getElementById(targetId);
+    if (element) {
+      const navOffset = 76;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - navOffset;
+
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
+      window.history.pushState(null, '', `#${targetId}`);
+    }
+  };
+
   const activeError = error || localError;
 
   return (
@@ -390,10 +407,10 @@ export const HomePage: React.FC<HomePageProps> = ({
 
         {/* Dead-Centered Nav Links */}
         <div className={styles.navLinks}>
-          <a href="#editor">Editor</a>
-          <a href="#story">Why Kollab</a>
-          <a href="#features">Architecture</a>
-          <a href="#terminal">Terminal</a>
+          <a href="#editor" onClick={(e) => scrollToSection(e, 'editor')}>Editor</a>
+          <a href="#story" onClick={(e) => scrollToSection(e, 'story')}>Why Kollab</a>
+          <a href="#features" onClick={(e) => scrollToSection(e, 'features')}>Architecture</a>
+          <a href="#terminal" onClick={(e) => scrollToSection(e, 'terminal')}>Terminal</a>
           <a 
             href="https://github.com/Rudr4nksh/Kollab" 
             target="_blank" 
@@ -840,8 +857,8 @@ export const HomePage: React.FC<HomePageProps> = ({
           <a href="https://github.com/Rudr4nksh/Kollab" target="_blank" rel="noreferrer">
             GitHub Repository
           </a>
-          <a href="#features">Architecture</a>
-          <a href="#editor">Live Playground</a>
+          <a href="#features" onClick={(e) => scrollToSection(e, 'features')}>Architecture</a>
+          <a href="#editor" onClick={(e) => scrollToSection(e, 'editor')}>Live Playground</a>
         </div>
       </footer>
 
