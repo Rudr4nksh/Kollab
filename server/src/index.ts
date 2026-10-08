@@ -12,7 +12,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 app.use(cors({
@@ -69,9 +69,15 @@ app.get('/api/health', async (_req, res) => {
 });
 
 // In production, serve the built Vite client frontend directly from Express
-const clientDist = fs.existsSync(path.resolve(process.cwd(), 'client/dist'))
-  ? path.resolve(process.cwd(), 'client/dist')
-  : path.resolve(__dirname, '../../client/dist');
+const clientDistCandidates = [
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(__dirname, './client/dist'),
+];
+const clientDist = clientDistCandidates.find((p) => fs.existsSync(p)) || clientDistCandidates[0];
+
+console.log(`[Kollab Server] Static client path resolved: ${clientDist} (exists: ${fs.existsSync(clientDist)})`);
 
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
@@ -81,10 +87,12 @@ if (fs.existsSync(clientDist)) {
     }
     res.sendFile(path.join(clientDist, 'index.html'));
   });
+} else {
+  console.warn(`[Kollab Server] Note: client/dist not found at ${clientDist}. API endpoints remain active.`);
 }
 
-server.listen(PORT, async () => {
-  console.log(`[Kollab Server] running on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', async () => {
+  console.log(`[Kollab Server] running on http://0.0.0.0:${PORT} (PORT=${process.env.PORT || 4000})`);
 
   // Purge any abandoned empty rooms from previous runs
   try {
