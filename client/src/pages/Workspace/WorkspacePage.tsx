@@ -149,12 +149,14 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     localStorage.setItem('kollab-editor-theme', themeId);
     applyEditorTheme(themeId);
     document.documentElement.setAttribute('data-theme', themeId);
+    document.body.setAttribute('data-theme', themeId);
     socketService.emitRoomThemeUpdate(roomId, themeId, userId);
   };
 
   // Sync room theme on mount and via socket from peers
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
+    document.body.setAttribute('data-theme', currentTheme);
     applyEditorTheme(currentTheme);
 
     const unsub = socketService.onRoomThemeChanged(({ themeId }) => {
@@ -162,6 +164,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       localStorage.setItem('kollab-editor-theme', themeId);
       applyEditorTheme(themeId);
       document.documentElement.setAttribute('data-theme', themeId);
+      document.body.setAttribute('data-theme', themeId);
       const thName = THEMES_LIST.find((t) => t.id === themeId)?.name || themeId;
       onAddToast?.('info', `Room theme set to ${thName}`);
     });
@@ -1372,7 +1375,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
             overflow: 'hidden',
             opacity: isSidebarOpen ? 1 : 0,
             pointerEvents: isSidebarOpen ? 'auto' : 'none',
-            borderRight: isSidebarOpen ? '1px solid rgba(255, 255, 255, 0.06)' : 'none',
+            borderRight: isSidebarOpen ? '1px solid var(--border-subtle)' : 'none',
             transition: activeResizer ? 'none' : 'width 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
           }}
         >
@@ -1585,7 +1588,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
               overflow: 'hidden',
               opacity: consoleOpen ? 1 : 0,
               pointerEvents: consoleOpen ? 'auto' : 'none',
-              borderTop: consoleOpen ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+              borderTop: consoleOpen ? '1px solid var(--border-subtle)' : 'none',
               transition: activeResizer ? 'none' : 'height 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 220ms ease',
             }}
           >

@@ -53,7 +53,8 @@
 }
 
 /* 1. Kollab Obsidian Theme */
-:root[data-theme="kollab-obsidian"] {
+:root[data-theme="kollab-obsidian"],
+[data-theme="kollab-obsidian"] {
   color-scheme: dark;
   --bg-header: #050608;
   --bg-activity-bar: #050608;
@@ -77,7 +78,8 @@
 }
 
 /* 2. VS Code Dark+ Theme */
-:root[data-theme="vs-dark"] {
+:root[data-theme="vs-dark"],
+[data-theme="vs-dark"] {
   color-scheme: dark;
   --bg-header: #323233;
   --bg-activity-bar: #333333;
@@ -101,7 +103,8 @@
 }
 
 /* 3. One Dark Pro Theme */
-:root[data-theme="one-dark-pro"] {
+:root[data-theme="one-dark-pro"],
+[data-theme="one-dark-pro"] {
   color-scheme: dark;
   --bg-header: #21252B;
   --bg-activity-bar: #21252B;
@@ -125,7 +128,8 @@
 }
 
 /* 4. Dracula Theme */
-:root[data-theme="dracula"] {
+:root[data-theme="dracula"],
+[data-theme="dracula"] {
   color-scheme: dark;
   --bg-header: #1E1F29;
   --bg-activity-bar: #1E1F29;
@@ -149,7 +153,8 @@
 }
 
 /* 5. Monokai Pro Theme */
-:root[data-theme="monokai-pro"] {
+:root[data-theme="monokai-pro"],
+[data-theme="monokai-pro"] {
   color-scheme: dark;
   --bg-header: #1E1F1C;
   --bg-activity-bar: #191919;
@@ -173,7 +178,8 @@
 }
 
 /* 6. Nord Arctic Theme */
-:root[data-theme="nord"] {
+:root[data-theme="nord"],
+[data-theme="nord"] {
   color-scheme: dark;
   --bg-header: #242933;
   --bg-activity-bar: #242933;
@@ -197,7 +203,8 @@
 }
 
 /* 7. GitHub Dark Theme */
-:root[data-theme="github-dark"] {
+:root[data-theme="github-dark"],
+[data-theme="github-dark"] {
   color-scheme: dark;
   --bg-header: #010409;
   --bg-activity-bar: #010409;
@@ -221,7 +228,8 @@
 }
 
 /* 8. GitHub Light Theme */
-:root[data-theme="github-light"] {
+:root[data-theme="github-light"],
+[data-theme="github-light"] {
   color-scheme: light;
   --bg-header: #F6F8FA;
   --bg-activity-bar: #EAEEF2;
@@ -246,22 +254,27 @@
   --accent-cyan: #059669;
 }
 
-:root[data-theme="github-light"] ::-webkit-scrollbar-track {
+:root[data-theme="github-light"] ::-webkit-scrollbar-track,
+[data-theme="github-light"] ::-webkit-scrollbar-track {
   background: #F6F8FA;
 }
-:root[data-theme="github-light"] ::-webkit-scrollbar-thumb {
+:root[data-theme="github-light"] ::-webkit-scrollbar-thumb,
+[data-theme="github-light"] ::-webkit-scrollbar-thumb {
   background: #D0D7DE;
 }
-:root[data-theme="github-light"] ::-webkit-scrollbar-thumb:hover {
+:root[data-theme="github-light"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="github-light"] ::-webkit-scrollbar-thumb:hover {
   background: #AFB8C1;
 }
-:root[data-theme="github-light"] ::selection {
+:root[data-theme="github-light"] ::selection,
+[data-theme="github-light"] ::selection {
   background: rgba(9, 105, 218, 0.2);
   color: #1F2328;
 }
 
 /* 9. SynthWave '84 Theme */
-:root[data-theme="synthwave-84"] {
+:root[data-theme="synthwave-84"],
+[data-theme="synthwave-84"] {
   color-scheme: dark;
   --bg-header: #1B1724;
   --bg-activity-bar: #1B1724;

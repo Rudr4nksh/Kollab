@@ -85,7 +85,7 @@
   font-size: 11px;
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.03em;
-  color: var(--text-secondary, #8E9297);
+  color: var(--text-secondary);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -94,11 +94,11 @@
 }
 
 .tabBtn:hover {
-  color: var(--text-primary, #FFFFFF);
+  color: var(--text-primary);
 }
 
 .activeTab {
-  color: var(--text-primary, #FFFFFF) !important;
+  color: var(--text-primary) !important;
   font-weight: 600;
 }
 
@@ -109,7 +109,7 @@
   left: 8px;
   right: 8px;
   height: 2px;
-  background-color: var(--accent-theme, #5865F2);
+  background-color: var(--accent-theme);
   border-radius: 1px;
 }
 
@@ -117,8 +117,9 @@
   font-size: 9.5px;
   padding: 0 5px;
   border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #9CA3AF;
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
 }
 
 /* Right side header actions: terminal selector + icons */
@@ -135,10 +136,11 @@
   padding: 3px 8px;
   font-size: 11px;
   font-family: var(--font-mono, monospace);
-  color: #D1D5DB;
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
+  transition: all 200ms ease;
 }
 
 .actionBtn {
@@ -147,7 +149,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: #8E9297;
+  color: var(--text-muted);
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -156,8 +158,8 @@
 }
 
 .actionBtn:hover {
-  color: #FFFFFF;
-  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
 }
 
 /* Content Area */
@@ -167,7 +169,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: #07090D;
+  background-color: var(--bg-editor);
+  transition: background-color 200ms ease;
 }
 
 /* Terminal Shell Body (Real VS Code Style) */
@@ -177,7 +180,8 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  background-color: #050608;
+  background-color: var(--bg-editor);
+  transition: background-color 200ms ease;
 }
 
 .terminalContainer {
@@ -185,13 +189,14 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background-color: #050608;
+  background-color: var(--bg-editor);
   padding: 6px 12px;
   overflow-y: auto;
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 12px;
   user-select: text;
   cursor: text;
+  transition: background-color 200ms ease;
 }
 
 .terminalOutput {
@@ -419,10 +424,10 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  color: #9CA3AF;
+  color: var(--text-secondary);
   font-family: var(--font-mono, monospace);
   font-size: 10.5px;
   padding: 2px 8px;
@@ -432,22 +437,22 @@
 }
 
 .stdinToggleBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--border-active);
 }
 
 .stdinToggleBtnActive {
-  background: rgba(88, 101, 242, 0.2);
-  border-color: rgba(88, 101, 242, 0.5);
-  color: #A5B4FC;
+  background: var(--accent-theme-glow);
+  border-color: var(--accent-theme);
+  color: var(--accent-theme);
 }
 
 .stdinDot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: #10B981;
+  background-color: var(--accent-green, #10B981);
 }
 
 .outputBody {
@@ -461,28 +466,30 @@
   width: 280px;
   min-width: 200px;
   max-width: 400px;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  background: #0B0E14;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
 
 .stdinDrawerHeader {
   height: 26px;
   padding: 0 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-tab-bar);
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
 
 .stdinDrawerTitle {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #8E9297;
+  color: var(--text-secondary);
   font-size: 10px;
   font-family: var(--font-mono, monospace);
   font-weight: 600;
@@ -492,16 +499,17 @@
 .stdinClearBtn {
   background: transparent;
   border: none;
-  color: #6B7280;
+  color: var(--text-muted);
   font-size: 10px;
   font-family: var(--font-mono, monospace);
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 3px;
+  transition: color 120ms ease;
 }
 
 .stdinClearBtn:hover {
-  color: #EF4444;
+  color: var(--accent-rose, #EF4444);
 }
 
 .stdinTextarea {
@@ -512,14 +520,14 @@
   outline: none;
   resize: none;
   padding: 8px;
-  color: #F3F4F6;
+  color: var(--text-primary);
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 11px;
   line-height: 1.45;
 }
 
 .stdinTextarea::placeholder {
-  color: #4B5563;
+  color: var(--text-muted);
   font-size: 10.5px;
 }
 
@@ -527,11 +535,11 @@
   padding: 3px 8px;
   font-size: 9.5px;
   font-family: var(--font-mono, monospace);
-  color: #6B7280;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--bg-tab-bar);
 }
 
 .logList {
