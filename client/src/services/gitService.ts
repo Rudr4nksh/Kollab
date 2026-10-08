@@ -185,7 +185,8 @@ export class GitService {
 
   // --- 1-Click "Sign in with GitHub" OAuth Flow ---
   public async loginWithGitHub(): Promise<{ success: boolean; user?: GitHubUser; error?: string }> {
-    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || (isLocal ? 'http://localhost:4000' : '');
     return new Promise((resolve) => {
       const width = 600;
       const height = 700;
