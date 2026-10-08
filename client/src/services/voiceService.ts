@@ -4,13 +4,8 @@ const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
     { urls: 'stun:stun.cloudflare.com:3478' },
   ],
-  iceCandidatePoolSize: 10,
 };
 
 interface PeerConnectionData {
@@ -27,6 +22,7 @@ class VoiceService {
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private speakingInterval: any = null;
+  private removeAutoResume: (() => void) | null = null;
 
   public isConnected: boolean = false;
   public isMuted: boolean = false;
@@ -65,7 +61,7 @@ class VoiceService {
       this.currentRoomId = roomId;
       this.currentUserId = userId;
 
-      // 1. Initialize and resume AudioContext in this user gesture callstack
+      // 1. Initialize and resume AudioContext in user gesture
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         this.audioContext = new AudioCtx();
@@ -80,7 +76,6 @@ class VoiceService {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          channelCount: 1,
         },
       });
 
@@ -97,12 +92,15 @@ class VoiceService {
       // 3. Setup volume level speaking detector
       this.setupSpeakingDetector(stream);
 
-      // 4. Setup WebRTC signal listener
+      // 4. Setup auto-resume handler for background tabs & autoplay policy
+      this.setupAutoResume();
+
+      // 5. Setup WebRTC signal listener
       this.unsubSignal = socketService.onVoiceSignal(async ({ fromUserId, signal }) => {
         await this.handleIncomingSignal(fromUserId, signal);
       });
 
-      // 5. Notify socket server
+      // 6. Notify socket server
       socketService.emitVoiceJoin(roomId, userId);
 
       this.notifyStateChange();
@@ -127,6 +125,11 @@ class VoiceService {
     if (this.speakingInterval) {
       clearInterval(this.speakingInterval);
       this.speakingInterval = null;
+    }
+
+    if (this.removeAutoResume) {
+      this.removeAutoResume();
+      this.removeAutoResume = null;
     }
 
     if (this.audioContext && this.audioContext.state !== 'closed') {
@@ -203,9 +206,11 @@ class VoiceService {
 
     // When deafened, mute all remote incoming audio
     this.peers.forEach(({ audioEl, gainNode }) => {
-      audioEl.muted = this.isDeafened;
       if (gainNode) {
         gainNode.gain.value = this.isDeafened ? 0 : 1;
+      }
+      if (!gainNode) {
+        audioEl.muted = this.isDeafened;
       }
     });
 
@@ -268,13 +273,15 @@ class VoiceService {
   private createPeerConnection(peerId: string): PeerConnectionData {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Audio element for playing remote peer's sound
+    // Audio element: in Chromium, this acts as the "pump" element that triggers
+    // WebRTCAudioRenderer to pull audio packets continuously into Web Audio.
+    // Kept muted so Chromium never blocks it under autoplay policies.
     const audioEl = document.createElement('audio');
     audioEl.autoplay = true;
+    audioEl.muted = true;
     audioEl.setAttribute('playsinline', 'true');
-    audioEl.muted = this.isDeafened;
-    audioEl.volume = 1.0;
     audioEl.setAttribute('data-kollab-peer', peerId);
+    audioEl.style.display = 'none';
     document.body.appendChild(audioEl);
 
     const peerData: PeerConnectionData = {
@@ -301,41 +308,22 @@ class VoiceService {
 
     // When remote audio track arrives
     pc.ontrack = (event) => {
-      console.log(`[VoiceService] Remote audio track received from ${peerId}`);
+      console.log(`[VoiceService] Remote audio track received from ${peerId}:`, event.track);
       const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
 
-      // 1. Play through HTML audio element
+      // 1. Silent pump element starts the Chromium WebRTC audio pull loop
       audioEl.srcObject = stream;
-      audioEl.muted = this.isDeafened;
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn(`[VoiceService] Audio playback autoplay blocked for ${peerId}:`, err);
-        });
-      }
+      audioEl.muted = true;
+      audioEl.play().catch((err) => {
+        console.warn(`[VoiceService] Pump audio play notice for ${peerId}:`, err);
+      });
 
-      // 2. ALSO route through active AudioContext (immune to browser autoplay policies!)
-      if (this.audioContext && this.audioContext.state === 'running') {
-        try {
-          if (!peerData.gainNode) {
-            const remoteSource = this.audioContext.createMediaStreamSource(stream);
-            const gainNode = this.audioContext.createGain();
-            gainNode.gain.value = this.isDeafened ? 0 : 1;
-            remoteSource.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-
-            peerData.audioSource = remoteSource;
-            peerData.gainNode = gainNode;
-            console.log(`[VoiceService] WebAudio speaker output connected for ${peerId}`);
-          }
-        } catch (webaudioErr) {
-          console.warn('[VoiceService] WebAudio routing fallback note:', webaudioErr);
-        }
-      }
+      // 2. Route audio to Web Audio API speakers
+      this.connectRemoteAudioOutput(peerId, stream, peerData);
     };
 
     pc.onconnectionstatechange = () => {
-      console.log(`[VoiceService] Connection state with ${peerId}:`, pc.connectionState);
+      console.log(`[VoiceService] Connection state with ${peerId}: ${pc.connectionState}`);
       if (pc.connectionState === 'failed') {
         try {
           pc.restartIce();
@@ -348,12 +336,78 @@ class VoiceService {
             this.peers.delete(peerId);
             audioEl.remove();
           }
-        }, 3000);
+        }, 4000);
       }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[VoiceService] ICE state with ${peerId}: ${pc.iceConnectionState}`);
     };
 
     this.peers.set(peerId, peerData);
     return peerData;
+  }
+
+  /**
+   * Connects remote audio track to Web Audio API speakers, with HTMLAudioElement fallback
+   */
+  private connectRemoteAudioOutput(peerId: string, stream: MediaStream, peerData: PeerConnectionData) {
+    try {
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) this.audioContext = new AudioCtx();
+      }
+
+      if (this.audioContext) {
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume().catch(() => {});
+        }
+
+        if (!peerData.gainNode) {
+          const remoteSource = this.audioContext.createMediaStreamSource(stream);
+          const gainNode = this.audioContext.createGain();
+          gainNode.gain.value = this.isDeafened ? 0 : 1.0;
+          remoteSource.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+
+          peerData.audioSource = remoteSource;
+          peerData.gainNode = gainNode;
+          console.log(`[VoiceService] WebAudio output attached and active for ${peerId}`);
+        }
+      } else {
+        // Fallback: If Web Audio is not available, unmute HTML audio element
+        peerData.audioEl.muted = this.isDeafened;
+        peerData.audioEl.play().catch(() => {});
+      }
+    } catch (err) {
+      console.warn(`[VoiceService] WebAudio output error, falling back to audio tag for ${peerId}:`, err);
+      peerData.audioEl.muted = this.isDeafened;
+      peerData.audioEl.play().catch(() => {});
+    }
+  }
+
+  private setupAutoResume() {
+    const resume = () => {
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+      this.peers.forEach(({ audioEl, gainNode }) => {
+        if (audioEl && audioEl.paused) {
+          audioEl.play().catch(() => {});
+        }
+        if (gainNode) {
+          gainNode.gain.value = this.isDeafened ? 0 : 1.0;
+        }
+      });
+    };
+
+    window.addEventListener('click', resume, { passive: true });
+    window.addEventListener('keydown', resume, { passive: true });
+
+    this.removeAutoResume = () => {
+      window.removeEventListener('click', resume);
+      window.removeEventListener('keydown', resume);
+    };
   }
 
   private async initiatePeerConnection(targetUserId: string) {
@@ -417,9 +471,9 @@ class VoiceService {
         // Drain any buffered ICE candidates received before remote description
         while (pendingCandidates.length > 0) {
           const queuedCand = pendingCandidates.shift();
-          if (queuedCand) {
+          if (queuedCand && (queuedCand.candidate || typeof queuedCand === 'string')) {
             try {
-              await pc.addIceCandidate(queuedCand);
+              await pc.addIceCandidate(new RTCIceCandidate(queuedCand));
             } catch (candErr) {
               console.warn('[VoiceService] Error applying buffered ICE candidate:', candErr);
             }
@@ -437,7 +491,9 @@ class VoiceService {
             });
           }
 
-          const answer = await pc.createAnswer();
+          const answer = await pc.createAnswer({
+            offerToReceiveAudio: true,
+          });
           await pc.setLocalDescription(answer);
 
           if (this.currentRoomId && this.currentUserId) {
@@ -446,10 +502,10 @@ class VoiceService {
             });
           }
         }
-      } else if (signal.candidate) {
+      } else if (signal.candidate && (signal.candidate.candidate || typeof signal.candidate === 'string')) {
         if (pc.remoteDescription && pc.remoteDescription.type) {
           try {
-            await pc.addIceCandidate(signal.candidate);
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
           } catch (err) {
             console.warn('[VoiceService] Error adding incoming candidate:', err);
           }
