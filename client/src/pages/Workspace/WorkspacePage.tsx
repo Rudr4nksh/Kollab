@@ -722,37 +722,46 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
       if (!isCtrlOrMeta) return;
 
       const target = e.target as HTMLElement | null;
-      const tagName = target?.tagName?.toLowerCase();
-      const isMonacoTextarea =
-        tagName === 'textarea' && !!target?.closest('.monaco-editor');
-      const isEmptyCanvasInput = !!target?.classList?.contains(styles.emptyFolderInput);
-      const isTextInput =
-        !isEmptyCanvasInput &&
-        (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable);
+      const activeEl = document.activeElement as HTMLElement | null;
 
-      // If user is actively typing in a non-empty input/textarea outside Monaco, let native text undo handle it
-      if (isTextInput && !isMonacoTextarea) {
-        const inputEl = target as HTMLInputElement | HTMLTextAreaElement;
-        if (inputEl.value && inputEl.value.trim().length > 0) {
-          return;
-        }
+      // 1. If inside Monaco editor (active element or event target), DO NOT intercept.
+      // Monaco handles code undo and redo natively.
+      const isInsideMonaco =
+        Boolean(target?.closest('.monaco-editor')) ||
+        Boolean(activeEl?.closest('.monaco-editor'));
+
+      if (isInsideMonaco) {
+        return;
+      }
+
+      // 2. If typing inside any text input or editable field outside Monaco,
+      // allow native input undo/redo to function.
+      const isInputOrTextarea =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        Boolean(target?.isContentEditable) ||
+        Boolean(activeEl?.isContentEditable);
+
+      if (isInputOrTextarea) {
+        return;
       }
 
       const key = e.key?.toLowerCase();
       const isZ = key === 'z' || e.code === 'KeyZ';
       const isY = key === 'y' || e.code === 'KeyY';
 
-      // If focus is NOT in Monaco's editor textarea (e.g. empty canvas, explorer, tabs, toast, document body):
-      if (!isMonacoTextarea) {
-        if (isZ && !e.shiftKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleUndoFileActionRef.current();
-        } else if ((isZ && e.shiftKey) || isY) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleRedoFileActionRef.current();
-        }
+      // 3. Outside code editor and text inputs (e.g. explorer, tabs, canvas background),
+      // perform file undo / redo operations:
+      if (isZ && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleUndoFileActionRef.current();
+      } else if ((isZ && e.shiftKey) || isY) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRedoFileActionRef.current();
       }
     };
 
@@ -1487,8 +1496,6 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onContentChange={handleContentChange}
                 onCursorChange={handleLocalCursorChange}
                 onSelectionChange={handleLocalSelectionChange}
-                onUndoFile={handleUndoFileAction}
-                onRedoFile={handleRedoFileAction}
                 participants={participants}
                 currentUserId={userId}
               />

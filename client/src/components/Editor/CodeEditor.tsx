@@ -31,8 +31,6 @@ interface CodeEditorProps {
   participants?: Participant[];
   currentUserId?: string;
   readOnly?: boolean;
-  onUndoFile?: () => void;
-  onRedoFile?: () => void;
 }
 
 interface RemoteWidgetEntry {
@@ -145,17 +143,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       if (onContentChange && model) {
         onContentChange(model.getValue());
       }
-    });
-
-    // Native undo/redo commands in Monaco (isolated to editor content)
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
-      ed.trigger('keyboard', 'undo', null);
-    });
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, () => {
-      ed.trigger('keyboard', 'redo', null);
-    });
-    ed.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, () => {
-      ed.trigger('keyboard', 'redo', null);
     });
 
     if (onEditorMount) {
