@@ -32,7 +32,7 @@ export type SupportedLanguage =
   | 'dockerfile'
   | 'plaintext';
 
-export type UserRole = 'host' | 'participant';
+export type UserRole = 'host' | 'co-host' | 'admin' | 'editor' | 'viewer' | 'participant';
 
 export type PresenceStatus = 'active' | 'typing' | 'idle';
 

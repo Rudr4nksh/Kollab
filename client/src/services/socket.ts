@@ -312,6 +312,54 @@ class SocketService {
       s.off('terminal:exit', callback);
     };
   }
+
+  // --- Role & Permission Management ---
+  public emitUpdateUserRole(roomId: string, targetUserId: string, newRole: UserRole, actorUserId: string) {
+    this.getSocket().emit('update-user-role', {
+      roomId,
+      targetUserId,
+      newRole,
+      actorUserId,
+    });
+  }
+
+  public emitKickUser(roomId: string, targetUserId: string, actorUserId: string, reason?: string) {
+    this.getSocket().emit('kick-user', {
+      roomId,
+      targetUserId,
+      actorUserId,
+      reason,
+    });
+  }
+
+  public onUserRoleUpdated(
+    callback: (data: { userId: string; newRole: UserRole; updatedBy: string; updatedByName: string }) => void
+  ): () => void {
+    const s = this.getSocket();
+    s.on('user-role-updated', callback);
+    return () => {
+      s.off('user-role-updated', callback);
+    };
+  }
+
+  public onHostTransferred(
+    callback: (data: { newHostId: string; newHostName: string; transferredBy?: string; reason?: string }) => void
+  ): () => void {
+    const s = this.getSocket();
+    s.on('host-transferred', callback);
+    return () => {
+      s.off('host-transferred', callback);
+    };
+  }
+
+  public onUserKicked(callback: (data: { reason: string; kickedBy: string }) => void): () => void {
+    const s = this.getSocket();
+    s.on('user-kicked', callback);
+    return () => {
+      s.off('user-kicked', callback);
+    };
+  }
 }
 
 export const socketService = new SocketService();
+

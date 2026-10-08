@@ -33,6 +33,7 @@ interface FileExplorerProps {
   onRenameNode?: (oldPath: string, newName: string) => void;
   onImportFolder: (importedFiles: FileNode[]) => void;
   isHost: boolean;
+  readOnly?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -49,6 +50,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onRenameNode,
   onImportFolder,
   isHost: _isHost,
+  readOnly = false,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -73,6 +75,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (readOnly) return;
     dragCounterRef.current++;
     if (isFileDrag(e)) {
       setIsDragOver(true);
@@ -82,6 +85,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (readOnly) return;
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = 'copy';
     }
@@ -93,6 +97,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (readOnly) return;
     dragCounterRef.current--;
     if (dragCounterRef.current <= 0) {
       dragCounterRef.current = 0;
@@ -102,6 +107,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     dragCounterRef.current = 0;
     setIsDragOver(false);
     if (e.dataTransfer) {
@@ -403,49 +409,51 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 )}
 
                 {/* Hover Actions */}
-                <div className={styles.hoverActions}>
-                  {isFolder && (
-                    <>
-                      <button
-                        className={styles.actionBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartCreate('file', node.path);
-                        }}
-                        title="New File in folder (e.g. main.cpp, script.js)"
-                      >
-                        <FilePlus size={12} />
-                      </button>
-                      <button
-                        className={styles.actionBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartCreate('folder', node.path);
-                        }}
-                        title="New Folder in folder"
-                      >
-                        <FolderPlus size={12} />
-                      </button>
-                    </>
-                  )}
-                  <button
-                    className={styles.actionBtn}
-                    onClick={(e) => handleStartRename(node, e)}
-                    title="Rename (F2)"
-                  >
-                    <Edit2 size={12} />
-                  </button>
-                  <button
-                    className={`${styles.actionBtn} ${styles.deleteBtn}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteNode(node.path);
-                    }}
-                    title={isFolder ? 'Delete folder' : 'Delete file'}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className={styles.hoverActions}>
+                    {isFolder && (
+                      <>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartCreate('file', node.path);
+                          }}
+                          title="New File in folder (e.g. main.cpp, script.js)"
+                        >
+                          <FilePlus size={12} />
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartCreate('folder', node.path);
+                          }}
+                          title="New Folder in folder"
+                        >
+                          <FolderPlus size={12} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      className={styles.actionBtn}
+                      onClick={(e) => handleStartRename(node, e)}
+                      title="Rename (F2)"
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    <button
+                      className={`${styles.actionBtn} ${styles.deleteBtn}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteNode(node.path);
+                      }}
+                      title={isFolder ? 'Delete folder' : 'Delete file'}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {isFolder && isOpen && (
@@ -472,53 +480,55 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       <div className={styles.header}>
         <span className={styles.headerTitle}>EXPLORER</span>
 
-        <div className={styles.headerActions}>
-          <button
-            className={styles.headerActionBtn}
-            onClick={() => handleStartCreate('file')}
-            title="New File (e.g. index.js, main.cpp, style.css)"
-          >
-            <FilePlus size={14} />
-          </button>
-
-          <button
-            className={styles.headerActionBtn}
-            onClick={() => handleStartCreate('folder')}
-            title="New Folder..."
-          >
-            <FolderPlus size={14} />
-          </button>
-
-          <button
-            className={styles.headerActionBtn}
-            onClick={() => fileInputRef.current?.click()}
-            title="Open Folder from computer"
-          >
-            <Upload size={14} />
-          </button>
-
-          {onUndo && (
+        {!readOnly && (
+          <div className={styles.headerActions}>
             <button
-              className={`${styles.headerActionBtn} ${!canUndo ? styles.headerActionBtnDisabled : ''}`}
-              onClick={onUndo}
-              disabled={!canUndo}
-              title={canUndo ? 'Undo file action (Ctrl+Z)' : 'Undo file action (Ctrl+Z) - nothing to undo'}
+              className={styles.headerActionBtn}
+              onClick={() => handleStartCreate('file')}
+              title="New File (e.g. index.js, main.cpp, style.css)"
             >
-              <Undo2 size={13} />
+              <FilePlus size={14} />
             </button>
-          )}
 
-          {onRedo && (
             <button
-              className={`${styles.headerActionBtn} ${!canRedo ? styles.headerActionBtnDisabled : ''}`}
-              onClick={onRedo}
-              disabled={!canRedo}
-              title={canRedo ? 'Redo file action (Ctrl+Y)' : 'Redo file action (Ctrl+Y) - nothing to redo'}
+              className={styles.headerActionBtn}
+              onClick={() => handleStartCreate('folder')}
+              title="New Folder..."
             >
-              <Redo2 size={13} />
+              <FolderPlus size={14} />
             </button>
-          )}
-        </div>
+
+            <button
+              className={styles.headerActionBtn}
+              onClick={() => fileInputRef.current?.click()}
+              title="Open Folder from computer"
+            >
+              <Upload size={14} />
+            </button>
+
+            {onUndo && (
+              <button
+                className={`${styles.headerActionBtn} ${!canUndo ? styles.headerActionBtnDisabled : ''}`}
+                onClick={onUndo}
+                disabled={!canUndo}
+                title={canUndo ? 'Undo file action (Ctrl+Z)' : 'Undo file action (Ctrl+Z) - nothing to undo'}
+              >
+                <Undo2 size={13} />
+              </button>
+            )}
+
+            {onRedo && (
+              <button
+                className={`${styles.headerActionBtn} ${!canRedo ? styles.headerActionBtnDisabled : ''}`}
+                onClick={onRedo}
+                disabled={!canRedo}
+                title={canRedo ? 'Redo file action (Ctrl+Y)' : 'Redo file action (Ctrl+Y) - nothing to redo'}
+              >
+                <Redo2 size={13} />
+              </button>
+            )}
+          </div>
+        )}
 
         <input
           id="workspace-folder-picker"

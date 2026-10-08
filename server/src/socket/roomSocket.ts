@@ -134,11 +134,20 @@ export function setupSocketIO(io: SocketIOServer) {
         activeRooms.set(roomIdKey, session);
       }
 
+      // If room currently has no host, first participant becomes host
+      const existingHost = Array.from(session.participants.values()).find((p) => p.role === 'host');
+      let assignedRole: UserRole = role;
+      if (!existingHost) {
+        assignedRole = 'host';
+      } else if (assignedRole === 'host' || assignedRole === 'participant') {
+        assignedRole = 'editor';
+      }
+
       const participant: Participant = {
         id: userId,
         socketId: socket.id,
         name: displayName || 'Anonymous',
-        role,
+        role: assignedRole,
         status: 'active',
         color: getParticipantColor(userId),
         joinedAt: Date.now(),
@@ -453,6 +462,151 @@ export function setupSocketIO(io: SocketIOServer) {
       }
     });
 
+    // Update user role (Host / Co-Host permission control)
+    socket.on('update-user-role', (data: {
+      roomId: string;
+      targetUserId: string;
+      newRole: UserRole;
+      actorUserId: string;
+    }) => {
+      const { roomId, targetUserId, newRole, actorUserId } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (!session) return;
+
+      const actor = Array.from(session.participants.values()).find((p) => p.id === actorUserId);
+      const target = Array.from(session.participants.values()).find((p) => p.id === targetUserId);
+      if (!actor || !target) return;
+
+      const isHost = actor.role === 'host';
+      const isCoHost = actor.role === 'co-host';
+
+      if (!isHost && !isCoHost) {
+        socket.emit('error', { message: 'You do not have permission to change roles.' });
+        return;
+      }
+
+      if (isCoHost) {
+        if (target.role === 'host' || newRole === 'host' || newRole === 'co-host') {
+          socket.emit('error', { message: 'Co-Hosts cannot modify Host roles or assign Co-Host.' });
+          return;
+        }
+      }
+
+      if (newRole === 'host') {
+        // Transfer host from actor to target
+        actor.role = 'co-host';
+        target.role = 'host';
+        session.participants.set(actor.socketId, actor);
+        session.participants.set(target.socketId, target);
+
+        io.to(roomIdKey).emit('host-transferred', {
+          newHostId: target.id,
+          newHostName: target.name,
+          transferredBy: actor.id,
+          reason: 'manual_transfer',
+        });
+
+        const chatMsg: ChatMessage = {
+          id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          roomId: roomIdKey,
+          userId: 'system',
+          userName: 'System',
+          userColor: '#8a4baf',
+          text: `👑 ${actor.name} transferred Host ownership to ${target.name}.`,
+          timestamp: Date.now(),
+        };
+        session.messages.push(chatMsg);
+        if (session.messages.length > 200) session.messages.shift();
+        io.to(roomIdKey).emit('chat-message', chatMsg);
+      } else {
+        target.role = newRole;
+        session.participants.set(target.socketId, target);
+
+        io.to(roomIdKey).emit('user-role-updated', {
+          userId: target.id,
+          newRole,
+          updatedBy: actor.id,
+          updatedByName: actor.name,
+        });
+
+        const chatMsg: ChatMessage = {
+          id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          roomId: roomIdKey,
+          userId: 'system',
+          userName: 'System',
+          userColor: '#8a4baf',
+          text: `🛡️ ${actor.name} changed ${target.name}'s role to ${newRole.toUpperCase()}.`,
+          timestamp: Date.now(),
+        };
+        session.messages.push(chatMsg);
+        if (session.messages.length > 200) session.messages.shift();
+        io.to(roomIdKey).emit('chat-message', chatMsg);
+      }
+
+      io.to(roomIdKey).emit('participants-updated', Array.from(session.participants.values()));
+    });
+
+    // Kick user from room
+    socket.on('kick-user', (data: {
+      roomId: string;
+      targetUserId: string;
+      actorUserId: string;
+      reason?: string;
+    }) => {
+      const { roomId, targetUserId, actorUserId, reason = 'Removed by room moderator' } = data;
+      const roomIdKey = norm(roomId);
+      const session = activeRooms.get(roomIdKey);
+      if (!session) return;
+
+      const actor = Array.from(session.participants.values()).find((p) => p.id === actorUserId);
+      const target = Array.from(session.participants.values()).find((p) => p.id === targetUserId);
+      if (!actor || !target) return;
+
+      const canKick =
+        actor.role === 'host' ||
+        (actor.role === 'co-host' && target.role !== 'host' && target.role !== 'co-host') ||
+        (actor.role === 'admin' && (target.role === 'editor' || target.role === 'viewer' || target.role === 'participant'));
+
+      if (!canKick) {
+        socket.emit('error', { message: 'You do not have permission to remove this user.' });
+        return;
+      }
+
+      // Notify target client they were kicked
+      io.to(target.socketId).emit('user-kicked', {
+        reason,
+        kickedBy: actor.name,
+      });
+
+      // Remove target from room
+      session.participants.delete(target.socketId);
+      if (session.voiceUsers.has(target.id)) {
+        session.voiceUsers.delete(target.id);
+        io.to(roomIdKey).emit('voice-users-updated', Array.from(session.voiceUsers.values()));
+      }
+
+      const targetSocket = io.sockets.sockets.get(target.socketId);
+      if (targetSocket) {
+        targetSocket.leave(roomIdKey);
+      }
+
+      io.to(roomIdKey).emit('participants-updated', Array.from(session.participants.values()));
+
+      const chatMsg: ChatMessage = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        roomId: roomIdKey,
+        userId: 'system',
+        userName: 'System',
+        userColor: '#8a4baf',
+        text: `🚫 ${target.name} was removed from the room by ${actor.name}.`,
+        timestamp: Date.now(),
+      };
+      session.messages.push(chatMsg);
+      if (session.messages.length > 200) session.messages.shift();
+      io.to(roomIdKey).emit('chat-message', chatMsg);
+    });
+
     // Clean disconnect / leave room
     const handleLeave = async () => {
       if (!currentRoomId) return;
@@ -498,6 +652,46 @@ export function setupSocketIO(io: SocketIOServer) {
         if (session.emptyDeletionTimeout) {
           clearTimeout(session.emptyDeletionTimeout);
           session.emptyDeletionTimeout = undefined;
+        }
+
+        // Host succession logic: if the departing user was Host, transfer Host automatically
+        if (participant && participant.role === 'host') {
+          const remaining = Array.from(session.participants.values());
+          if (remaining.length > 0) {
+            // Succession priority:
+            // 1. Co-host (earliest joined)
+            // 2. Admin (earliest joined)
+            // 3. Earliest joined participant
+            const coHosts = remaining.filter((p) => p.role === 'co-host').sort((a, b) => a.joinedAt - b.joinedAt);
+            const admins = remaining.filter((p) => p.role === 'admin').sort((a, b) => a.joinedAt - b.joinedAt);
+            const others = remaining.sort((a, b) => a.joinedAt - b.joinedAt);
+
+            const nextHost = coHosts[0] || admins[0] || others[0];
+            if (nextHost) {
+              nextHost.role = 'host';
+              session.participants.set(nextHost.socketId, nextHost);
+              console.log(`[RoomSocket] Host left. Transferred Host to ${nextHost.name} (${nextHost.id})`);
+
+              io.to(currentRoomId).emit('host-transferred', {
+                newHostId: nextHost.id,
+                newHostName: nextHost.name,
+                reason: 'previous_host_left',
+              });
+
+              const chatMsg: ChatMessage = {
+                id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                roomId: currentRoomId,
+                userId: 'system',
+                userName: 'System',
+                userColor: '#8a4baf',
+                text: `👑 ${nextHost.name} is now the room Host.`,
+                timestamp: Date.now(),
+              };
+              session.messages.push(chatMsg);
+              if (session.messages.length > 200) session.messages.shift();
+              io.to(currentRoomId).emit('chat-message', chatMsg);
+            }
+          }
         }
 
         // Notify others

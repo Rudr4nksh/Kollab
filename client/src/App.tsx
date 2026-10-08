@@ -112,6 +112,40 @@ export const App: React.FC = () => {
 
       socketService.onParticipantsUpdated((updatedList) => {
         setParticipants(updatedList);
+        const me = updatedList.find((p) => p.id === userId);
+        if (me) {
+          setIsHost(me.role === 'host');
+        }
+      }),
+
+      socketService.onHostTransferred((data) => {
+        if (data.newHostId === userId) {
+          setIsHost(true);
+          addToast('success', '👑 You are now the room Host!');
+        } else {
+          setIsHost(false);
+          addToast('info', `👑 ${data.newHostName} is now the room Host.`);
+        }
+      }),
+
+      socketService.onUserRoleUpdated((data) => {
+        if (data.userId === userId) {
+          if (data.newRole === 'host') {
+            setIsHost(true);
+            addToast('success', '👑 You are now the room Host!');
+          } else {
+            setIsHost(false);
+            addToast('info', `🛡️ Your role was updated to ${data.newRole.toUpperCase()} by ${data.updatedByName}`);
+          }
+        }
+      }),
+
+      socketService.onUserKicked((data) => {
+        addToast('error', `🚫 You were removed from the room: ${data.reason}`);
+        sessionStorage.removeItem('kollab_active_session');
+        setActiveRoomId(null);
+        setFiles([]);
+        setParticipants([]);
       }),
 
       socketService.onChatMessage((msg) => {

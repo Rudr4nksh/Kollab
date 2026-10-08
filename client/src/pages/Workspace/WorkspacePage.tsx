@@ -41,7 +41,8 @@ import type {
   SupportedLanguage,
   ChatMessage,
   VoiceParticipant,
-  AIProposal
+  AIProposal,
+  UserRole
 } from '../../types/index.ts';
 import { 
   findFileByPath, 
@@ -54,6 +55,12 @@ import {
 } from '../../services/fileUtils.ts';
 import { socketService } from '../../services/socket.ts';
 import { copyToClipboard } from '../../services/clipboardUtils.ts';
+import {
+  canEditCode,
+  canRunCode,
+  canManageFiles,
+  getRoleBadgeInfo,
+} from '../../services/permissions.ts';
 import styles from './WorkspacePage.module.css';
 
 interface WorkspacePageProps {
@@ -103,6 +110,9 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   voiceUsers = [],
   onSendMessage,
 }) => {
+  const myParticipant = participants.find((p) => p.id === userId);
+  const currentUserRole: UserRole = myParticipant?.role || (isHost ? 'host' : 'editor');
+
   // Activity bar active tool
   const [activeTool, setActiveTool] = useState<'files' | 'users' | 'activity'>('files');
   const [activeProposal, setActiveProposal] = useState<AIProposal | null>(null);
@@ -1120,6 +1130,11 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
   const handleRunCode = useCallback(() => {
     if (!activeFile) return;
 
+    if (!canRunCode(currentUserRole)) {
+      onAddToast?.('error', 'Viewers do not have permission to run code.');
+      return;
+    }
+
     const lang = activeFile.language || getLanguageFromFilename(activeFile.name);
 
     // If HTML or web file, open dedicated separate Live Preview tab
@@ -1133,7 +1148,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
     setConsoleOpen(true);
     setConsoleTab('terminal');
     setRunTrigger({ id: Date.now(), file: activeFile });
-  }, [activeFile]);
+  }, [activeFile, currentUserRole, onAddToast]);
 
   // Execute console command prompt
   const handleExecuteCommand = (cmd: string) => {
@@ -1214,7 +1229,17 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         </div>
 
         <div className={styles.headerRight}>
-          {isHost && <span className={styles.hostPill}>HOST</span>}
+          <span
+            className={styles.hostPill}
+            style={{
+              backgroundColor: getRoleBadgeInfo(currentUserRole).bg,
+              borderColor: getRoleBadgeInfo(currentUserRole).border,
+              color: getRoleBadgeInfo(currentUserRole).color,
+            }}
+            title={getRoleBadgeInfo(currentUserRole).description}
+          >
+            {getRoleBadgeInfo(currentUserRole).badge}
+          </span>
 
           <button
             className={`${styles.chatNavBtn} ${isChatOpen ? styles.chatNavBtnActive : ''}`}
@@ -1398,10 +1423,20 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                   socketService.emitFilesTreeUpdate(roomId, imported, userId, 'imported folder from disk', 'folder_created');
                 }}
                 isHost={isHost}
+                readOnly={!canManageFiles(currentUserRole)}
               />
             )}
             {activeTool === 'users' && (
-              <ParticipantList participants={participants} currentUserId={userId} />
+              <ParticipantList
+                participants={participants}
+                currentUserId={userId}
+                onUpdateRole={(targetUserId, newRole) => {
+                  socketService.emitUpdateUserRole(roomId, targetUserId, newRole, userId);
+                }}
+                onKickUser={(targetUserId) => {
+                  socketService.emitKickUser(roomId, targetUserId, userId);
+                }}
+              />
             )}
             {activeTool === 'activity' && (
               <ActivityFeed activities={activities} />
@@ -1501,6 +1536,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
                 onSelectionChange={handleLocalSelectionChange}
                 participants={participants}
                 currentUserId={userId}
+                readOnly={!canEditCode(currentUserRole)}
               />
             ) : files.length === 0 ? (
               <div className={styles.emptyEditorState}>
@@ -1695,7 +1731,7 @@ export const WorkspacePage: React.FC<WorkspacePageProps> = ({
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         roomId={roomId}
-        isHost={isHost}
+        isHost={currentUserRole === 'host' || currentUserRole === 'co-host'}
         hasPasscode={hasPasscode}
       />
 
