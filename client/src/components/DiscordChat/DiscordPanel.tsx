@@ -247,7 +247,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
   };
 
   const currentParticipant = participants.find((p) => p.id === userId);
-  const myColor = currentParticipant?.color || '#5865F2';
+  const myColor = currentParticipant?.color || 'var(--accent-theme)';
 
   return (
     <aside 
@@ -334,7 +334,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
                       style={{
                         width: 24,
                         height: 24,
-                        backgroundColor: user.userColor || '#5865F2',
+                        backgroundColor: user.userColor || 'var(--accent-theme)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -390,7 +390,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
                 height: 32,
                 minWidth: 32,
                 borderRadius: '50%',
-                backgroundColor: msg.userColor || '#5865F2',
+                backgroundColor: msg.userColor || 'var(--accent-theme)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -405,7 +405,7 @@ export const DiscordPanel: React.FC<DiscordPanelProps> = ({
               <div className={styles.messageMeta}>
                 <span
                   className={styles.senderName}
-                  style={{ color: msg.userColor || '#DBDEE1' }}
+                  style={{ color: msg.userColor || 'var(--text-primary)' }}
                 >
                   {msg.userName}
                 </span>
