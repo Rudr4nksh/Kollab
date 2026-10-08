@@ -38,9 +38,10 @@
 
 .brandTitle {
   font-weight: 700;
-  color: #FFFFFF;
+  color: var(--text-primary, #FFFFFF);
   letter-spacing: -0.025em;
   font-family: var(--font-sans, 'Inter', system-ui, -apple-system, sans-serif);
+  transition: color 200ms ease;
 }
 
 .titleSm {

@@ -49,7 +49,7 @@ export const KollabLogo: React.FC<KollabLogoProps> = ({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      {/* Stylized Kollab Icon Mark (inspired by user branding) */}
+      {/* Stylized Kollab Icon Mark with transparent background */}
       <div className={styles.logoMark} style={{ width: pixelSize, height: pixelSize }}>
         <svg
           width={pixelSize}
@@ -58,31 +58,9 @@ export const KollabLogo: React.FC<KollabLogoProps> = ({
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <defs>
-            <linearGradient id="kollabLogoBg" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#161B28" />
-              <stop offset="100%" stopColor="#0B0E17" />
-            </linearGradient>
-            <filter id="kollabGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#2563EB" floodOpacity="0.3" />
-            </filter>
-          </defs>
-
-          {/* Dark squircle container with subtle border */}
-          <rect
-            x="2"
-            y="2"
-            width="60"
-            height="60"
-            rx="15"
-            fill="url(#kollabLogoBg)"
-            stroke="rgba(255, 255, 255, 0.09)"
-            strokeWidth="1.2"
-          />
-
-          {/* Pure Geometric 'K' Mark - Clean stem and diagonal arms */}
-          {/* Vertical white stem */}
-          <rect x="18.5" y="14" width="7" height="36" rx="2" fill="#FFFFFF" />
+          {/* Pure Geometric 'K' Mark - Clean stem and diagonal arms on transparent background */}
+          {/* Vertical stem (adapts dynamically to active room theme) */}
+          <rect x="18.5" y="14" width="7" height="36" rx="2" fill="var(--text-primary, #FFFFFF)" />
 
           {/* Upper diagonal arm (Electric blue) */}
           <line
